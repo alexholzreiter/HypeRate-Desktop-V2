@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@700&family=Bebas+Neue&family=VT323&display=swap" rel="stylesheet" />
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    html, body {
+      width:100vw; height:100vh;
+      background:transparent !important;
+      overflow:hidden;
+      display:flex; align-items:center; justify-content:center;
+    }
+
+    #widget {
+      display:inline-flex; align-items:center; gap:14px;
+      padding:14px 20px; border-radius:16px;
+      cursor:grab; user-select:none; position:relative;
+      transition: background .3s, border .3s, border-radius .3s, padding .3s;
+    }
+    #widget:active { cursor:grabbing; }
+    #widget::before {
+      content:''; position:absolute; inset:-4px; border-radius:inherit;
+      border:1.5px dashed rgba(255,255,255,0.15);
+      pointer-events:none; opacity:0; transition:opacity .2s;
+    }
+    #widget:hover::before { opacity:1; }
+
+    #widget.layout-vertical { flex-direction:column; gap:6px; }
+    #widget.layout-compact  { gap:0; }
+
+    #heart {
+      line-height:1; flex-shrink:0; will-change:transform;
+      /* NO transition on filter — animations need to own it */
+      transition:color .4s, font-size .3s;
+      display:flex; align-items:center; justify-content:center;
+    }
+
+    #bpm-block { display:flex; flex-direction:column; align-items:flex-start; }
+    .layout-vertical #bpm-block,
+    .layout-compact  #bpm-block { align-items:center; }
+
+    #bpm-num {
+      font-family:'Space Mono',monospace; font-size:40px; font-weight:700;
+      line-height:1; color:#fff; letter-spacing:-.02em;
+      transition:color .3s, font-size .3s, text-shadow .3s;
+    }
+    #bpm-label {
+      font-family:'DM Sans',sans-serif; font-size:12px; font-weight:400;
+      letter-spacing:.2em; text-transform:uppercase;
+      color:rgba(200,200,220,.7); transition:color .3s;
+    }
+
+    /* ── Heart animations ──
+       IMPORTANT: all filter-based effects live ONLY in keyframes or a
+       dedicated class — never set heart.style.filter as inline style,
+       because inline styles beat @keyframes and break animations.
+       Instead we use CSS custom properties to pass the glow color in. */
+
+    .anim-pulse  { animation: h-pulse  var(--spd,1s)   ease-in-out infinite; }
+    .anim-beat   { animation: h-beat   var(--spd,.6s)  ease-in-out infinite; }
+    .anim-bounce { animation: h-bounce var(--spd,.8s)  ease infinite; }
+    .anim-shake  { animation: h-shake  var(--spd,.5s)  ease-in-out infinite; }
+    .anim-glow   { animation: h-glow   var(--spd,1.5s) ease-in-out infinite; }
+
+    /* Static glow (no animation) — used when heartGlow=true but anim≠glow */
+    .has-glow    { filter: drop-shadow(0 0 14px var(--glow-color, currentColor)); }
+
+    @keyframes h-pulse  { 0%,100%{transform:scale(1)}    50%{transform:scale(1.22)} }
+    @keyframes h-beat   { 0%{transform:scale(1)} 14%{transform:scale(1.35)} 28%{transform:scale(1)} 42%{transform:scale(1.18)} 70%{transform:scale(1)} }
+    @keyframes h-bounce { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-10px) scale(1.1)} }
+    @keyframes h-shake  { 0%,100%{transform:rotate(0)} 20%{transform:rotate(-8deg) scale(1.05)} 40%{transform:rotate(8deg) scale(1.05)} 60%{transform:rotate(-5deg)} 80%{transform:rotate(5deg)} }
+
+    /* Glow animation uses the CSS var for color */
+    @keyframes h-glow {
+      0%,100% { filter: drop-shadow(0 0 6px  var(--glow-color)) brightness(1);   }
+      50%     { filter: drop-shadow(0 0 28px var(--glow-color)) brightness(1.5); }
+    }
+
+    /* Number animations */
+    .n-flip { animation:n-flip .32s cubic-bezier(.36,.07,.19,.97) both; }
+    .n-fade { animation:n-fade .35s ease both; }
+    .n-pop  { animation:n-pop  .25s cubic-bezier(.5,-.3,.5,1.3) both; }
+
+    @keyframes n-flip { 0%{transform:rotateX(90deg);opacity:0} 100%{transform:rotateX(0);opacity:1} }
+    @keyframes n-fade { 0%{opacity:0;transform:translateY(-5px)} 100%{opacity:1;transform:translateY(0)} }
+    @keyframes n-pop  { 0%{transform:scale(.7);opacity:.5} 100%{transform:scale(1);opacity:1} }
+
+    /* Minimal dot — sized by CSS var set from JS */
+    .dot-heart {
+      display:block;
+      border-radius:50%;
+      flex-shrink:0;
+      width:  var(--dot-size, 48px);
+      height: var(--dot-size, 48px);
+    }
+  </style>
+</head>
+<body>
+
+<div id="widget">
+  <div id="heart">❤️</div>
+  <div id="bpm-block">
+    <span id="bpm-num">--</span>
+    <span id="bpm-label">BPM</span>
+  </div>
+</div>
+
+<script>
+  const widget   = document.getElementById('widget');
+  const heart    = document.getElementById('heart');
+  const bpmNum   = document.getElementById('bpm-num');
+  const bpmLabel = document.getElementById('bpm-label');
+
+  let cfg = null, currentBpm = null, numTimer = null;
+
+  // ── Drag ──
+  let dragging = false, lastX = 0, lastY = 0;
+  widget.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    dragging = true; lastX = e.screenX; lastY = e.screenY; e.preventDefault();
+  });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dx = e.screenX - lastX, dy = e.screenY - lastY;
+    lastX = e.screenX; lastY = e.screenY;
+    if (dx || dy) window.electronAPI.overlayDrag({ dx, dy });
+  });
+  window.addEventListener('mouseup', () => { dragging = false; });
+
+  const FONTS = {
+    mono:    "'Space Mono',monospace",
+    sans:    "'DM Sans',sans-serif",
+    serif:   "'Playfair Display',serif",
+    display: "'Bebas Neue',cursive",
+    retro:   "'VT323',monospace",
+  };
+
+  function hex2rgba(hex, a) {
+    const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  // ── Zone color helper ──
+  function zoneColorForBpm(bpm, cfg){
+    if(!cfg.zonesEnabled || !cfg.zones || !cfg.zones.length) return null;
+    for(const z of cfg.zones){
+      if(bpm >= z.min && bpm <= z.max) return z.color;
+    }
+    return null;
+  }
+
+  // ── Apply active zone color to heart & number ──
+  function applyZoneColor(bpm, cfg){
+    const color = zoneColorForBpm(bpm, cfg);
+    if(!color) return;
+    // Override heart color
+    heart.style.setProperty('--glow-color', color);
+    if(cfg.heartStyle === 'minimal'){
+      const dot = heart.querySelector('.dot-heart');
+      if(dot) dot.style.background = color;
+    } else {
+      heart.style.color = color;
+    }
+    // Only affect font if zonesAffectFont is enabled (default true)
+    const affectFont = cfg.zonesAffectFont !== false;
+    if(affectFont){
+      bpmNum.style.color = color;
+      if(cfg.textGlow) bpmNum.style.textShadow = `0 0 24px ${color},0 0 48px ${color}40`;
+    }
+  }
+
+  function applyConfig(c) {
+    cfg = c;
+    const isCompact = c.layoutStyle === 'compact';
+    const isMinimal = c.heartStyle  === 'minimal';
+    const isGlowAnim = c.heartAnim  === 'glow';
+
+    // ── Set CSS vars used by keyframes and dot sizing ──
+    const glowC = (c.glowColor && c.glowColor !== '#000000') ? c.glowColor : c.heartColor;
+    heart.style.setProperty('--glow-color', glowC);
+    widget.style.setProperty('--dot-size', c.heartSize + 'px');
+
+    // Layout
+    widget.className = 'layout-' + c.layoutStyle;
+
+    // ── Heart content ──
+    if (isMinimal) {
+      // Use a real circle — sized via --dot-size CSS var
+      // Box-shadow provides glow for minimal (not filter, since there's no "shape" for drop-shadow)
+      const glowStyle = c.heartGlow
+        ? `box-shadow:0 0 16px 2px ${glowC}, 0 0 32px 4px ${glowC}40;`
+        : '';
+      heart.innerHTML = `<span class="dot-heart" style="background:${c.heartColor};${glowStyle}"></span>`;
+      heart.style.fontSize = '0'; // no font rendering
+      heart.style.color    = 'transparent';
+    } else {
+      const HEARTS = {
+        emoji:   '❤️',
+        outline: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 403.326 403.326" style="width:1em;height:1em;fill:currentColor;display:block;"><path d="M368.158,53.06c-22.715-22.714-52.915-35.224-85.038-35.224c-30.464,0-59.197,11.25-81.458,31.786C154.547,6.202,80.881,7.348,35.167,53.061c-46.89,46.89-46.89,123.185,0,170.075L194.592,382.56c1.876,1.875,4.419,2.929,7.071,2.929s5.195-1.054,7.071-2.929l159.424-159.424C415.048,176.246,415.048,99.951,368.158,53.06z M354.016,208.994L201.663,361.347L49.31,208.993c-18.938-18.937-29.366-44.114-29.366-70.895c0.001-26.781,10.43-51.959,29.367-70.896c19.546-19.546,45.221-29.319,70.896-29.319c24.097,0,48.194,8.61,67.225,25.829l-28.962,28.962c-3.905,3.905-3.905,10.237,0,14.142c1.953,1.953,4.512,2.929,7.071,2.929s5.118-0.976,7.071-2.929l39.614-39.615c18.937-18.937,44.114-29.366,70.895-29.366c26.781,0,51.959,10.429,70.896,29.366C393.108,106.295,393.108,169.902,354.016,208.994z"/><path d="M312.596,54.129c-9.7-3.561-19.901-5.366-30.32-5.366c-5.522,0-10,4.477-10,10s4.478,10,10,10c8.06,0,15.942,1.393,23.43,4.141c1.137,0.417,2.3,0.615,3.444,0.615c4.074,0,7.903-2.51,9.389-6.557C320.442,61.777,317.781,56.032,312.596,54.129z"/><path d="M349.446,79.908c-3.569-4.214-9.881-4.736-14.094-1.166c-4.214,3.57-4.736,9.88-1.166,14.094c10.376,12.247,16.09,27.847,16.09,43.927c0,5.523,4.478,10,10,10s10-4.477,10-10C370.276,115.955,362.878,95.764,349.446,79.908z"/><path d="M185.299,298.843c-3.906-3.905-10.236-3.905-14.143,0c-3.905,3.905-3.905,10.237,0,14.143l13.998,13.998c1.953,1.953,4.512,2.929,7.071,2.929s5.118-0.976,7.071-2.929c3.905-3.905,3.905-10.237,0-14.143L185.299,298.843z"/><path d="M109.547,223.091c-3.906-3.905-10.236-3.905-14.143,0c-3.905,3.905-3.905,10.237,0,14.143l52.751,52.751c1.953,1.953,4.512,2.929,7.071,2.929s5.118-0.976,7.071-2.929c3.905-3.905,3.905-10.237,0-14.143L109.547,223.091z"/></svg>`,
+        filled:  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" style="width:1em;height:1em;fill:currentColor;display:block;"><path d="M467.204,67.921C412.786,20.394,329.86,25.984,282.31,80.365l-26.311,29.66l-26.311-29.66C182.138,25.984,99.212,20.396,44.795,67.921c-54.437,47.543-60.045,130.51-12.503,184.946l185.641,206.535c9.692,10.783,23.568,16.968,38.067,16.968c14.499,0,28.375-6.185,38.067-16.968L479.546,253.05l0.161-0.182C527.251,198.431,521.641,115.464,467.204,67.921z"/></svg>`,
+      };
+      heart.innerHTML      = HEARTS[c.heartStyle] || '❤️';
+      heart.style.fontSize = c.heartSize + 'px';
+      heart.style.color    = c.heartColor;
+    }
+
+    // ── Compact: hide heart ──
+    heart.style.display = isCompact ? 'none' : 'flex';
+
+    // ── Animation + glow classes ──
+    // Clear ALL classes first (preserves no inline filter)
+    heart.className = '';
+    heart.style.removeProperty('filter'); // never set filter as inline style
+
+    if (!isCompact) {
+      if (c.heartAnim !== 'none') {
+        heart.classList.add('anim-' + c.heartAnim);
+        if (currentBpm) heart.style.setProperty('--spd', Math.max(.2, 60/currentBpm).toFixed(2)+'s');
+      }
+      // Static glow only when: glow enabled AND animation is NOT glow
+      // (the glow animation handles its own filter via keyframes)
+      if (c.heartGlow && !isGlowAnim && !isMinimal) {
+        heart.classList.add('has-glow');
+      }
+    }
+
+    // ── Typography ──
+    bpmNum.style.fontFamily = FONTS[c.fontStyle] || FONTS.mono;
+    bpmNum.style.fontSize   = c.bpmSize + 'px';
+    bpmNum.style.color      = c.bpmColor;
+    bpmNum.style.textShadow = c.textGlow ? `0 0 24px ${c.bpmColor},0 0 48px ${c.bpmColor}40` : 'none';
+    bpmLabel.style.color    = c.labelColor;
+    bpmLabel.style.display  = (!isCompact && c.showLabel) ? 'block' : 'none';
+
+    // ── Background ──
+    const op = c.bgOpacity / 100;
+    const br = c.borderRadius + 'px';
+    widget.style.borderRadius = br;
+
+    switch (c.bgStyle) {
+      case 'transparent':
+        widget.style.background     = 'transparent';
+        widget.style.backdropFilter = 'none';
+        widget.style.padding        = '0';
+        break;
+      case 'dark-pill':
+        widget.style.background     = `rgba(0,0,0,${op})`;
+        widget.style.backdropFilter = 'blur(6px)';
+        widget.style.padding        = '14px 20px';
+        break;
+      case 'glass':
+        widget.style.background     = `rgba(255,255,255,${op*.08})`;
+        widget.style.backdropFilter = 'blur(16px) saturate(180%)';
+        widget.style.padding        = '14px 20px';
+        break;
+      case 'solid':
+        widget.style.background     = hex2rgba(c.bgColor, op);
+        widget.style.backdropFilter = 'none';
+        widget.style.padding        = '14px 20px';
+        break;
+      case 'gradient':
+        widget.style.background     = `linear-gradient(135deg,${hex2rgba(c.bgColor,op)},rgba(0,0,0,${op}))`;
+        widget.style.backdropFilter = 'none';
+        widget.style.padding        = '14px 20px';
+        break;
+    }
+    widget.style.border = c.showBorder ? `1px solid ${hex2rgba(c.heartColor,.35)}` : 'none';
+  }
+
+  function updateBpm(bpm) {
+    currentBpm = bpm;
+    if (bpmNum.textContent !== String(bpm)) {
+      bpmNum.textContent = bpm;
+      if (cfg?.numAnim !== 'none') {
+        bpmNum.classList.remove('n-flip','n-fade','n-pop');
+        void bpmNum.offsetWidth;
+        bpmNum.classList.add('n-' + cfg.numAnim);
+        clearTimeout(numTimer);
+        numTimer = setTimeout(() => bpmNum.classList.remove('n-flip','n-fade','n-pop'), 500);
+      }
+    }
+    if (cfg && cfg.heartAnim !== 'none' && cfg.layoutStyle !== 'compact') {
+      heart.style.setProperty('--spd', Math.max(.2, 60/bpm).toFixed(2)+'s');
+    }
+    // Apply zone color if zones are enabled
+    if (cfg) applyZoneColor(bpm, cfg);
+  }
+
+  window.electronAPI.onConfigUpdate(cfg => {
+    applyConfig(cfg);
+    // Re-apply zone color immediately if we already have a BPM
+    if (currentBpm !== null) applyZoneColor(currentBpm, cfg);
+  });
+  window.electronAPI.onHeartRateUpdate(d => updateBpm(d.bpm));
+
+  // DPI: if on a high-DPI display, the Electron window is already in logical
+  // pixels, but the content's devicePixelRatio may be 2. We use CSS zoom on
+  // the widget so it looks crisp without being too large.
+  window.electronAPI.onScaleFactor(sf => {
+    // No adjustment needed — Electron handles DPI automatically for window size.
+    // We just ensure the font rendering is sharp by setting zoom = 1/sf * sf = 1.
+    // Nothing to do here, but hook is wired for future use.
+  });
+
+  applyConfig({
+    heartAnim:'pulse', heartStyle:'emoji', heartColor:'#2563eb', heartSize:48, heartGlow:true,
+    fontStyle:'mono', bpmColor:'#ffffff', labelColor:'#aaaacc', bpmSize:40, numAnim:'flip',
+    textGlow:true, bgStyle:'dark-pill', bgColor:'#000000', bgOpacity:70,
+    layoutStyle:'horizontal', borderRadius:16, showLabel:true, showBorder:false,
+  });
+</script>
+</body>
+</html>

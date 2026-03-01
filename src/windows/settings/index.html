@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>HypeRate Overlay</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --bg:#080810;--bg2:#0d0d1a;--surface:#141428;--surface2:#1e1e38;
+      --border:#25253d;--accent:#2563eb;--accent-dim:#1d4ed8;
+      --accent-glow:rgba(37,99,235,.28);--accent3:#38bdf8;
+      --text:#e8e8f8;--text-dim:#7070a0;
+      --danger:#ef4444;--success:#22c55e;--warn:#f59e0b;--radius:12px;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);user-select:none;overflow:hidden;height:100vh;display:flex;flex-direction:column;}
+
+    .titlebar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg2);border-bottom:1px solid var(--border);-webkit-app-region:drag;flex-shrink:0;}
+    .tl-logo{display:flex;align-items:center;gap:9px;}
+    .tl-icon{width:26px;height:26px;border-radius:7px;overflow:hidden;flex-shrink:0;}
+    .tl-icon img{width:100%;height:100%;object-fit:cover;}
+    .tl-title{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--text);}
+    .tl-ctrl{display:flex;gap:6px;-webkit-app-region:no-drag;}
+    .wbtn{width:26px;height:26px;border:none;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--surface);color:var(--text-dim);font-size:13px;transition:all .15s;}
+    .wbtn:hover{background:var(--surface2);color:var(--text);}
+    .wbtn.cl:hover{background:var(--danger);color:#fff;}
+
+    .content{flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:14px;}
+    .content::-webkit-scrollbar{width:3px;}
+    .content::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+    .status-bar{display:flex;align-items:center;gap:10px;padding:9px 13px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);}
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--text-dim);flex-shrink:0;transition:all .3s;}
+    .dot.connected{background:var(--success);box-shadow:0 0 8px var(--success);animation:blink 2s infinite;}
+    .dot.error{background:var(--danger);box-shadow:0 0 8px var(--danger);}
+    .dot.demo{background:var(--warn);box-shadow:0 0 8px var(--warn);animation:blink 2s infinite;}
+    .dot.connecting{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:blink .6s infinite;}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+    .st-text{font-size:12.5px;color:var(--text-dim);flex:1;}
+    .st-text strong{color:var(--text);}
+    .bpm-pill{font-family:'Space Mono',monospace;font-size:17px;font-weight:700;color:var(--accent);text-shadow:0 0 14px var(--accent-glow);display:none;}
+
+    .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+    .ch{display:flex;align-items:center;gap:8px;padding:10px 13px;border-bottom:1px solid var(--border);font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);}
+    .cb{padding:13px;display:flex;flex-direction:column;gap:11px;}
+
+    .field{display:flex;flex-direction:column;gap:5px;}
+    label{font-size:11px;font-weight:500;color:var(--text-dim);letter-spacing:.04em;text-transform:uppercase;}
+    input[type=text]{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-family:'Space Mono',monospace;font-size:13px;outline:none;transition:border-color .2s,box-shadow .2s;width:100%;}
+    input[type=text]:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
+    input[type=color]{-webkit-appearance:none;width:36px;height:34px;border:1px solid var(--border);border-radius:7px;cursor:pointer;background:none;padding:2px;}
+    input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:2px;background:var(--surface2);outline:none;}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 6px var(--accent-glow);}
+    select{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;width:100%;cursor:pointer;}
+    select:focus{border-color:var(--accent);}
+    .crow{display:flex;align-items:center;gap:9px;}
+    .chex{flex:1;font-family:'Space Mono',monospace;}
+    .srow{display:flex;align-items:center;gap:9px;}
+    .srow input{flex:1;}
+    .sv{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);min-width:34px;text-align:right;}
+    .trow{display:flex;align-items:center;justify-content:space-between;}
+    .tl{font-size:13px;color:var(--text);}
+    .tog{position:relative;width:42px;height:22px;flex-shrink:0;}
+    .tog input{opacity:0;width:0;height:0;}
+    .ts{position:absolute;inset:0;background:var(--surface2);border-radius:11px;cursor:pointer;transition:background .2s;}
+    .ts::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;border-radius:50%;background:var(--text-dim);transition:transform .2s,background .2s;}
+    .tog input:checked + .ts{background:var(--accent);}
+    .tog input:checked + .ts::before{transform:translateX(20px);background:#fff;}
+
+    .btn{border:none;border-radius:8px;padding:9px 14px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;}
+    .bp{background:var(--accent);color:#fff;box-shadow:0 4px 16px var(--accent-glow);}
+    .bp:hover{background:var(--accent-dim);transform:translateY(-1px);}
+    .bp:active{transform:translateY(0);}
+    .bs{background:var(--surface);border:1px solid var(--border);color:var(--text-dim);}
+    .bs:hover{color:var(--text);background:var(--surface2);}
+
+    .tabs{display:flex;gap:3px;padding:3px;background:var(--bg);border-radius:9px;border:1px solid var(--border);}
+    .tab-btn{flex:1;padding:6px 8px;background:transparent;border:none;border-radius:7px;color:var(--text-dim);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;}
+    .tab-btn.active{background:var(--surface2);color:var(--text);}
+    .tp{display:none;flex-direction:column;gap:11px;}
+    .tp.active{display:flex;}
+
+    .pbox{background:#000;border:1px solid var(--border);border-radius:10px;padding:22px;display:flex;align-items:center;justify-content:center;min-height:100px;background-image:radial-gradient(circle at 50% 50%,#0d0d20 0%,#000 70%);}
+    .pw{display:flex;align-items:center;gap:13px;}
+    .ph{font-size:40px;line-height:1;}
+    .pn-wrap{display:flex;flex-direction:column;}
+    .pn{font-family:'Space Mono',monospace;font-size:34px;font-weight:700;line-height:1;}
+    .pl{font-family:'DM Sans',sans-serif;font-size:11px;font-weight:300;letter-spacing:.18em;text-transform:uppercase;opacity:.55;}
+    .hint{font-size:11px;color:var(--text-dim);line-height:1.5;}
+    .hint a{color:var(--accent3);text-decoration:none;}
+
+    .tl-version{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);margin-left:2px;margin-top:1px;align-self:flex-end;}
+    .hotkey-badge{display:flex;align-items:center;gap:6px;padding:7px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;color:var(--text-dim);}
+    .hotkey-badge kbd{display:inline-block;padding:2px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text);}
+    .bottom{padding:11px 14px;border-top:1px solid var(--border);display:flex;gap:9px;flex-shrink:0;}
+
+    /* ── Heart Rate Zones ── */
+    .zone-list{display:flex;flex-direction:column;gap:8px;}
+    .zone-row{
+      display:grid;grid-template-columns:28px 1fr 52px 52px 28px;
+      align-items:center;gap:7px;
+      padding:9px 10px;border-radius:9px;
+      background:var(--bg);border:1px solid var(--border);
+      transition:border-color .2s;
+    }
+    .zone-row:focus-within{border-color:var(--accent);}
+    .zone-swatch{
+      width:22px;height:22px;border-radius:5px;border:none;
+      cursor:pointer;padding:0;flex-shrink:0;
+    }
+    .zone-name{
+      background:transparent;border:none;color:var(--text);
+      font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;
+      outline:none;width:100%;min-width:0;
+    }
+    .zone-name::placeholder{color:var(--text-dim);}
+    .zone-bpm{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:6px;color:var(--text);font-family:'Space Mono',monospace;
+      font-size:12px;text-align:center;padding:4px 6px;width:100%;outline:none;
+      -moz-appearance:textfield;
+    }
+    .zone-bpm::-webkit-outer-spin-button,.zone-bpm::-webkit-inner-spin-button{-webkit-appearance:none;}
+    .zone-bpm:focus{border-color:var(--accent);}
+    .zone-del{
+      width:22px;height:22px;border:none;border-radius:5px;
+      background:transparent;color:var(--text-dim);font-size:14px;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;
+      transition:all .15s;flex-shrink:0;
+    }
+    .zone-del:hover{background:var(--danger);color:#fff;}
+    .zone-header{
+      display:grid;grid-template-columns:28px 1fr 52px 52px 28px;
+      gap:7px;padding:0 10px;margin-bottom:2px;
+    }
+    .zone-header span{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);}
+    .zone-add{
+      display:flex;align-items:center;gap:7px;padding:8px 10px;
+      border:1px dashed var(--border);border-radius:9px;
+      background:transparent;color:var(--text-dim);font-size:12px;
+      cursor:pointer;transition:all .2s;width:100%;
+    }
+    .zone-add:hover{border-color:var(--accent);color:var(--accent);}
+    .zone-hint{
+      display:flex;align-items:center;gap:8px;padding:9px 12px;
+      background:var(--bg2);border:1px solid var(--border);border-radius:9px;
+      font-size:11.5px;color:var(--text-dim);line-height:1.5;
+    }
+    .zone-active-badge{
+      display:inline-flex;align-items:center;gap:5px;
+      padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;
+      font-family:'Space Mono',monospace;letter-spacing:.04em;
+      margin-left:auto;
+    }
+    .zones-toggle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+    .zones-toggle-label{font-size:13px;font-weight:500;color:var(--text);}
+    .bottom .btn{flex:1;}
+
+    .pa-pulse{animation:pa-pulse 1s ease-in-out infinite;}
+    .pa-beat{animation:pa-beat .6s ease-in-out infinite;}
+    .pa-bounce{animation:pa-bounce .8s ease infinite;}
+    .pa-shake{animation:pa-shake .5s ease-in-out infinite;}
+    .pa-glow{animation:pa-glow 1.5s ease-in-out infinite;}
+    @keyframes pa-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.2)}}
+    @keyframes pa-beat{0%{transform:scale(1)}14%{transform:scale(1.3)}28%{transform:scale(1)}42%{transform:scale(1.15)}70%{transform:scale(1)}}
+    @keyframes pa-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    @keyframes pa-shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-6deg)}75%{transform:rotate(6deg)}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes pa-glow{
+      0%,100%{filter:drop-shadow(0 0 6px var(--glow-color,currentColor)) brightness(1);}
+      50%    {filter:drop-shadow(0 0 24px var(--glow-color,currentColor)) brightness(1.5);}
+    }
+  </style>
+</head>
+<body>
+
+<div class="titlebar">
+  <div class="tl-logo">
+    <div class="tl-icon"><img src="data:image/png;base64,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" alt="" /></div>
+    <span class="tl-title">HYPERATE OVERLAY</span>
+    <span class="tl-version" id="tlVersion">v1.0.0</span>
+  </div>
+  <div class="tl-ctrl">
+    <button class="wbtn" onclick="window.electronAPI.minimizeSettings()">─</button>
+    <button class="wbtn cl" onclick="window.electronAPI.closeSettings()">✕</button>
+  </div>
+</div>
+
+<div class="content">
+
+  <div class="status-bar">
+    <div class="dot" id="dot"></div>
+    <span class="st-text" id="stText">Not connected</span>
+    <span class="bpm-pill" id="bpmPill">-- BPM</span>
+  </div>
+
+  <div class="card">
+    <div class="ch"><span>🔗</span> Connection</div>
+    <div class="cb">
+      <div class="field">
+        <label>HypeRate Session ID</label>
+        <input type="text" id="hrId" placeholder="e.g. abc123" maxlength="40" />
+        <span class="hint">Find your Session ID in the HypeRate app → <a href="https://hyperate.io" target="_blank">hyperate.io</a></span>
+      </div>
+      <button class="btn bp" onclick="toggleConn()"><span id="connLabel">Connect</span></button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><span>🎨</span> Customization</div>
+    <div class="cb">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="tab('heart')">❤️ Heart</button>
+        <button class="tab-btn" onclick="tab('typo')">Aa Font</button>
+        <button class="tab-btn" onclick="tab('layout')">⚙️ Layout</button>
+        <button class="tab-btn" onclick="tab('zones')" id="tabBtnZones">🎯 Zones</button>
+      </div>
+
+      <div class="tp active" id="tab-heart">
+        <div class="field"><label>Animation</label>
+          <select id="heartAnim" onchange="live()"><option value="pulse">Pulse (classic)</option><option value="beat">Beat (double)</option><option value="bounce">Bounce</option><option value="shake">Shake</option><option value="glow">Glow</option><option value="none">None</option></select>
+        </div>
+        <div class="field"><label>Heart Style</label>
+          <select id="heartStyle" onchange="live()"><option value="emoji">❤️ Emoji</option><option value="outline">🫀 Outline</option><option value="filled">♥ Filled</option><option value="minimal">· Minimal dot</option></select>
+        </div>
+        <div class="field"><label>Color</label>
+          <div class="crow"><input type="color" id="heartColor" value="#2563eb" onchange="syncHex('heartColor','heartColorHex');live()" /><input type="text" id="heartColorHex" value="#2563eb" class="chex" oninput="syncPicker('heartColor','heartColorHex')" /></div>
+        </div>
+        <div class="field"><label>Size</label>
+          <div class="srow"><input type="range" id="heartSize" min="24" max="80" value="48" oninput="sv('heartSize','heartSizeV','px');live()" /><span class="sv" id="heartSizeV">48px</span></div>
+        </div>
+        <div class="trow"><span class="tl">Glow effect</span><label class="tog"><input type="checkbox" id="heartGlow" checked onchange="live()" /><span class="ts"></span></label></div>
+        <div class="field" id="glowColorWrap">
+          <label>Glow Color</label>
+          <div class="crow">
+            <input type="color" id="glowColor" value="#2563eb" onchange="syncHex('glowColor','glowColorHex');live()" />
+            <input type="text" id="glowColorHex" value="#2563eb" class="chex" oninput="syncPicker('glowColor','glowColorHex')" />
+          </div>
+        </div>
+      </div>
+
+      <div class="tp" id="tab-typo">
+        <div class="field"><label>Font Style</label>
+          <select id="fontStyle" onchange="live()"><option value="mono">Space Mono</option><option value="sans">DM Sans</option><option value="serif">Playfair Display</option><option value="display">Bebas Neue</option><option value="retro">VT323</option></select>
+        </div>
+        <div class="field"><label>BPM Color</label>
+          <div class="crow"><input type="color" id="bpmColor" value="#ffffff" onchange="syncHex('bpmColor','bpmColorHex');live()" /><input type="text" id="bpmColorHex" value="#ffffff" class="chex" oninput="syncPicker('bpmColor','bpmColorHex')" /></div>
+        </div>
+        <div class="field"><label>Label Color</label>
+          <div class="crow"><input type="color" id="labelColor" value="#8888bb" onchange="syncHex('labelColor','labelColorHex');live()" /><input type="text" id="labelColorHex" value="#8888bb" class="chex" oninput="syncPicker('labelColor','labelColorHex')" /></div>
+        </div>
+        <div class="field"><label>BPM Font Size</label>
+          <div class="srow"><input type="range" id="bpmSize" min="20" max="72" value="40" oninput="sv('bpmSize','bpmSizeV','px');live()" /><span class="sv" id="bpmSizeV">40px</span></div>
+        </div>
+        <div class="field"><label>Number Animation</label>
+          <select id="numAnim" onchange="live()"><option value="flip">Flip</option><option value="fade">Fade</option><option value="pop">Pop</option><option value="none">None</option></select>
+        </div>
+        <div class="trow"><span class="tl">Text glow</span><label class="tog"><input type="checkbox" id="textGlow" checked onchange="live()" /><span class="ts"></span></label></div>
+      </div>
+
+      <div class="tp" id="tab-layout">
+        <div class="field"><label>Background</label>
+          <select id="bgStyle" onchange="live()"><option value="transparent">Transparent</option><option value="dark-pill" selected>Dark pill</option><option value="glass">Glassmorphism</option><option value="solid">Solid color</option><option value="gradient">Gradient</option></select>
+        </div>
+        <div class="field" id="bgColorWrap" style="display:none;"><label>Background Color</label>
+          <div class="crow"><input type="color" id="bgColor" value="#000000" onchange="syncHex('bgColor','bgColorHex');live()" /><input type="text" id="bgColorHex" value="#000000" class="chex" oninput="syncPicker('bgColor','bgColorHex')" /></div>
+        </div>
+        <div class="field"><label>Background Opacity</label>
+          <div class="srow"><input type="range" id="bgOpacity" min="0" max="100" value="75" oninput="sv('bgOpacity','bgOpacityV','%');live()" /><span class="sv" id="bgOpacityV">75%</span></div>
+        </div>
+        <div class="field"><label>Layout</label>
+          <select id="layoutStyle" onchange="live()"><option value="horizontal">Horizontal</option><option value="vertical">Vertical</option><option value="compact">Compact</option></select>
+        </div>
+        <div class="field"><label>Corner Radius</label>
+          <div class="srow"><input type="range" id="borderRadius" min="0" max="50" value="16" oninput="sv('borderRadius','borderRadiusV','px');live()" /><span class="sv" id="borderRadiusV">16px</span></div>
+        </div>
+        <div class="trow"><span class="tl">Show BPM label</span><label class="tog"><input type="checkbox" id="showLabel" checked onchange="live()" /><span class="ts"></span></label></div>
+        <div class="trow"><span class="tl">Show border</span><label class="tog"><input type="checkbox" id="showBorder" onchange="live()" /><span class="ts"></span></label></div>
+      </div>
+
+      <!-- ── Heart Rate Zones Tab ── -->
+      <div class="tp" id="tab-zones">
+        <div class="zones-toggle-row">
+          <span class="zones-toggle-label">Enable zone colors</span>
+          <label class="tog"><input type="checkbox" id="zonesEnabled" onchange="onZonesToggle()" /><span class="ts"></span></label>
+        </div>
+        <div id="zonesBody" style="display:none;flex-direction:column;gap:10px;">
+          <div class="zones-toggle-row" style="margin-bottom:0;">
+            <span class="zones-toggle-label" style="font-size:12.5px;">Affect font color</span>
+            <label class="tog"><input type="checkbox" id="zonesAffectFont" checked onchange="live()" /><span class="ts"></span></label>
+          </div>
+          <div class="zone-hint">
+            💡 When your BPM enters a zone, the heart color switches automatically. Zones are sorted by min BPM — lowest first.
+          </div>
+          <div class="zone-header">
+            <span></span><span>Zone name</span><span style="text-align:center">Min</span><span style="text-align:center">Max</span><span></span>
+          </div>
+          <div class="zone-list" id="zoneList"></div>
+          <button class="zone-add" onclick="addZone()">＋ Add zone</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><span>👁️</span> Preview</div>
+    <div class="cb">
+      <div class="pbox">
+        <div class="pw" id="prevWidget">
+          <div class="ph" id="prevHeart">❤️</div>
+          <div class="pn-wrap">
+            <span class="pn" id="prevNum">--</span>
+            <span class="pl" id="prevLabel">BPM</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+  <!-- Hotkey reminder -->
+  <div class="hotkey-badge">
+    <span>⌨️ Toggle overlay:</span>
+    <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>
+  </div>
+
+</div>
+
+<div class="bottom">
+  <button class="btn bs" id="overlayBtn" onclick="toggleOverlay()">🖥️ Show Overlay</button>
+</div>
+
+<script>
+  const $=id=>document.getElementById(id), v=id=>$(id).value, cb=id=>$(id).checked;
+
+  let isConn=false, overlayOpen=false, saveTimer=null;
+
+  // ── Slider labels ──
+  function sv(sid,vid,unit){ $(vid).textContent=$(sid).value+unit; }
+  function syncHex(cid,hid){ $(hid).value=$(cid).value; }
+  function syncPicker(cid,hid){ const val=$(hid).value; if(/^#[0-9A-Fa-f]{6}$/.test(val)){  $(cid).value=val; live(); } }
+
+  // ── Tabs ──
+  function tab(name){
+    ['heart','typo','layout','zones'].forEach((n,i)=>{
+      document.querySelectorAll('.tab-btn')[i].classList.toggle('active',n===name);
+      $('tab-'+n).classList.toggle('active',n===name);
+    });
+  }
+
+  // ── Config ──
+  function getConfig(){
+    return{
+      heartAnim:v('heartAnim'),heartStyle:v('heartStyle'),heartColor:v('heartColor'),
+      heartSize:+v('heartSize'),heartGlow:cb('heartGlow'),
+      fontStyle:v('fontStyle'),bpmColor:v('bpmColor'),labelColor:v('labelColor'),
+      bpmSize:+v('bpmSize'),numAnim:v('numAnim'),textGlow:cb('textGlow'),
+      bgStyle:v('bgStyle'),bgColor:v('bgColor'),bgOpacity:+v('bgOpacity'),
+      layoutStyle:v('layoutStyle'),borderRadius:+v('borderRadius'),
+      showLabel:cb('showLabel'),showBorder:cb('showBorder'),
+      zonesEnabled:cb('zonesEnabled'),
+      zonesAffectFont:cb('zonesAffectFont'),
+      zones: getZones(),
+      glowColor:v('glowColor'),
+    };
+  }
+
+  function applyConfigToForm(c){
+    ['heartAnim','heartStyle','heartColor','heartSize','fontStyle','bpmColor','labelColor',
+     'bpmSize','numAnim','bgStyle','bgColor','bgOpacity','layoutStyle','borderRadius','glowColor'].forEach(id=>{
+      if($(id)&&c[id]!==undefined) $(id).value=c[id];
+    });
+    ['heartGlow','textGlow','showLabel','showBorder'].forEach(id=>{
+      if($(id)&&c[id]!==undefined) $(id).checked=c[id];
+    });
+    ['heartColor','bpmColor','labelColor','bgColor','glowColor'].forEach(id=>syncHex(id,id+'Hex'));
+    sv('heartSize','heartSizeV','px'); sv('bpmSize','bpmSizeV','px');
+    sv('bgOpacity','bgOpacityV','%'); sv('borderRadius','borderRadiusV','px');
+    if(c.zonesEnabled!==undefined){$('zonesEnabled').checked=c.zonesEnabled;onZonesToggle(false);}
+    if(c.zonesAffectFont!==undefined&&$('zonesAffectFont'))$('zonesAffectFont').checked=c.zonesAffectFont;
+    if(c.zones&&c.zones.length) renderZones(c.zones);
+  }
+
+  function live(){
+    updatePreview();
+    $('bgColorWrap').style.display=['solid','gradient'].includes(v('bgStyle'))?'flex':'none';
+    if($('glowColorWrap')) $('glowColorWrap').style.display=cb('heartGlow')?'flex':'none';
+    if(overlayOpen) window.electronAPI.updateConfig(getConfig());
+    clearTimeout(saveTimer);
+    saveTimer=setTimeout(()=>window.electronAPI.saveSettings({config:getConfig(),hrId:v('hrId')}),600);
+  }
+
+  // ── Preview ──
+  const FONTS={mono:"'Space Mono',monospace",sans:"'DM Sans',sans-serif",serif:"'Playfair Display',serif",display:"'Bebas Neue',cursive",retro:"'VT323',monospace"};
+  function h2r(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `rgba(${r},${g},${b},${a})`;}
+
+  // ── Zone color lookup (defined before updatePreview so it can call it) ──
+  function zoneColorForBpm(bpm, zones){
+    if(!zones||!zones.length) return null;
+    for(const z of zones){
+      if(bpm>=z.min && bpm<=z.max) return z.color;
+    }
+    return null;
+  }
+
+  function updatePreview(){
+    const c=getConfig();
+    const ph=$('prevHeart'),pn=$('prevNum'),pl=$('prevLabel'),pw=$('prevWidget');
+
+    // ── Resolve active color: use live BPM for zone lookup ──
+    // currentBpm is set whenever a real BPM arrives from HypeRate
+    // If zones enabled but no live BPM yet, show first zone color as demo
+    let zoneColor = null;
+    if(c.zonesEnabled && c.zones && c.zones.length){
+      if(currentBpm != null){
+        zoneColor = zoneColorForBpm(currentBpm, c.zones);
+      } else {
+        // Demo: show first zone color so user can see zones are working
+        zoneColor = c.zones[0]?.color || null;
+      }
+    }
+    const activeColor = zoneColor || c.heartColor;
+
+    // Set CSS var so pa-glow keyframe knows the color (no inline filter needed)
+    const glowC = (c.glowColor && c.glowColor !== '#000000') ? c.glowColor : activeColor;
+    ph.style.setProperty('--glow-color', glowC);
+    // ── Heart: minimal dot uses real circle (matches overlay exactly) ──
+    const isMinimal = c.heartStyle === 'minimal';
+    const isGlowAnim = c.heartAnim === 'glow';
+    if (isMinimal) {
+      const s = c.heartSize + 'px';
+      const glowStyle = c.heartGlow
+        ? `box-shadow:0 0 16px 2px ${glowC}, 0 0 32px 4px ${glowC}40;`
+        : '';
+      ph.innerHTML = `<span style="display:block;border-radius:50%;width:${s};height:${s};background:${activeColor};${glowStyle}"></span>`;
+      ph.style.fontSize = '0';
+      ph.style.color    = 'transparent';
+      ph.style.filter   = 'none';
+    } else {
+      const H={
+        emoji:   '❤️',
+        outline: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 403.326 403.326" style="width:1em;height:1em;fill:currentColor;display:block;"><path d="M368.158,53.06c-22.715-22.714-52.915-35.224-85.038-35.224c-30.464,0-59.197,11.25-81.458,31.786C154.547,6.202,80.881,7.348,35.167,53.061c-46.89,46.89-46.89,123.185,0,170.075L194.592,382.56c1.876,1.875,4.419,2.929,7.071,2.929s5.195-1.054,7.071-2.929l159.424-159.424C415.048,176.246,415.048,99.951,368.158,53.06z M354.016,208.994L201.663,361.347L49.31,208.993c-18.938-18.937-29.366-44.114-29.366-70.895c0.001-26.781,10.43-51.959,29.367-70.896c19.546-19.546,45.221-29.319,70.896-29.319c24.097,0,48.194,8.61,67.225,25.829l-28.962,28.962c-3.905,3.905-3.905,10.237,0,14.142c1.953,1.953,4.512,2.929,7.071,2.929s5.118-0.976,7.071-2.929l39.614-39.615c18.937-18.937,44.114-29.366,70.895-29.366c26.781,0,51.959,10.429,70.896,29.366C393.108,106.295,393.108,169.902,354.016,208.994z"/><path d="M312.596,54.129c-9.7-3.561-19.901-5.366-30.32-5.366c-5.522,0-10,4.477-10,10s4.478,10,10,10c8.06,0,15.942,1.393,23.43,4.141c1.137,0.417,2.3,0.615,3.444,0.615c4.074,0,7.903-2.51,9.389-6.557C320.442,61.777,317.781,56.032,312.596,54.129z"/><path d="M349.446,79.908c-3.569-4.214-9.881-4.736-14.094-1.166c-4.214,3.57-4.736,9.88-1.166,14.094c10.376,12.247,16.09,27.847,16.09,43.927c0,5.523,4.478,10,10,10s10-4.477,10-10C370.276,115.955,362.878,95.764,349.446,79.908z"/><path d="M185.299,298.843c-3.906-3.905-10.236-3.905-14.143,0c-3.905,3.905-3.905,10.237,0,14.143l13.998,13.998c1.953,1.953,4.512,2.929,7.071,2.929s5.118-0.976,7.071-2.929c3.905-3.905,3.905-10.237,0-14.143L185.299,298.843z"/><path d="M109.547,223.091c-3.906-3.905-10.236-3.905-14.143,0c-3.905,3.905-3.905,10.237,0,14.143l52.751,52.751c1.953,1.953,4.512,2.929,7.071,2.929s5.118-0.976,7.071-2.929c3.905-3.905,3.905-10.237,0-14.143L109.547,223.091z"/></svg>`,
+        filled:  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" style="width:1em;height:1em;fill:currentColor;display:block;"><path d="M467.204,67.921C412.786,20.394,329.86,25.984,282.31,80.365l-26.311,29.66l-26.311-29.66C182.138,25.984,99.212,20.396,44.795,67.921c-54.437,47.543-60.045,130.51-12.503,184.946l185.641,206.535c9.692,10.783,23.568,16.968,38.067,16.968c14.499,0,28.375-6.185,38.067-16.968L479.546,253.05l0.161-0.182C527.251,198.431,521.641,115.464,467.204,67.921z"/></svg>`,
+      };
+      ph.innerHTML = H[c.heartStyle] || '❤️';
+      ph.style.fontSize = c.heartSize+'px';
+      ph.style.color    = activeColor;
+      // Don't set inline filter when glow-animation is active — animation owns the filter
+      if (isGlowAnim) {
+        ph.style.filter = 'none';
+      } else {
+        ph.style.filter = c.heartGlow ? `drop-shadow(0 0 12px ${glowC})` : 'none';
+      }
+    }
+    ph.className = 'ph' + (c.heartAnim !== 'none' ? ' pa-'+c.heartAnim : '');
+    pn.style.fontFamily=FONTS[c.fontStyle]||FONTS.mono;
+    pn.style.fontSize=c.bpmSize+'px';
+    const fontZoneColor = (c.zonesEnabled && c.zonesAffectFont !== false && zoneColor) ? zoneColor : null;
+    const activeFontColor = fontZoneColor || c.bpmColor;
+    pn.style.color=activeFontColor;
+    pn.style.textShadow=c.textGlow?`0 0 20px ${activeFontColor}`:'none';
+    pl.style.color=c.labelColor;
+    pl.style.display=(c.showLabel&&c.layoutStyle!=='compact')?'block':'none';
+    pw.style.flexDirection=c.layoutStyle==='vertical'?'column':'row';
+    ph.style.display=c.layoutStyle==='compact'?'none':'block';
+    const op=c.bgOpacity/100,br=c.borderRadius+'px';
+    switch(c.bgStyle){
+      case 'transparent':pw.style.background='transparent';pw.style.padding='0';pw.style.borderRadius='0';pw.style.backdropFilter='none';break;
+      case 'dark-pill':  pw.style.background=`rgba(0,0,0,${op})`;pw.style.padding='12px 18px';pw.style.borderRadius=br;break;
+      case 'glass':      pw.style.background=`rgba(255,255,255,${op*.08})`;pw.style.padding='12px 18px';pw.style.borderRadius=br;break;
+      case 'solid':      pw.style.background=h2r(c.bgColor,op);pw.style.padding='12px 18px';pw.style.borderRadius=br;break;
+      case 'gradient':   pw.style.background=`linear-gradient(135deg,${h2r(c.bgColor,op)},rgba(0,0,0,${op}))`;pw.style.padding='12px 18px';pw.style.borderRadius=br;break;
+    }
+    pw.style.border=c.showBorder?`1px solid ${h2r(c.heartColor,.4)}`:'none';
+  }
+
+  // ── Status ──
+  function setStatus(state,html){
+    $('dot').className='dot'+(state!=='idle'?' '+state:'');
+    $('stText').innerHTML=html;
+  }
+
+  // ── BPM received from main process ──
+  window.electronAPI.onBpmUpdate(({bpm})=>{
+    $('bpmPill').style.display='block';
+    $('bpmPill').textContent=bpm+' BPM';
+    $('prevNum').textContent=bpm;
+    updateZoneIndicator(bpm);
+    // If overlay is open, push updated config with current zone color
+    if(overlayOpen) window.electronAPI.updateConfig(getConfig());
+  });
+
+  // ── WS status from main process ──
+  window.electronAPI.onWsStatus(({status, sessionId, message, code})=>{
+    if(status==='connected'){
+      isConn=true;
+      setStatus('connected',`Connected &mdash; <strong>${sessionId||v('hrId')}</strong>`);
+      $('connLabel').textContent='Disconnect';
+    } else if(status==='error'){
+      setStatus('error',`Connection error${message?' &mdash; '+message:''}`);
+      if(!isConn){ isConn=false; $('connLabel').textContent='Connect'; }
+    } else if(status==='closed'){
+      if(isConn){
+        isConn=false; $('connLabel').textContent='Connect';
+        $('bpmPill').style.display='none';
+        setStatus('idle','Disconnected');
+      }
+    }
+  });
+
+  // ── Connect/disconnect ──
+  function toggleConn(){
+    if(isConn){ doDisconnect(); return; }
+    const id=v('hrId').trim();
+    if(!id){ alert('Please enter your HypeRate Session ID.'); return; }
+    $('hrId').value=id;
+    window.electronAPI.saveSettings({hrId:id});
+    setStatus('connecting','Connecting…');
+    window.electronAPI.wsConnect(id);
+  }
+
+  function doDisconnect(){
+    window.electronAPI.wsDisconnect();
+    isConn=false;
+    $('connLabel').textContent='Connect';
+    $('bpmPill').style.display='none';
+    setStatus('idle','Not connected');
+  }
+
+  // ── Overlay ──
+  function toggleOverlay(){
+    if(!overlayOpen){
+      window.electronAPI.launchOverlay(getConfig());
+      overlayOpen=true; $('overlayBtn').textContent='✕ Close Overlay';
+    } else {
+      window.electronAPI.closeOverlay();
+      overlayOpen=false; $('overlayBtn').textContent='🖥️ Show Overlay';
+    }
+  }
+
+  // ── Heart Rate Zones ──
+  const DEFAULT_ZONES = [
+    { name:'Low',    min:0,   max:99,  color:'#22c55e' },
+    { name:'Medium', min:100, max:139, color:'#f59e0b' },
+    { name:'High',   min:140, max:999, color:'#ef4444' },
+  ];
+
+  // Internal zones cache — always up to date regardless of tab visibility
+  let _zonesCache = [];
+
+  function getZones(){
+    const rows = Array.from(document.querySelectorAll('.zone-row'));
+    if(rows.length > 0){
+      _zonesCache = rows.map(row=>({
+        name:  row.querySelector('.zone-name').value.trim() || 'Zone',
+        min:   parseInt(row.querySelector('.zone-min').value)||0,
+        max:   parseInt(row.querySelector('.zone-max').value)||999,
+        color: row.querySelector('.zone-swatch').value,
+      })).sort((a,b)=>a.min-b.min);
+    }
+    return _zonesCache;
+  }
+
+  function makeZoneRow(z, animate=true){
+    const row = document.createElement('div');
+    row.className = 'zone-row';
+    if(animate) row.style.animation='fadeIn .2s ease';
+    row.innerHTML = `
+      <input type="color" class="zone-swatch" value="${z.color}" onchange="live()"/>
+      <input type="text" class="zone-name" value="${z.name}" placeholder="Zone name" oninput="live()"/>
+      <input type="number" class="zone-bpm zone-min" value="${z.min}" min="0" max="300" oninput="live()"/>
+      <input type="number" class="zone-bpm zone-max" value="${z.max}" min="0" max="999" oninput="live()"/>
+      <button class="zone-del" onclick="delZone(this)" title="Remove zone">✕</button>
+    `;
+    return row;
+  }
+
+  function renderZones(zones){
+    const list = $('zoneList');
+    list.innerHTML = '';
+    const toRender = zones||DEFAULT_ZONES;
+    toRender.forEach(z=>list.appendChild(makeZoneRow(z, false)));
+    _zonesCache = [...toRender].sort((a,b)=>a.min-b.min);
+  }
+
+  function addZone(){
+    const list = $('zoneList');
+    const existing = getZones();
+    const lastMax = existing.length ? Math.max(...existing.map(z=>z.max)) : 99;
+    const newMin = Math.min(lastMax+1, 220);
+    const colors = ['#22c55e','#f59e0b','#ef4444','#3b82f6','#a855f7','#ec4899'];
+    const color = colors[existing.length % colors.length];
+    list.appendChild(makeZoneRow({name:'Zone '+(existing.length+1), min:newMin, max:newMin+29, color}));
+    list.lastChild.querySelector('.zone-name').focus();
+    live();
+  }
+
+  function delZone(btn){
+    btn.closest('.zone-row').remove();
+    live();
+  }
+
+  function onZonesToggle(doLive=true){
+    const enabled = cb('zonesEnabled');
+    $('zonesBody').style.display = enabled ? 'flex' : 'none';
+    if(enabled && $('zoneList').children.length===0) renderZones(DEFAULT_ZONES);
+    // Sync cache so updatePreview can use zones even when tab isn't visible
+    if(enabled) getZones();
+    if(doLive) live();
+  }
+
+  // ── Active zone display in status bar ──
+  let currentBpm = null;
+  function updateZoneIndicator(bpm){
+    currentBpm = bpm;
+    const c = getConfig();
+    if(!c.zonesEnabled || !c.zones) return;
+    const color = zoneColorForBpm(bpm, c.zones);
+    const zone = c.zones.find(z=>bpm>=z.min&&bpm<=z.max);
+    const pill = $('bpmPill');
+    if(color && zone){
+      pill.style.color = color;
+      pill.style.textShadow = `0 0 12px ${color}80`;
+    } else {
+      pill.style.color = '';
+      pill.style.textShadow = '';
+    }
+  }
+
+  // ── Init ──
+  async function init(){
+    const saved=await window.electronAPI.loadSettings();
+    // Show version
+    if (saved.version) $('tlVersion').textContent = 'v' + saved.version;
+    // Apply DPI scale factor to body font-size for 4K displays
+    if (saved.scaleFactor && saved.scaleFactor > 1.5) {
+      // On 4K (scale=2) the window is already sized in logical px by Electron,
+      // but we nudge font sizes up slightly for sharpness
+      document.documentElement.style.fontSize = '15px';
+    }
+    if(saved.hrId) $('hrId').value=saved.hrId;
+    if(saved.config) applyConfigToForm(saved.config);
+    updatePreview(); live();
+  }
+  init();
+</script>
+</body>
+</html>

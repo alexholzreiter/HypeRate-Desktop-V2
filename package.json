@@ -1,0 +1,33 @@
+{
+  "name": "hyperate-overlay",
+  "version": "1.0.0",
+  "productName": "HypeRate Overlay",
+  "description": "In-game heart rate overlay powered by HypeRate",
+  "author": "Your Name",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "build": {
+    "appId": "com.yourname.hyperate-overlay",
+    "productName": "HypeRate Overlay",
+    "icon": "assets/icon.png",
+    "directories": { "output": "dist" },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
