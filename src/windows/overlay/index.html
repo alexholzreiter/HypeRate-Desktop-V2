@@ -115,19 +115,44 @@
 
   let cfg = null, currentBpm = null, numTimer = null;
 
-  // ── Drag ──
-  let dragging = false, lastX = 0, lastY = 0;
-  widget.addEventListener('mousedown', e => {
+  // ── Click-through: only the widget is interactive, transparent bg passes through ──
+  window.addEventListener('mousemove', e => {
+    if (dragging) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const overWidget = !!el && (el === widget || widget.contains(el));
+    window.electronAPI.setIgnoreMouseEvents(!overWidget);
+  });
+  window.addEventListener('mouseleave', () => {
+    if (!dragging) window.electronAPI.setIgnoreMouseEvents(true);
+  });
+
+  // ── Drag (absolute positioning — no accumulated delta errors) ──
+  let dragging = false, dragStartScreenX = 0, dragStartScreenY = 0;
+  let winStartX = 0, winStartY = 0;
+
+  widget.addEventListener('mousedown', async e => {
     if (e.button !== 0) return;
-    dragging = true; lastX = e.screenX; lastY = e.screenY; e.preventDefault();
+    dragStartScreenX = e.screenX;
+    dragStartScreenY = e.screenY;
+    const pos = await window.electronAPI.getOverlayPosition();
+    winStartX = pos.x;
+    winStartY = pos.y;
+    dragging = true;
+    e.preventDefault();
   });
   window.addEventListener('mousemove', e => {
     if (!dragging) return;
-    const dx = e.screenX - lastX, dy = e.screenY - lastY;
-    lastX = e.screenX; lastY = e.screenY;
-    if (dx || dy) window.electronAPI.overlayDrag({ dx, dy });
+    window.electronAPI.overlayMove({
+      x: winStartX + (e.screenX - dragStartScreenX),
+      y: winStartY + (e.screenY - dragStartScreenY),
+    });
   });
-  window.addEventListener('mouseup', () => { dragging = false; });
+  window.addEventListener('mouseup', e => {
+    dragging = false;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const overWidget = !!el && (el === widget || widget.contains(el));
+    window.electronAPI.setIgnoreMouseEvents(!overWidget);
+  });
 
   const FONTS = {
     mono:    "'Space Mono',monospace",

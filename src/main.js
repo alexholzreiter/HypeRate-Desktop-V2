@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const fs   = require('fs');
 const { WebSocket } = require('ws');
@@ -11,20 +11,19 @@ const HYPERATE_API_KEY = '7XnPqR2m9LdHsV4tYk8ZuEf1WaJ5GcB3rTsQ6v';
 const VERSION = app.getVersion();            // reads from package.json
 const IS_FIRST_RUN = !loadStore().onboarded; // FTUE flag
 
-let settingsWindow = null;
-let overlayWindow  = null;
-let ftueWindow     = null;
+let settingsWindow     = null;
+let overlayWindow      = null;
+let ftueWindow         = null;
+let tray               = null;
+let overlayMoveAllowed = false; // guards will-move: only our setPosition calls are allowed
 
 // ── DPI helper ──
 function scaleFactor() {
   return screen.getPrimaryDisplay().scaleFactor || 1;
 }
 
-// ── Logical → physical size for window creation ──
-// Electron on Windows already uses logical pixels for window size,
-// but we keep a helper for overlay bounds clamping.
 function workArea() {
-  return screen.getPrimaryDisplay().workAreaSize;
+  return screen.getPrimaryDisplay().workArea; // {x, y, width, height}
 }
 
 // ── Settings window ──
@@ -32,16 +31,68 @@ function createSettingsWindow() {
   settingsWindow = new BrowserWindow({
     width:520, height:760, minWidth:480, minHeight:640,
     frame:false, transparent:false, backgroundColor:'#080810',
+    skipTaskbar: process.platform === 'win32', // Windows: only live in tray
     webPreferences:{ nodeIntegration:false, contextIsolation:true, preload:path.join(__dirname,'preload.js') },
     icon: path.join(__dirname,'../assets/icon.png'),
     title:'HypeRate Overlay',
   });
   settingsWindow.loadFile(path.join(__dirname,'windows/settings/index.html'));
-  settingsWindow.on('closed', () => {
-    settingsWindow = null;
-    if (overlayWindow) overlayWindow.close();
-    app.quit();
+
+  // Hide to tray instead of quitting when the window is closed
+  settingsWindow.on('close', (e) => {
+    if (!app.isQuitting) {
+      e.preventDefault();
+      settingsWindow.hide();
+    }
   });
+}
+
+// ── Tray / Menu-bar icon ──
+function createTray() {
+  const iconPath = path.join(__dirname, '../assets/icon.png');
+
+  let img = nativeImage.createFromPath(iconPath);
+  if (process.platform === 'darwin') {
+    img = img.resize({ width: 16, height: 16 });
+    img.setTemplateImage(true); // adapts to light/dark menu bar automatically
+  } else {
+    img = img.resize({ width: 32, height: 32 });
+  }
+
+  tray = new Tray(img);
+  tray.setToolTip('HypeRate Overlay');
+
+  function buildMenu() {
+    return Menu.buildFromTemplate([
+      {
+        label: 'Einstellungen öffnen',
+        click: () => { settingsWindow?.show(); settingsWindow?.focus(); },
+      },
+      {
+        label: overlayWindow?.isVisible() ? 'Overlay verstecken' : 'Overlay anzeigen',
+        enabled: !!overlayWindow,
+        click: () => {
+          if (!overlayWindow) return;
+          overlayWindow.isVisible() ? overlayWindow.hide() : overlayWindow.show();
+          tray.setContextMenu(buildMenu());
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'Beenden',
+        click: () => { app.isQuitting = true; app.quit(); },
+      },
+    ]);
+  }
+
+  tray.setContextMenu(buildMenu());
+
+  // Rebuild menu when overlay state changes so label stays accurate
+  ipcMain.on('launch-overlay',  () => setTimeout(() => tray.setContextMenu(buildMenu()), 500));
+  ipcMain.on('close-overlay',   () => setTimeout(() => tray.setContextMenu(buildMenu()), 100));
+
+  // Single click: show settings (macOS fires click on left-click in menu bar)
+  tray.on('click', () => { settingsWindow?.show(); settingsWindow?.focus(); });
 }
 
 // ── Overlay window ──
@@ -61,6 +112,17 @@ function createOverlayWindow() {
   });
   overlayWindow.loadFile(path.join(__dirname,'windows/overlay/index.html'));
   overlayWindow.setAlwaysOnTop(true,'screen-saver');
+
+  // Block Aero Snap from resizing or moving the transparent window.
+  // Our own setPosition calls set overlayMoveAllowed=true before calling,
+  // so they are not affected.
+  overlayWindow.on('will-resize', (e) => e.preventDefault());
+  overlayWindow.on('will-move',   (e) => { if (!overlayMoveAllowed) e.preventDefault(); });
+
+  // Pass mouse events through transparent areas by default;
+  // the renderer toggles this off when the mouse enters the widget.
+  overlayWindow.setIgnoreMouseEvents(true, { forward: true });
+
   overlayWindow.on('closed', () => { overlayWindow = null; });
 
   // Send scale factor so overlay can adjust sizes
@@ -147,7 +209,10 @@ function registerHotkey() {
 
 // ── App ready ──
 app.whenReady().then(() => {
+  if (process.platform === 'darwin') app.dock.hide();
+
   createSettingsWindow();
+  createTray();
   registerHotkey();
 
   // Show FTUE on first launch, after settings window is ready
@@ -159,7 +224,8 @@ app.whenReady().then(() => {
 });
 
 app.on('will-quit', () => globalShortcut.unregisterAll());
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+// App lives in tray — never auto-quit when windows are closed
+app.on('window-all-closed', () => {});
 
 // ── IPC ──
 ipcMain.on('ws-connect',    (_, id)  => wsConnect(id));
@@ -171,8 +237,8 @@ ipcMain.on('launch-overlay', (_, config) => {
 });
 ipcMain.on('close-overlay',     ()       => { if (overlayWindow) { overlayWindow.close(); overlayWindow=null; } });
 ipcMain.on('update-config',     (_, cfg) => { if (overlayWindow) overlayWindow.webContents.send('config-update', cfg); });
-ipcMain.on('minimize-settings', ()       => { if (settingsWindow) settingsWindow.minimize(); });
-ipcMain.on('close-settings',    ()       => { if (settingsWindow) settingsWindow.close(); });
+ipcMain.on('minimize-settings', () => { if (settingsWindow) settingsWindow.minimize(); });
+ipcMain.on('close-settings',    () => { if (settingsWindow) settingsWindow.hide(); });
 ipcMain.on('close-ftue',        ()       => { if (ftueWindow) ftueWindow.close(); });
 
 ipcMain.on('ftue-complete', () => {
@@ -182,15 +248,26 @@ ipcMain.on('ftue-complete', () => {
   if (ftueWindow) ftueWindow.close();
 });
 
-ipcMain.on('overlay-drag', (_, {dx,dy}) => {
+ipcMain.on('set-ignore-mouse-events', (_, ignore) => {
+  if (overlayWindow) overlayWindow.setIgnoreMouseEvents(ignore, { forward: true });
+});
+
+ipcMain.handle('get-overlay-position', () => {
+  if (!overlayWindow) return { x: 0, y: 0 };
+  const [x, y] = overlayWindow.getPosition();
+  return { x, y };
+});
+
+ipcMain.on('overlay-move', (_, { x, y }) => {
   if (!overlayWindow) return;
-  const [x,y] = overlayWindow.getPosition();
-  const { width:sw, height:sh } = workArea();
-  const [ww,wh] = overlayWindow.getSize();
-  const nx = Math.max(0, Math.min(x+dx, sw-ww));
-  const ny = Math.max(0, Math.min(y+dy, sh-wh));
+  const wa = workArea();
+  const [ww, wh] = overlayWindow.getSize();
+  const nx = Math.max(wa.x, Math.min(x, wa.x + wa.width  - ww));
+  const ny = Math.max(wa.y, Math.min(y, wa.y + wa.height - wh));
+  overlayMoveAllowed = true;
   overlayWindow.setPosition(nx, ny);
-  const store = loadStore(); store.overlayX=nx; store.overlayY=ny; saveStore(store);
+  overlayMoveAllowed = false;
+  const store = loadStore(); store.overlayX = nx; store.overlayY = ny; saveStore(store);
 });
 
 ipcMain.handle('load-settings', () => ({ ...loadStore(), version: VERSION, scaleFactor: scaleFactor() }));
