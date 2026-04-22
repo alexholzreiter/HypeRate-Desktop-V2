@@ -5,7 +5,8 @@
       "Bash(npm install *)",
       "Bash(sips -g pixelWidth -g pixelHeight /Users/anygood/Documents/GitHub/HypeRate-Desktop-V2/assets/icon.png)",
       "Bash(sips -z 512 512 /Users/anygood/Documents/GitHub/HypeRate-Desktop-V2/assets/icon.png --out /Users/anygood/Documents/GitHub/HypeRate-Desktop-V2/assets/icon.png)",
-      "Bash(wait)"
+      "Bash(wait)",
+      "WebFetch(domain:blog.hyperate.io)"
     ]
   }
 }

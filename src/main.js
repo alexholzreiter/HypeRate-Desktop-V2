@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell } = require('electron');
 const path = require('path');
 const fs   = require('fs');
 const { WebSocket } = require('ws');
@@ -29,7 +29,7 @@ function workArea() {
 // ── Settings window ──
 function createSettingsWindow() {
   settingsWindow = new BrowserWindow({
-    width:520, height:760, minWidth:480, minHeight:640,
+    width:820, height:560, minWidth:760, minHeight:500,
     frame:false, transparent:false, backgroundColor:'#080810',
     skipTaskbar: process.platform === 'win32', // Windows: only live in tray
     webPreferences:{ nodeIntegration:false, contextIsolation:true, preload:path.join(__dirname,'preload.js') },
@@ -91,8 +91,10 @@ function createTray() {
   ipcMain.on('launch-overlay',  () => setTimeout(() => tray.setContextMenu(buildMenu()), 500));
   ipcMain.on('close-overlay',   () => setTimeout(() => tray.setContextMenu(buildMenu()), 100));
 
-  // Single click: show settings (macOS fires click on left-click in menu bar)
-  tray.on('click', () => { settingsWindow?.show(); settingsWindow?.focus(); });
+  // On macOS, show the context menu on left-click instead of opening settings directly
+  if (process.platform === 'darwin') {
+    tray.on('click', () => tray.popUpContextMenu());
+  }
 }
 
 // ── Overlay window ──
@@ -274,3 +276,24 @@ ipcMain.handle('load-settings', () => ({ ...loadStore(), version: VERSION, scale
 ipcMain.on('save-settings', (_, data) => {
   const store = loadStore(); Object.assign(store, data); saveStore(store);
 });
+
+ipcMain.handle('get-autostart', () => app.getLoginItemSettings().openAtLogin);
+ipcMain.on('set-autostart', (_, enable) => app.setLoginItemSettings({ openAtLogin: !!enable }));
+
+ipcMain.handle('get-system-fonts', () => app.getSystemFonts());
+
+ipcMain.on('open-external', (_, url) => shell.openExternal(url));
+
+ipcMain.handle('fetch-news', () => new Promise((resolve) => {
+  const https = require('https');
+  const req = https.get('https://blog.hyperate.io/feed.xml',
+    { headers: { 'User-Agent': 'HypeRate-Overlay/1.0' } },
+    (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve(data));
+    }
+  );
+  req.on('error', () => resolve(null));
+  req.setTimeout(8000, () => { req.destroy(); resolve(null); });
+}));

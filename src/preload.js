@@ -15,6 +15,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveSettings:   (data) => ipcRenderer.send('save-settings', data),
   closeFtue:      ()     => ipcRenderer.send('close-ftue'),
   ftueComplete:   ()     => ipcRenderer.send('ftue-complete'),
+  getAutostart:   ()     => ipcRenderer.invoke('get-autostart'),
+  setAutostart:   (on)   => ipcRenderer.send('set-autostart', on),
+  getSystemFonts: ()     => ipcRenderer.invoke('get-system-fonts'),
+  openExternal:   (url)  => ipcRenderer.send('open-external', url),
+  fetchNews:      ()     => ipcRenderer.invoke('fetch-news'),
 
   onWsStatus:        (cb) => ipcRenderer.on('ws-status',        (_, d) => cb(d)),
   onBpmUpdate:       (cb) => ipcRenderer.on('bpm-update',       (_, d) => cb(d)),
