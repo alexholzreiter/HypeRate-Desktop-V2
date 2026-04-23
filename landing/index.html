@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Primary SEO -->
+  <title>HypeRate Desktop — Live Heart Rate — Native Desktop App for Streamers &amp; Athletes</title>
+  <meta name="description" content="Display your live heart rate as a beautiful floating overlay while you stream, game, or work out. Free desktop app for macOS, Windows &amp; Linux. Powered by HypeRate." />
+  <meta name="keywords" content="heart rate desktop app, HypeRate, streaming overlay, live BPM, heart rate monitor, streamer tools, OBS overlay, Twitch heart rate, desktop app" />
+  <meta name="author" content="HypeRate" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://desktop.hyperate.io/" />
+  <link rel="sitemap" type="application/xml" href="https://desktop.hyperate.io/sitemap.xml" />
+  <link rel="alternate" type="text/plain" title="LLMs.txt" href="https://desktop.hyperate.io/llms.txt" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://desktop.hyperate.io/" />
+  <meta property="og:title" content="HypeRate Desktop — Live Heart Rate on Your Screen" />
+  <meta property="og:description" content="A native desktop app that displays your live heart rate as a floating overlay while you stream, game, or train. Free for macOS, Windows &amp; Linux." />
+  <meta property="og:image" content="https://desktop.hyperate.io/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="HypeRate Desktop — Live heart rate on your screen" />
+  <meta property="og:site_name" content="HypeRate Desktop" />
+  <meta property="og:locale" content="en_US" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@HypeRate_io" />
+  <meta name="twitter:title" content="HypeRate Desktop — Live Heart Rate on Your Screen" />
+  <meta name="twitter:description" content="A native desktop app that displays your live heart rate as a floating overlay while you stream, game, or train. Free for macOS, Windows &amp; Linux." />
+  <meta name="twitter:image" content="https://desktop.hyperate.io/og-image.png" />
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "HypeRate Desktop",
+    "description": "A native desktop app showing live heart rate for streamers and athletes. Displays live BPM from HypeRate on any screen.",
+    "url": "https://desktop.hyperate.io",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "macOS, Windows, Linux",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "publisher": { "@type": "Organization", "name": "HypeRate", "url": "https://hyperate.io" }
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:      #080810;
+      --bg2:     #0d0d1a;
+      --surface: #141428;
+      --surface2:#1e1e38;
+      --border:  #25253d;
+      --accent:  #2563eb;
+      --accent-dim:#1d4ed8;
+      --accent-glow:rgba(37,99,235,.22);
+      --accent3: #38bdf8;
+      --text:    #e8e8f8;
+      --text-dim:#7070a0;
+      --danger:  #ef4444;
+      --success: #22c55e;
+      --warn:    #f59e0b;
+      --radius:  12px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── NAV ─── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 48px; height: 60px;
+      background: rgba(8,8,16,0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700;
+      letter-spacing: .05em; color: var(--text); text-decoration: none;
+    }
+    .nav-logo img { width: 26px; height: 26px; border-radius: 7px; object-fit: cover; flex-shrink: 0; }
+    .nav-links { display: flex; gap: 36px; list-style: none; }
+    .nav-links a {
+      color: var(--text-dim); text-decoration: none; font-size: 13.5px; font-weight: 500;
+      transition: color .2s; letter-spacing: .01em;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700;
+      letter-spacing: .06em; text-transform: uppercase;
+      background: var(--accent); color: #fff; border: none;
+      padding: 9px 18px; border-radius: 8px; cursor: pointer;
+      text-decoration: none; transition: background .2s, box-shadow .2s;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .nav-cta:hover { background: var(--accent-dim); box-shadow: 0 0 28px var(--accent-glow); }
+
+    /* ─── HERO ─── */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 120px 24px 80px;
+      position: relative; overflow: hidden;
+    }
+    .hero-grid-bg {
+      position: absolute; inset: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(37,99,235,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(37,99,235,.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, black 30%, transparent 80%);
+    }
+    .hero-glow {
+      position: absolute; top: -100px; left: 50%; transform: translateX(-50%);
+      width: 600px; height: 400px; pointer-events: none;
+      background: radial-gradient(ellipse, rgba(37,99,235,.14) 0%, transparent 70%);
+    }
+    .hero-label {
+      font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700;
+      letter-spacing: .14em; text-transform: uppercase; color: var(--accent3);
+      margin-bottom: 24px; position: relative;
+    }
+    .hero h1 {
+      font-family: 'Space Mono', monospace;
+      font-size: clamp(32px, 6vw, 68px); font-weight: 700; line-height: 1.1;
+      letter-spacing: -.02em; margin-bottom: 22px; position: relative;
+    }
+    .hero h1 .dim { color: var(--text-dim); }
+    .hero p {
+      font-size: clamp(15px, 2vw, 18px); color: var(--text-dim); font-weight: 300;
+      max-width: 480px; margin: 0 auto 48px; position: relative; line-height: 1.7;
+    }
+    .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; position: relative; }
+
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700;
+      letter-spacing: .06em; text-transform: uppercase;
+      background: var(--accent); color: #fff;
+      padding: 13px 24px; border-radius: 9px; text-decoration: none;
+      transition: background .2s, box-shadow .2s, transform .15s;
+      box-shadow: 0 0 24px var(--accent-glow);
+    }
+    .btn-primary:hover { background: var(--accent-dim); transform: translateY(-1px); box-shadow: 0 4px 32px var(--accent-glow); }
+    .btn-primary svg { width: 14px; height: 14px; }
+
+    .btn-ghost {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700;
+      letter-spacing: .06em; text-transform: uppercase;
+      background: transparent; color: var(--text-dim);
+      border: 1px solid var(--border);
+      padding: 13px 24px; border-radius: 9px; text-decoration: none;
+      transition: color .2s, border-color .2s, background .2s;
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--surface2); background: var(--surface); }
+    .btn-ghost svg { width: 14px; height: 14px; }
+
+    /* ─── APP MOCKUP ─── */
+    .mockup-wrap {
+      margin-top: 72px; position: relative; width: min(820px, 90vw);
+    }
+    .mockup {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 14px;
+      overflow: hidden; box-shadow: 0 40px 100px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.04), 0 0 60px var(--accent-glow);
+    }
+    .mockup-bar {
+      height: 38px; background: var(--bg2); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; padding: 0 14px;
+    }
+    .mockup-bar-logo { display: flex; align-items: center; gap: 8px; }
+    .mockup-bar-logo-icon { width: 20px; height: 20px; border-radius: 5px; background: var(--surface2); overflow: hidden; }
+    .mockup-bar-title { font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: .08em; color: var(--text-dim); }
+    .mockup-bar-dots { display: flex; gap: 6px; }
+    .mbd { width: 10px; height: 10px; border-radius: 50%; }
+    .mockup-body { display: flex; height: 340px; }
+    .mockup-left { width: 220px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 12px 10px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+    .mockup-right { flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+
+    /* status bar */
+    .m-status { display: flex; align-items: center; gap: 8px; padding: 8px 11px; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; }
+    .m-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 8px var(--success); animation: blink 2s infinite; flex-shrink: 0; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .m-status-text { font-size: 11px; color: var(--text-dim); }
+    .m-status-text strong { color: var(--text); }
+    .m-bpm-pill { font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 700; color: var(--accent); text-shadow: 0 0 12px var(--accent-glow); margin-left: auto; }
+
+    /* mock card */
+    .m-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .m-card-h { padding: 7px 11px; border-bottom: 1px solid var(--border); font-family: 'Space Mono', monospace; font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); }
+    .m-card-b { padding: 11px; display: flex; flex-direction: column; gap: 8px; }
+    .m-input { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 7px 10px; font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent3); }
+    .m-btn { background: var(--accent); border-radius: 7px; padding: 8px; font-size: 11px; font-weight: 700; color: #fff; text-align: center; box-shadow: 0 0 16px var(--accent-glow); }
+
+    /* right panel */
+    .m-tabs { display: flex; gap: 3px; padding: 3px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
+    .m-tab { flex: 1; padding: 5px; background: transparent; border-radius: 6px; font-size: 10px; color: var(--text-dim); text-align: center; }
+    .m-tab.active { background: var(--surface2); color: var(--text); }
+    .m-preview-box { flex: 1; background: #000; border: 1px solid var(--border); border-radius: 10px; background-image: radial-gradient(circle at 50% 50%, #0d0d20 0%, #000 70%); display: flex; align-items: center; justify-content: center; }
+    .m-widget { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 14px 20px; box-shadow: 0 0 24px rgba(37,99,235,.2); }
+    .m-widget-heart { color: var(--danger); animation: beat 1.2s ease-in-out infinite; }
+    @keyframes beat { 0%,100%{transform:scale(1)} 14%{transform:scale(1.2)} 28%{transform:scale(1)} 42%{transform:scale(1.1)} }
+    .m-widget-num { font-family: 'Space Mono', monospace; font-size: 32px; font-weight: 700; color: var(--text); line-height: 1; }
+    .m-widget-label { font-size: 10px; color: var(--text-dim); letter-spacing: .12em; text-transform: uppercase; margin-top: 2px; }
+    .m-graph { width: 100%; height: 40px; border-radius: 7px; overflow: hidden; background: var(--surface); position: relative; }
+    .m-graph-line { position: absolute; bottom: 0; left: 0; right: 0; height: 100%; }
+
+    /* floating overlay */
+    .overlay-float {
+      position: absolute; top: -16px; right: -56px;
+      background: rgba(8,8,20,.92); border: 1px solid rgba(37,99,235,.35);
+      border-radius: 12px; padding: 12px 18px;
+      display: flex; align-items: center; gap: 12px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.04), 0 0 20px var(--accent-glow);
+      backdrop-filter: blur(12px);
+      animation: float 5s ease-in-out infinite;
+    }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+    .ov-heart { color: var(--danger); animation: beat 1.2s ease-in-out infinite; }
+    .ov-num { font-family: 'Space Mono', monospace; font-size: 28px; font-weight: 700; color: var(--text); }
+    .ov-label { font-size: 10px; color: var(--text-dim); letter-spacing: .1em; text-transform: uppercase; }
+
+    /* ─── PLATFORM PILLS ─── */
+    .platforms { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 20px; position: relative; }
+    .platform-pill {
+      display: flex; align-items: center; gap: 7px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 100px; padding: 6px 14px; font-size: 12.5px;
+      color: var(--text-dim); font-weight: 500;
+    }
+    .platform-pill svg { width: 13px; height: 13px; opacity: .6; }
+    .platform-pill.free { border-color: rgba(37,99,235,.3); color: var(--accent3); background: rgba(37,99,235,.08); }
+
+    /* ─── SECTION ─── */
+    section { padding: 100px 24px; }
+    .container { max-width: 1060px; margin: 0 auto; }
+    .section-label {
+      font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700;
+      letter-spacing: .16em; text-transform: uppercase; color: var(--accent3);
+      margin-bottom: 14px; display: block;
+    }
+    .section-title {
+      font-family: 'Space Mono', monospace;
+      font-size: clamp(24px, 4vw, 40px); font-weight: 700;
+      letter-spacing: -.02em; line-height: 1.2; margin-bottom: 16px;
+    }
+    .section-sub { color: var(--text-dim); font-size: 16px; font-weight: 300; max-width: 480px; line-height: 1.7; }
+    .section-header-center { text-align: center; }
+    .section-header-center .section-sub { margin: 0 auto; }
+
+    /* ─── FEATURES ─── */
+    .features-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 1px; margin-top: 60px;
+      border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
+    }
+    .feature-card {
+      background: var(--bg2); padding: 32px 28px;
+      transition: background .2s;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .feature-card:hover { background: var(--surface); }
+    .feature-card:nth-child(3n) { border-right: none; }
+    .feature-card:nth-last-child(-n+3) { border-bottom: none; }
+    .feature-icon {
+      width: 38px; height: 38px; border-radius: 9px;
+      background: rgba(37,99,235,.1); border: 1px solid rgba(37,99,235,.2);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 20px; color: var(--accent3);
+    }
+    .feature-icon svg { width: 18px; height: 18px; }
+    .feature-card h3 { font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700; letter-spacing: .02em; margin-bottom: 10px; }
+    .feature-card p { color: var(--text-dim); font-size: 13.5px; line-height: 1.65; font-weight: 300; }
+
+    /* ─── HOW IT WORKS ─── */
+    .how-bg { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-top: 60px; position: relative; }
+    .steps::before {
+      content: ''; position: absolute; top: 19px; left: calc(12.5% + 20px); right: calc(12.5% + 20px); height: 1px;
+      background: linear-gradient(90deg, var(--border), var(--accent), var(--border));
+    }
+    .step { padding: 0 28px; }
+    .step-num {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--surface); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700;
+      color: var(--accent); margin-bottom: 20px; position: relative; z-index: 1;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .step h3 { font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: .04em; margin-bottom: 10px; }
+    .step p { color: var(--text-dim); font-size: 13px; line-height: 1.6; font-weight: 300; }
+
+    /* ─── CUSTOMIZE ─── */
+    .custom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; margin-top: 0; }
+    .custom-options { display: flex; flex-direction: column; gap: 1px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-top: 36px; }
+    .custom-option {
+      display: flex; align-items: flex-start; gap: 16px;
+      padding: 20px 22px; background: var(--bg2); transition: background .2s;
+      border-bottom: 1px solid var(--border);
+    }
+    .custom-option:last-child { border-bottom: none; }
+    .custom-option:hover { background: var(--surface); }
+    .custom-option-icon { width: 32px; height: 32px; border-radius: 8px; background: rgba(37,99,235,.1); border: 1px solid rgba(37,99,235,.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--accent3); margin-top: 1px; }
+    .custom-option-icon svg { width: 15px; height: 15px; }
+    .custom-option h4 { font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: .04em; margin-bottom: 5px; }
+    .custom-option p { font-size: 12.5px; color: var(--text-dim); font-weight: 300; line-height: 1.55; }
+
+    .widget-showcase {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+    }
+    .ws-header { padding: 10px 16px; border-bottom: 1px solid var(--border); font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); }
+    .ws-body { padding: 20px; display: flex; flex-direction: column; gap: 12px; background: #000; background-image: radial-gradient(ellipse at 50% 50%, #0a0a1f 0%, #000 70%); }
+    .ws-widget {
+      display: flex; align-items: center; gap: 12px;
+      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
+      border-radius: 11px; padding: 14px 18px;
+    }
+    .ws-heart { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; }
+    .ws-heart svg { width: 26px; height: 26px; }
+    .ws-bpm { font-family: 'Space Mono', monospace; font-size: 28px; font-weight: 700; line-height: 1; }
+    .ws-lbl { font-size: 10px; color: var(--text-dim); letter-spacing: .12em; text-transform: uppercase; margin-top: 3px; }
+    .ws-zones { display: flex; gap: 6px; margin-top: 4px; }
+    .ws-zone { flex: 1; height: 3px; border-radius: 2px; }
+    .ws-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+    .ws-zone-pill { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-dim); }
+    .ws-zone-dot { width: 7px; height: 7px; border-radius: 50%; }
+
+    /* ─── DOWNLOAD ─── */
+    .dl-bg { background: var(--bg2); border-top: 1px solid var(--border); }
+    .download-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 56px; }
+    .download-card {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 32px 28px;
+      display: flex; flex-direction: column; gap: 20px;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .download-card:hover { border-color: rgba(37,99,235,.4); box-shadow: 0 0 40px rgba(37,99,235,.08); }
+    .dl-os-icon { width: 44px; height: 44px; }
+    .dl-os-icon svg { width: 44px; height: 44px; color: var(--text-dim); }
+    .download-card h3 { font-family: 'Space Mono', monospace; font-size: 16px; font-weight: 700; }
+    .download-card .dl-sub { font-size: 12.5px; color: var(--text-dim); font-weight: 300; margin-top: -14px; }
+    .dl-btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700;
+      letter-spacing: .06em; text-transform: uppercase;
+      background: var(--accent); color: #fff; border-radius: 8px;
+      padding: 11px 16px; text-decoration: none;
+      transition: background .2s, box-shadow .2s;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .dl-btn:hover { background: var(--accent-dim); }
+    .dl-btn svg { width: 13px; height: 13px; }
+    .dl-btn-ghost {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700;
+      letter-spacing: .06em; text-transform: uppercase;
+      background: var(--surface); color: var(--text-dim);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 11px 16px; text-decoration: none;
+      transition: background .2s, color .2s;
+    }
+    .dl-btn-ghost:hover { background: var(--surface2); color: var(--text); }
+    .dl-btn-ghost svg { width: 13px; height: 13px; }
+    .dl-note { text-align: center; margin-top: 32px; color: var(--text-dim); font-size: 13px; }
+    .dl-note a { color: var(--accent3); text-decoration: none; }
+    .dl-note a:hover { text-decoration: underline; }
+
+    /* ─── FOOTER ─── */
+    .footer-wrap { border-top: 1px solid var(--border); }
+    footer {
+      max-width: 1060px; margin: 0 auto;
+      padding: 36px 24px; display: flex; align-items: center;
+      justify-content: space-between; flex-wrap: wrap; gap: 16px;
+    }
+    .footer-logo { display: flex; align-items: center; gap: 9px; font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700; color: var(--text); text-decoration: none; }
+    .footer-logo svg { width: 22px; height: 22px; }
+    .footer-links { display: flex; gap: 28px; }
+    .footer-links a { color: var(--text-dim); font-size: 13px; text-decoration: none; transition: color .2s; }
+    .footer-links a:hover { color: var(--text); }
+    .footer-copy { color: var(--text-dim); font-size: 12px; font-family: 'Space Mono', monospace; }
+
+    /* ─── SCROLL FADE ─── */
+    .fade { opacity: 0; transform: translateY(20px); transition: opacity .65s ease, transform .65s ease; }
+    .fade.in { opacity: 1; transform: none; }
+
+    /* ─── RESPONSIVE ─── */
+    @media(max-width: 900px) {
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+      .feature-card:nth-child(3n) { border-right: 1px solid var(--border); }
+      .feature-card:nth-child(2n) { border-right: none; }
+      .custom-grid { grid-template-columns: 1fr; }
+      .download-grid { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: 1fr 1fr; }
+      .steps::before { display: none; }
+    }
+    @media(max-width: 640px) {
+      nav { padding: 0 20px; }
+      .nav-links { display: none; }
+      .features-grid { grid-template-columns: 1fr; }
+      .feature-card:nth-child(n) { border-right: none; }
+      .overlay-float { display: none; }
+      .steps { grid-template-columns: 1fr; gap: 28px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-logo" href="#">
+    <img src="data:image/png;base64,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" alt="HypeRate Desktop">
+    </svg>
+    HypeRate Desktop
+  </a>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how">Setup</a></li>
+    <li><a href="#customize">Customize</a></li>
+    <li><a href="#download">Download</a></li>
+  </ul>
+  <a class="nav-cta" href="#download">Download Free</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-grid-bg"></div>
+  <div class="hero-glow"></div>
+
+  <p class="hero-label fade">Live Heart Rate Overlay</p>
+  <h1 class="fade">Your heartbeat,<br><span class="dim">always visible.</span></h1>
+  <p class="fade">A native desktop app that displays your live heart rate as a floating overlay while you stream, game, or train. Powered by HypeRate.</p>
+
+  <div class="hero-actions fade">
+    <a class="btn-primary" href="#download">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v8M4 6l3 3 3-3M1 11h12"/></svg>
+      Download Free
+    </a>
+    <a class="btn-ghost" href="#features">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="7" cy="7" r="6"/><path d="M7 5v4M7 4.5v.01"/></svg>
+      See Features
+    </a>
+  </div>
+
+  <!-- App Mockup -->
+  <div class="mockup-wrap fade">
+    <div class="mockup">
+      <div class="mockup-bar">
+        <div class="mockup-bar-logo">
+          <div class="mockup-bar-logo-icon"></div>
+          <span class="mockup-bar-title">HYPERATE OVERLAY</span>
+        </div>
+        <div class="mockup-bar-dots">
+          <div class="mbd" style="background:#ff5f57"></div>
+          <div class="mbd" style="background:#febc2e"></div>
+          <div class="mbd" style="background:#28c840"></div>
+        </div>
+      </div>
+      <div class="mockup-body">
+        <!-- Left panel -->
+        <div class="mockup-left">
+          <div class="m-status">
+            <div class="m-dot"></div>
+            <span class="m-status-text">Connected &mdash; <strong>Whoakewl</strong></span>
+            <span class="m-bpm-pill">98</span>
+          </div>
+          <div class="m-card">
+            <div class="m-card-h">Connection</div>
+            <div class="m-card-b">
+              <div class="m-input">Whoakewl</div>
+              <div class="m-btn">Disconnect</div>
+            </div>
+          </div>
+          <div class="m-card" style="flex:1;">
+            <div class="m-card-h">News</div>
+            <div style="padding:10px 11px;display:flex;flex-direction:column;gap:7px;">
+              <div style="height:9px;background:var(--surface2);border-radius:4px;width:90%"></div>
+              <div style="height:9px;background:var(--surface2);border-radius:4px;width:70%"></div>
+              <div style="height:1px;background:var(--border);margin:2px 0"></div>
+              <div style="height:9px;background:var(--surface2);border-radius:4px;width:85%"></div>
+              <div style="height:9px;background:var(--surface2);border-radius:4px;width:60%"></div>
+            </div>
+          </div>
+        </div>
+        <!-- Right panel -->
+        <div class="mockup-right">
+          <div class="m-tabs">
+            <div class="m-tab active">Heart</div>
+            <div class="m-tab">Font</div>
+            <div class="m-tab">Layout</div>
+            <div class="m-tab">Zones</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;flex:1;">
+            <div style="display:flex;gap:8px;">
+              <div style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;">
+                <div style="font-size:9px;color:var(--text-dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Animation</div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:10px;color:var(--text);">Pulse</div>
+              </div>
+              <div style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;">
+                <div style="font-size:9px;color:var(--text-dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Color</div>
+                <div style="width:28px;height:22px;border-radius:5px;background:#2563eb;border:1px solid var(--border);"></div>
+              </div>
+            </div>
+            <div class="m-preview-box" style="flex:1">
+              <div class="m-widget">
+                <div class="m-widget-heart">
+                  <svg viewBox="0 0 32 32" width="32" height="32" fill="#ef4444">
+                    <path d="M16 28S3 19 3 10A7 7 0 0 1 16 7 7 7 0 0 1 29 10C29 19 16 28 16 28z"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="m-widget-num">98</div>
+                  <div class="m-widget-label">BPM</div>
+                </div>
+              </div>
+            </div>
+            <div class="m-graph" style="height:44px;">
+              <svg width="100%" height="100%" viewBox="0 0 400 44" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="gfill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#2563eb" stop-opacity=".35"/>
+                    <stop offset="100%" stop-color="#2563eb" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <path d="M0,38 L30,32 L60,35 L90,28 L120,30 L150,24 L180,27 L210,20 L240,22 L270,18 L300,15 L330,18 L360,12 L400,10 L400,44 L0,44Z" fill="url(#gfill)"/>
+                <path d="M0,38 L30,32 L60,35 L90,28 L120,30 L150,24 L180,27 L210,20 L240,22 L270,18 L300,15 L330,18 L360,12 L400,10" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating overlay chip -->
+    <div class="overlay-float">
+      <div class="ov-heart">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="#ef4444">
+          <path d="M12 21S2 14 2 7.5A5.5 5.5 0 0 1 12 5a5.5 5.5 0 0 1 10 2.5C22 14 12 21 12 21z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="ov-num">98</div>
+        <div class="ov-label">BPM · Live</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Platforms -->
+  <div class="platforms">
+    <div class="platform-pill">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+      macOS
+    </div>
+    <div class="platform-pill">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+      Windows
+    </div>
+    <div class="platform-pill">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00.11.403c.434.44 1.046.56 1.64.67.242.047.484.093.72.183.476.181.894.501 1.18 1.08.166.333.222.683.167.983a2.05 2.05 0 01-.084.41c.01-.023.018-.051.032-.071.07-.086.176-.149.325-.195a.854.854 0 01.48-.013c.174.052.332.145.425.275.074.106.127.247.125.458-.001.07-.01.137-.028.2a.4.4 0 01.44-.197c.21.037.378.18.486.359.072.117.115.253.11.408a.463.463 0 01-.012.094 1.08 1.08 0 01.417.12c.207.12.337.324.348.592.01.238-.094.41-.222.541-.118.12-.27.209-.42.292 0 .014.001.029.002.044.02.369-.1.64-.318.832-.215.189-.513.285-.82.279-.013 0-.025-.004-.038-.004a2.06 2.06 0 01-.58-.078c-.264-.072-.52-.19-.72-.34a2.23 2.23 0 01-.297-.295c-.162.107-.35.178-.538.22a1.74 1.74 0 01-.66.02c-.447-.073-.893-.312-1.213-.77-.168-.24-.267-.516-.295-.793-.027-.26.002-.516.084-.743a1.72 1.72 0 01-.12-.287c-.076-.225-.087-.464-.012-.684.13-.387.453-.598.795-.666.065-.013.13-.02.196-.022a2.4 2.4 0 01-.094-.47 2.65 2.65 0 01.024-.795 3.24 3.24 0 01.15-.53 4.2 4.2 0 01-1.063-.374C.9 17.08.203 16.28.02 15.273c-.18-.987.062-2.09.536-3.077.45-.94 1.076-1.774 1.604-2.55.463-.68.86-1.336 1.065-2.082.217-.797.17-1.658.228-2.52C3.544 3.33 4.947.5 8.236.025c.24-.033.48-.047.713-.04.24.007.475.032.698.07C10.756.268 11.777.72 12.5 1.383c.725-.665 1.746-1.118 2.856-1.33.222-.04.458-.063.698-.07.233-.007.473.007.713.04C19.056.5 20.46 3.33 20.547 5.044c.058.862.01 1.723.228 2.52.205.746.602 1.402 1.065 2.082.528.776 1.154 1.61 1.604 2.55.474.987.716 2.09.536 3.077-.183 1.007-.88 1.807-1.848 2.286a4.2 4.2 0 01-1.063.374c.07.166.116.343.15.53.061.262.072.527.024.795a2.4 2.4 0 01-.094.47c.066.002.131.009.196.022.342.068.665.279.795.666.075.22.064.459-.012.684a1.72 1.72 0 01-.12.287c.082.227.111.483.084.743-.028.277-.127.553-.295.793-.32.458-.766.697-1.213.77a1.74 1.74 0 01-.66-.02 1.56 1.56 0 01-.538-.22c-.09.11-.188.21-.297.295-.2.15-.456.268-.72.34a2.06 2.06 0 01-.58.078c-.013 0-.025.004-.038.004-.307.006-.605-.09-.82-.279-.218-.192-.338-.463-.318-.832.001-.015.002-.03.002-.044a1.95 1.95 0 01-.42-.292c-.128-.131-.232-.303-.222-.541.011-.268.141-.472.348-.592.136-.079.278-.108.417-.12a.463.463 0 01-.012-.094c-.005-.155.038-.291.11-.408.108-.179.276-.322.486-.359a.4.4 0 01.44.197.93.93 0 01-.028-.2c-.002-.211.051-.352.125-.458.093-.13.251-.223.425-.275a.854.854 0 01.48.013c.149.046.255.109.325.195.014.02.022.048.032.071a2.05 2.05 0 01-.084-.41c-.055-.3.001-.65.167-.983.286-.579.704-.899 1.18-1.08.236-.09.478-.136.72-.183.594-.11 1.206-.23 1.64-.67a.424.424 0 00.11-.403c.123-.805-.01-1.657-.287-2.489-.589-1.771-1.831-3.47-2.716-4.521-.75-1.067-.974-1.928-1.05-3.02-.065-1.491 1.056-5.965-3.17-6.298A5.42 5.42 0 0012.504 0z"/></svg>
+      Linux
+    </div>
+    <div class="platform-pill free">Free &amp; Open Source</div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="container">
+    <div class="section-header-center fade">
+      <span class="section-label">Features</span>
+      <h2 class="section-title">Built for streamers and athletes.</h2>
+      <p class="section-sub">Every feature is intentional. Nothing bloated, nothing missing.</p>
+    </div>
+    <div class="features-grid fade">
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 17S2 12 2 7a4 4 0 018-1.5A4 4 0 0118 7c0 5-8 10-8 10z"/>
+          </svg>
+        </div>
+        <h3>Live BPM Overlay</h3>
+        <p>A floating, always-on-top widget showing your real-time heart rate from HypeRate. Stays above any app — games, OBS, browser, anything.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="10" r="8"/><path d="M10 6v4l3 2"/>
+          </svg>
+        </div>
+        <h3>Heart Rate Zones</h3>
+        <p>Define custom BPM zones with individual colors. The overlay color transitions automatically as you move between zones during your session.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="2,14 6,8 9,11 12,5 16,9 18,6"/><path d="M2,17h16"/>
+          </svg>
+        </div>
+        <h3>BPM History Graph</h3>
+        <p>A live chart tracks your heart rate over time in the settings panel. See your effort curve at a glance — no external tool needed.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="10" r="2"/><path d="M10 2v2m0 12v2M2 10h2m12 0h2m-3.2-6.8-1.4 1.4M4.6 15.4l1.4-1.4m9.4 1.4-1.4-1.4M4.6 4.6l1.4 1.4"/>
+          </svg>
+        </div>
+        <h3>Full Customization</h3>
+        <p>Heart style, animation, color, glow, font (including all system fonts), layout, background, and border radius — all configurable in real time.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="16" height="11" rx="2"/><path d="M7 18h6M10 14v4"/>
+          </svg>
+        </div>
+        <h3>Menu Bar BPM</h3>
+        <p>On macOS, your live BPM appears right next to the tray icon — always visible without the overlay consuming any game screen space.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="5" height="5" rx="1"/><rect x="12" y="4" width="5" height="5" rx="1"/><rect x="3" y="11" width="5" height="5" rx="1"/><path d="M12 13.5h5M14.5 11v5"/>
+          </svg>
+        </div>
+        <h3>Global Hotkey</h3>
+        <p>Press <span style="font-family:'Space Mono',monospace;font-size:11px;background:var(--surface2);padding:2px 6px;border-radius:4px;border:1px solid var(--border)">⌃⇧H</span> from anywhere to instantly show or hide the overlay — no window switching required.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="10" r="8"/><path d="M7 10l2 2 4-4"/>
+          </svg>
+        </div>
+        <h3>Auto Update Check</h3>
+        <p>On launch, the app silently checks for new releases and shows a badge when an update is available. Always stay on the latest build.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h12v8a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/><path d="M8 18h4M10 14v4"/><path d="M4 8h12"/>
+          </svg>
+        </div>
+        <h3>English &amp; German</h3>
+        <p>Full UI localization in English and German. Switch instantly from the title bar — labels, status messages, and the tray menu all update live.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 2L2 6v4c0 5 4 8 8 9 4-1 8-4 8-9V6L10 2z"/>
+          </svg>
+        </div>
+        <h3>Launch at Startup</h3>
+        <p>Enable once and forget. HypeRate Desktop registers with your OS login items so it's running before you even open a game or start a stream.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how" class="how-bg">
+  <div class="container">
+    <div class="section-header-center fade">
+      <span class="section-label">Setup</span>
+      <h2 class="section-title">Running in under a minute.</h2>
+      <p class="section-sub">No account creation, no configuration files, no complexity.</p>
+    </div>
+    <div class="steps fade">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h3>Install the app</h3>
+        <p>Download the installer for your platform and run it. The app lives quietly in your system tray — no Dock clutter, no taskbar entry.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h3>Enter Session ID</h3>
+        <p>Open settings, paste your HypeRate Session ID from the HypeRate app, and hit Connect. The connection is instant.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h3>Show Overlay</h3>
+        <p>Click Show Overlay. A floating widget appears — drag it anywhere on your screen. It stays above every other window.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <h3>Stream &amp; Play</h3>
+        <p>Your heart rate is live. Your viewers see it. Customize the look to match your stream layout, then go.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CUSTOMIZE -->
+<section id="customize">
+  <div class="container">
+    <div class="custom-grid fade">
+      <div>
+        <span class="section-label">Customization</span>
+        <h2 class="section-title">Make it yours.</h2>
+        <p class="section-sub">Every aspect of the overlay is tunable. Match it to your stream design, game HUD, or personal style.</p>
+        <div class="custom-options">
+          <div class="custom-option">
+            <div class="custom-option-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 13.5S1.5 9 1.5 5a3.5 3.5 0 017-1 3.5 3.5 0 017 1C15.5 9 8 13.5 8 13.5z"/>
+              </svg>
+            </div>
+            <div>
+              <h4>Heart Styles &amp; Animations</h4>
+              <p>Filled, outlined, or emoji heart — with pulse, beat, bounce, shake, or glow animation.</p>
+            </div>
+          </div>
+          <div class="custom-option">
+            <div class="custom-option-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="8" cy="8" r="3"/><path d="M8 1v2m0 10v2M1 8h2m10 0h2m-2.6-4.4-1.4 1.4M4 12l1.4-1.4M4 4l1.4 1.4m6.6 6.6-1.4-1.4"/>
+              </svg>
+            </div>
+            <div>
+              <h4>Colors &amp; Glow</h4>
+              <p>Individual color pickers for heart, BPM text, label, background, and glow effects. Full hex input supported.</p>
+            </div>
+          </div>
+          <div class="custom-option">
+            <div class="custom-option-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 4h12M2 8h8M2 12h5"/><rect x="11" y="7" width="3" height="7" rx="1"/>
+              </svg>
+            </div>
+            <div>
+              <h4>Fonts — Including System Fonts</h4>
+              <p>Choose from presets (mono, serif, rounded, display) or use any font currently installed on your machine.</p>
+            </div>
+          </div>
+          <div class="custom-option">
+            <div class="custom-option-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1" y="1" width="14" height="14" rx="3"/><path d="M5 8h6M8 5v6"/>
+              </svg>
+            </div>
+            <div>
+              <h4>Layout &amp; Background</h4>
+              <p>Horizontal or vertical layout. Transparent, blurred, or solid background. Adjustable corner radius and optional border.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="widget-showcase">
+          <div class="ws-header">Preview — overlay variants</div>
+          <div class="ws-body">
+            <!-- Variant 1: Blue default -->
+            <div class="ws-widget">
+              <div class="ws-heart">
+                <svg viewBox="0 0 24 24" fill="#ef4444" width="26" height="26">
+                  <path d="M12 20.5S2 14 2 7.5A5.5 5.5 0 0112 5a5.5 5.5 0 0110 2.5C22 14 12 20.5 12 20.5z"/>
+                </svg>
+              </div>
+              <div>
+                <div class="ws-bpm" style="color:var(--text)">98 <span style="font-size:13px;font-weight:400;color:var(--text-dim)">BPM</span></div>
+                <div class="ws-lbl">Default · Blue · Pulse</div>
+              </div>
+            </div>
+            <!-- Variant 2: Red high zone -->
+            <div class="ws-widget">
+              <div class="ws-heart">
+                <svg viewBox="0 0 24 24" fill="#ef4444" width="26" height="26">
+                  <path d="M12 20.5S2 14 2 7.5A5.5 5.5 0 0112 5a5.5 5.5 0 0110 2.5C22 14 12 20.5 12 20.5z"/>
+                </svg>
+              </div>
+              <div>
+                <div class="ws-bpm" style="color:#ef4444">158 <span style="font-size:13px;font-weight:400;color:var(--text-dim)">BPM</span></div>
+                <div class="ws-lbl">High Zone · Red · Glow</div>
+              </div>
+            </div>
+            <!-- Variant 3: Green low zone vertical -->
+            <div class="ws-widget" style="flex-direction:column;align-items:flex-start;gap:6px">
+              <div style="font-size:9px;color:var(--text-dim);letter-spacing:.12em;text-transform:uppercase">Heart Rate</div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <svg viewBox="0 0 24 24" fill="#22c55e" width="22" height="22">
+                  <path d="M12 20.5S2 14 2 7.5A5.5 5.5 0 0112 5a5.5 5.5 0 0110 2.5C22 14 12 20.5 12 20.5z"/>
+                </svg>
+                <div class="ws-bpm" style="color:#22c55e;font-size:24px">72 <span style="font-size:12px;font-weight:400;color:var(--text-dim)">BPM</span></div>
+              </div>
+              <div class="ws-zones">
+                <div class="ws-zone" style="background:#22c55e;opacity:.9"></div>
+                <div class="ws-zone" style="background:var(--surface2)"></div>
+                <div class="ws-zone" style="background:var(--surface2)"></div>
+              </div>
+            </div>
+          </div>
+          <div class="ws-footer">
+            <div class="ws-zone-pill"><div class="ws-zone-dot" style="background:#22c55e"></div>Low · 0–99</div>
+            <div class="ws-zone-pill"><div class="ws-zone-dot" style="background:#f59e0b"></div>Mid · 100–139</div>
+            <div class="ws-zone-pill"><div class="ws-zone-dot" style="background:#ef4444"></div>High · 140+</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DOWNLOAD -->
+<section id="download" class="dl-bg">
+  <div class="container">
+    <div class="section-header-center fade">
+      <span class="section-label">Download</span>
+      <h2 class="section-title">Free for everyone, forever.</h2>
+      <p class="section-sub">No subscription, no login required, no telemetry. Just download and run.</p>
+    </div>
+    <div class="download-grid fade">
+
+      <div class="download-card">
+        <div class="dl-os-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+        </div>
+        <h3>macOS</h3>
+        <p class="dl-sub">Apple Silicon &amp; Intel · macOS 12+</p>
+        <a class="dl-btn" href="#">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v8M4 6l3 3 3-3M1 12h12"/></svg>
+          Apple Silicon (arm64)
+        </a>
+        <a class="dl-btn-ghost" href="#">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v8M4 6l3 3 3-3M1 12h12"/></svg>
+          Intel (x64)
+        </a>
+      </div>
+
+      <div class="download-card">
+        <div class="dl-os-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+        </div>
+        <h3>Windows</h3>
+        <p class="dl-sub">64-bit installer · Windows 10 / 11</p>
+        <a class="dl-btn" href="#">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v8M4 6l3 3 3-3M1 12h12"/></svg>
+          Download Installer
+        </a>
+      </div>
+
+      <div class="download-card">
+        <div class="dl-os-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00.11.403c.434.44 1.046.56 1.64.67.242.047.484.093.72.183.476.181.894.501 1.18 1.08.166.333.222.683.167.983a2.05 2.05 0 01-.084.41c.01-.023.018-.051.032-.071.07-.086.176-.149.325-.195a.854.854 0 01.48-.013c.174.052.332.145.425.275.074.106.127.247.125.458-.001.07-.01.137-.028.2a.4.4 0 01.44-.197c.21.037.378.18.486.359.072.117.115.253.11.408a.463.463 0 01-.012.094 1.08 1.08 0 01.417.12c.207.12.337.324.348.592.01.238-.094.41-.222.541-.118.12-.27.209-.42.292 0 .014.001.029.002.044.02.369-.1.64-.318.832-.215.189-.513.285-.82.279-.013 0-.025-.004-.038-.004a2.06 2.06 0 01-.58-.078c-.264-.072-.52-.19-.72-.34a2.23 2.23 0 01-.297-.295c-.162.107-.35.178-.538.22a1.74 1.74 0 01-.66.02c-.447-.073-.893-.312-1.213-.77-.168-.24-.267-.516-.295-.793-.027-.26.002-.516.084-.743a1.72 1.72 0 01-.12-.287c-.076-.225-.087-.464-.012-.684.13-.387.453-.598.795-.666.065-.013.13-.02.196-.022a2.4 2.4 0 01-.094-.47 2.65 2.65 0 01.024-.795 3.24 3.24 0 01.15-.53 4.2 4.2 0 01-1.063-.374C.9 17.08.203 16.28.02 15.273c-.18-.987.062-2.09.536-3.077.45-.94 1.076-1.774 1.604-2.55.463-.68.86-1.336 1.065-2.082.217-.797.17-1.658.228-2.52C3.544 3.33 4.947.5 8.236.025c.24-.033.48-.047.713-.04.24.007.475.032.698.07C10.756.268 11.777.72 12.5 1.383c.725-.665 1.746-1.118 2.856-1.33.222-.04.458-.063.698-.07.233-.007.473.007.713.04C19.056.5 20.46 3.33 20.547 5.044c.058.862.01 1.723.228 2.52.205.746.602 1.402 1.065 2.082.528.776 1.154 1.61 1.604 2.55.474.987.716 2.09.536 3.077-.183 1.007-.88 1.807-1.848 2.286a4.2 4.2 0 01-1.063.374c.07.166.116.343.15.53.061.262.072.527.024.795a2.4 2.4 0 01-.094.47c.066.002.131.009.196.022.342.068.665.279.795.666.075.22.064.459-.012.684a1.72 1.72 0 01-.12.287c.082.227.111.483.084.743-.028.277-.127.553-.295.793-.32.458-.766.697-1.213.77a1.74 1.74 0 01-.66-.02 1.56 1.56 0 01-.538-.22c-.09.11-.188.21-.297.295-.2.15-.456.268-.72.34a2.06 2.06 0 01-.58.078c-.013 0-.025.004-.038.004-.307.006-.605-.09-.82-.279-.218-.192-.338-.463-.318-.832.001-.015.002-.03.002-.044a1.95 1.95 0 01-.42-.292c-.128-.131-.232-.303-.222-.541.011-.268.141-.472.348-.592.136-.079.278-.108.417-.12a.463.463 0 01-.012-.094c-.005-.155.038-.291.11-.408.108-.179.276-.322.486-.359a.4.4 0 01.44.197.93.93 0 01-.028-.2c-.002-.211.051-.352.125-.458.093-.13.251-.223.425-.275a.854.854 0 01.48.013c.149.046.255.109.325.195.014.02.022.048.032.071a2.05 2.05 0 01-.084-.41c-.055-.3.001-.65.167-.983.286-.579.704-.899 1.18-1.08.236-.09.478-.136.72-.183.594-.11 1.206-.23 1.64-.67a.424.424 0 00.11-.403c.123-.805-.01-1.657-.287-2.489-.589-1.771-1.831-3.47-2.716-4.521-.75-1.067-.974-1.928-1.05-3.02-.065-1.491 1.056-5.965-3.17-6.298A5.42 5.42 0 0012.504 0z"/></svg>
+        </div>
+        <h3>Linux</h3>
+        <p class="dl-sub">AppImage &amp; .deb · x64</p>
+        <a class="dl-btn" href="#">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v8M4 6l3 3 3-3M1 12h12"/></svg>
+          Download AppImage
+        </a>
+        <a class="dl-btn-ghost" href="#">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v8M4 6l3 3 3-3M1 12h12"/></svg>
+          Download .deb
+        </a>
+      </div>
+
+    </div>
+    <p class="dl-note fade">
+      Free and open source &mdash; <a href="https://github.com/alexholzreiter/HypeRate-Desktop-V2">view source on GitHub</a> &nbsp;·&nbsp; Requires a <a href="https://hyperate.io">HypeRate</a> account to stream heart rate data.
+    </p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<div class="footer-wrap">
+  <footer>
+    <a class="footer-logo" href="#">
+      <img src="data:image/png;base64,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" alt="HypeRate Desktop" style="width:22px;height:22px;border-radius:6px;object-fit:cover;">
+      HypeRate Desktop
+    </a>
+    <div class="footer-links">
+      <a href="https://hyperate.io">hyperate.io</a>
+      <a href="https://github.com/alexholzreiter/HypeRate-Desktop-V2">GitHub</a>
+      <a href="https://feedback.hyperate.io/form/iHnGf9vp">Feedback</a>
+    </div>
+    <span class="footer-copy">&copy; 2026 HypeRate Desktop</span>
+  </footer>
+</div>
+
+<script>
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.fade').forEach(el => io.observe(el));
+</script>
+</body>
+</html>

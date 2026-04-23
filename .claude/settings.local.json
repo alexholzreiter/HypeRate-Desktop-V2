@@ -13,7 +13,12 @@
       "Bash(pip3 install *)",
       "Bash(python3 -c \"from PIL import Image; print\\('PIL installiert'\\)\")",
       "Bash(python3)",
-      "Bash(sips -g pixelWidth -g pixelHeight -g format /Users/anygood/Documents/GitHub/HypeRate-Desktop-V2/assets/tray-icon.png)"
+      "Bash(sips -g pixelWidth -g pixelHeight -g format /Users/anygood/Documents/GitHub/HypeRate-Desktop-V2/assets/tray-icon.png)",
+      "Bash(sips -z 64 64 /Users/anygood/Documents/GitHub/HypeRate-Desktop-V2/landing/icon.png --out /tmp/icon_64.png)",
+      "Bash(python3 -c ' *)",
+      "Read(//tmp/**)",
+      "Bash(python3 -c \"from PIL import Image, ImageDraw, ImageFont; print\\('PIL ok'\\)\")",
+      "Bash(fc-list)"
     ]
   }
 }

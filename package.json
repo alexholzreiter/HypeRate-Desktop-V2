@@ -1,7 +1,7 @@
 {
   "name": "hyperate-overlay",
   "version": "1.0.0",
-  "productName": "HypeRate Overlay",
+  "productName": "HypeRate Desktop",
   "description": "In-game heart rate overlay powered by HypeRate",
   "author": "Your Name",
   "main": "src/main.js",
@@ -21,7 +21,7 @@
   },
   "build": {
     "appId": "com.yourname.hyperate-overlay",
-    "productName": "HypeRate Overlay",
+    "productName": "HypeRate Desktop",
     "directories": { "output": "dist" },
     "win": {
       "target": "nsis",

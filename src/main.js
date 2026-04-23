@@ -35,7 +35,7 @@ function createSettingsWindow() {
     skipTaskbar: process.platform === 'win32', // Windows: only live in tray
     webPreferences:{ nodeIntegration:false, contextIsolation:true, preload:path.join(__dirname,'preload.js') },
     icon: path.join(__dirname,'../assets/icon.png'),
-    title:'HypeRate Overlay',
+    title:'HypeRate Desktop',
   });
   settingsWindow.loadFile(path.join(__dirname,'windows/settings/index.html'));
 
@@ -101,7 +101,7 @@ function createTray() {
   }
 
   tray = new Tray(img);
-  tray.setToolTip('HypeRate Overlay');
+  tray.setToolTip('HypeRate Desktop');
 
   tray.setContextMenu(buildMenu());
 
@@ -158,7 +158,7 @@ function createFtueWindow() {
     backgroundColor:'#080810', resizable:true, minHeight:600,
     webPreferences:{ nodeIntegration:false, contextIsolation:true, preload:path.join(__dirname,'preload.js') },
     icon: path.join(__dirname,'../assets/icon.png'),
-    title:'Welcome to HypeRate Overlay',
+    title:'Welcome to HypeRate Desktop',
     parent: settingsWindow, modal:false,
   });
   ftueWindow.loadFile(path.join(__dirname,'windows/ftue/index.html'));

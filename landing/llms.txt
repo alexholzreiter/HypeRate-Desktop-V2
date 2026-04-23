@@ -1,0 +1,51 @@
+# HypeRate Desktop
+
+> A free, native desktop application that displays live heart rate data as a floating overlay on your screen. Built for streamers, gamers, and athletes. Powered by HypeRate.
+
+## What it is
+
+HypeRate Desktop is a lightweight Electron-based app for macOS, Windows, and Linux. It connects to your HypeRate account via WebSocket and shows your real-time BPM (beats per minute) as a transparent, always-on-top floating widget that stays visible over any application — games, OBS, browsers, or anything else.
+
+## Key Features
+
+- **Live BPM Overlay**: Floating widget, always on top, transparent background, draggable anywhere on screen
+- **Heart Rate Zones**: Define custom BPM zones (e.g. Low 0–99, Mid 100–139, High 140+) with individual colors that change the overlay automatically
+- **BPM History Graph**: Live chart in the settings panel showing heart rate over time
+- **Full Customization**: Heart style (filled, outlined, emoji), animations (pulse, beat, bounce, shake, glow), colors, fonts (including all system fonts), background, border radius, layout (horizontal/vertical)
+- **Menu Bar BPM (macOS)**: Live BPM displayed next to the tray icon in the macOS menu bar
+- **Global Hotkey**: Ctrl+Shift+H (or Cmd+Shift+H on Mac) toggles the overlay from anywhere
+- **Auto Update Check**: Checks GitHub Releases on launch and shows a badge when an update is available
+- **Launch at Startup**: Registers with OS login items so it starts automatically
+- **Multilingual**: Full English and German UI, switchable instantly
+- **Tray-first**: Lives in the system tray, no Dock entry (macOS), no Taskbar entry (Windows)
+
+## Platforms
+
+- macOS (Apple Silicon arm64 + Intel x64), macOS 12+
+- Windows 10 / 11 (64-bit), NSIS installer
+- Linux (AppImage + .deb, x64)
+
+## Pricing
+
+Free. No subscription. No account required beyond a HypeRate account for heart rate data.
+
+## How it works
+
+1. Download and install HypeRate Desktop for your platform
+2. Open settings, enter your HypeRate Session ID
+3. Click "Show Overlay" — the floating widget appears
+4. Drag it anywhere on screen, customize appearance, start streaming or gaming
+
+## Technical details
+
+- Built with Electron 28, Node.js, WebSocket (ws library)
+- Settings persisted locally in JSON (no cloud sync, no telemetry)
+- WebSocket connection to wss://app.hyperate.io
+- Heart rate data received via HypeRate Phoenix channel protocol
+
+## Links
+
+- Website: https://desktop.hyperate.io
+- HypeRate platform: https://hyperate.io
+- Source code: https://github.com/alexholzreiter/HypeRate-Desktop-V2
+- Feedback: https://feedback.hyperate.io/form/iHnGf9vp
