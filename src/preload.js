@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSystemFonts: ()     => ipcRenderer.invoke('get-system-fonts'),
   openExternal:   (url)  => ipcRenderer.send('open-external', url),
   fetchNews:      ()     => ipcRenderer.invoke('fetch-news'),
+  checkUpdate:    ()     => ipcRenderer.invoke('check-update'),
 
   onWsStatus:        (cb) => ipcRenderer.on('ws-status',        (_, d) => cb(d)),
   onBpmUpdate:       (cb) => ipcRenderer.on('bpm-update',       (_, d) => cb(d)),

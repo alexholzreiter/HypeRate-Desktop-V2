@@ -22,7 +22,6 @@
   "build": {
     "appId": "com.yourname.hyperate-overlay",
     "productName": "HypeRate Overlay",
-    "icon": "assets/icon.png",
     "directories": { "output": "dist" },
     "win": {
       "target": "nsis",
@@ -36,7 +35,7 @@
       "target": [
         { "target": "dmg", "arch": ["x64", "arm64"] }
       ],
-      "icon": "assets/icon.png",
+      "icon": "assets/icon.icns",
       "category": "public.app-category.utilities"
     },
     "dmg": {

@@ -6,7 +6,14 @@
       "Bash(sips -g pixelWidth -g pixelHeight /Users/anygood/Documents/GitHub/HypeRate-Desktop-V2/assets/icon.png)",
       "Bash(sips -z 512 512 /Users/anygood/Documents/GitHub/HypeRate-Desktop-V2/assets/icon.png --out /Users/anygood/Documents/GitHub/HypeRate-Desktop-V2/assets/icon.png)",
       "Bash(wait)",
-      "WebFetch(domain:blog.hyperate.io)"
+      "WebFetch(domain:blog.hyperate.io)",
+      "Bash(sips -g pixelWidth -g pixelHeight -g format /Users/anygood/Documents/GitHub/HypeRate-Desktop-V2/assets/icon.png)",
+      "Bash(convert --version)",
+      "Bash(python3 -c \"from PIL import Image; print\\('PIL ok'\\)\")",
+      "Bash(pip3 install *)",
+      "Bash(python3 -c \"from PIL import Image; print\\('PIL installiert'\\)\")",
+      "Bash(python3)",
+      "Bash(sips -g pixelWidth -g pixelHeight -g format /Users/anygood/Documents/GitHub/HypeRate-Desktop-V2/assets/tray-icon.png)"
     ]
   }
 }

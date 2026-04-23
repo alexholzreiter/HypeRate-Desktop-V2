@@ -16,6 +16,7 @@ let overlayWindow      = null;
 let ftueWindow         = null;
 let tray               = null;
 let overlayMoveAllowed = false; // guards will-move: only our setPosition calls are allowed
+let showBpmInTray      = loadStore().showBpmInTray !== false; // default true
 
 // ── DPI helper ──
 function scaleFactor() {
@@ -29,7 +30,7 @@ function workArea() {
 // ── Settings window ──
 function createSettingsWindow() {
   settingsWindow = new BrowserWindow({
-    width:820, height:560, minWidth:760, minHeight:500,
+    width:820, height:870, minWidth:760, minHeight:780,
     frame:false, transparent:false, backgroundColor:'#080810',
     skipTaskbar: process.platform === 'win32', // Windows: only live in tray
     webPreferences:{ nodeIntegration:false, contextIsolation:true, preload:path.join(__dirname,'preload.js') },
@@ -48,42 +49,59 @@ function createSettingsWindow() {
 }
 
 // ── Tray / Menu-bar icon ──
+const TRAY_LABELS = {
+  en: { settings:'Open Settings', overlayHide:'Hide Overlay', overlayShow:'Show Overlay', bpmHide:'Hide BPM in menu bar', bpmShow:'Show BPM in menu bar', quit:'Quit' },
+  de: { settings:'Einstellungen öffnen', overlayHide:'Overlay verstecken', overlayShow:'Overlay anzeigen', bpmHide:'BPM in Menüleiste ausblenden', bpmShow:'BPM in Menüleiste anzeigen', quit:'Beenden' },
+};
+function tl(key) { const lang = loadStore().lang || 'en'; return (TRAY_LABELS[lang] || TRAY_LABELS.en)[key]; }
+
+function buildMenu() {
+  return Menu.buildFromTemplate([
+    {
+      label: tl('settings'),
+      click: () => { settingsWindow?.show(); settingsWindow?.focus(); },
+    },
+    {
+      label: overlayWindow?.isVisible() ? tl('overlayHide') : tl('overlayShow'),
+      enabled: !!overlayWindow,
+      click: () => {
+        if (!overlayWindow) return;
+        overlayWindow.isVisible() ? overlayWindow.hide() : overlayWindow.show();
+        tray.setContextMenu(buildMenu());
+      },
+    },
+    {
+      label: showBpmInTray ? tl('bpmHide') : tl('bpmShow'),
+      click: () => {
+        showBpmInTray = !showBpmInTray;
+        const store = loadStore(); store.showBpmInTray = showBpmInTray; saveStore(store);
+        if (!showBpmInTray) tray.setTitle('');
+        tray.setContextMenu(buildMenu());
+      },
+    },
+    { type: 'separator' },
+    {
+      label: tl('quit'),
+      click: () => { app.isQuitting = true; app.quit(); },
+    },
+  ]);
+}
+
 function createTray() {
-  const iconPath = path.join(__dirname, '../assets/icon.png');
+  const iconPath = process.platform === 'darwin'
+    ? path.join(__dirname, '../assets/tray-icon.png')
+    : path.join(__dirname, '../assets/icon.png');
 
   let img = nativeImage.createFromPath(iconPath);
   if (process.platform === 'darwin') {
-    img = img.resize({ width: 16, height: 16 });
-    img.setTemplateImage(true); // adapts to light/dark menu bar automatically
+    img = img.resize({ width: 18, height: 18 });
+    img.setTemplateImage(true);
   } else {
     img = img.resize({ width: 32, height: 32 });
   }
 
   tray = new Tray(img);
   tray.setToolTip('HypeRate Overlay');
-
-  function buildMenu() {
-    return Menu.buildFromTemplate([
-      {
-        label: 'Einstellungen öffnen',
-        click: () => { settingsWindow?.show(); settingsWindow?.focus(); },
-      },
-      {
-        label: overlayWindow?.isVisible() ? 'Overlay verstecken' : 'Overlay anzeigen',
-        enabled: !!overlayWindow,
-        click: () => {
-          if (!overlayWindow) return;
-          overlayWindow.isVisible() ? overlayWindow.hide() : overlayWindow.show();
-          tray.setContextMenu(buildMenu());
-        },
-      },
-      { type: 'separator' },
-      {
-        label: 'Beenden',
-        click: () => { app.isQuitting = true; app.quit(); },
-      },
-    ]);
-  }
 
   tray.setContextMenu(buildMenu());
 
@@ -178,6 +196,7 @@ function wsConnect(sessionId) {
         const val = Number(bpm);
         sendToSettings('bpm-update', { bpm: val });
         sendToOverlay('heart-rate-update', { bpm: val });
+        if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle(` ${val}`);
       }
     }
   });
@@ -192,6 +211,7 @@ function wsConnect(sessionId) {
 function wsDisconnect() {
   clearInterval(heartbeatInt); heartbeatInt = null;
   if (ws) { try { ws.terminate(); } catch {} ws = null; }
+  if (process.platform === 'darwin' && tray) tray.setTitle('');
 }
 
 function sendToSettings(ch, d) { if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.webContents.send(ch, d); }
@@ -275,12 +295,46 @@ ipcMain.on('overlay-move', (_, { x, y }) => {
 ipcMain.handle('load-settings', () => ({ ...loadStore(), version: VERSION, scaleFactor: scaleFactor() }));
 ipcMain.on('save-settings', (_, data) => {
   const store = loadStore(); Object.assign(store, data); saveStore(store);
+  if (data.lang && tray) tray.setContextMenu(buildMenu());
 });
 
 ipcMain.handle('get-autostart', () => app.getLoginItemSettings().openAtLogin);
 ipcMain.on('set-autostart', (_, enable) => app.setLoginItemSettings({ openAtLogin: !!enable }));
 
 ipcMain.handle('get-system-fonts', () => app.getSystemFonts());
+
+ipcMain.handle('check-update', () => new Promise((resolve) => {
+  const https = require('https');
+  const req = https.get(
+    'https://api.github.com/repos/alexholzreiter/HypeRate-Desktop-V2/releases/latest',
+    { headers: { 'User-Agent': 'HypeRate-Overlay/' + VERSION } },
+    (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const release = JSON.parse(data);
+          const latest = (release.tag_name || '').replace(/^v/, '');
+          const current = VERSION;
+          const hasUpdate = latest && latest !== current && isNewer(latest, current);
+          resolve({ hasUpdate, latestVersion: latest, downloadUrl: release.html_url || '' });
+        } catch { resolve({ hasUpdate: false }); }
+      });
+    }
+  );
+  req.on('error', () => resolve({ hasUpdate: false }));
+  req.setTimeout(6000, () => { req.destroy(); resolve({ hasUpdate: false }); });
+}));
+
+function isNewer(latest, current) {
+  const l = latest.split('.').map(Number);
+  const c = current.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((l[i]||0) > (c[i]||0)) return true;
+    if ((l[i]||0) < (c[i]||0)) return false;
+  }
+  return false;
+}
 
 ipcMain.on('open-external', (_, url) => shell.openExternal(url));
 

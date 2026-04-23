@@ -21,7 +21,10 @@
     .tl-icon{width:26px;height:26px;border-radius:7px;overflow:hidden;flex-shrink:0;}
     .tl-icon img{width:100%;height:100%;object-fit:cover;}
     .tl-title{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--text);}
-    .tl-ctrl{display:flex;gap:6px;-webkit-app-region:no-drag;}
+    .tl-ctrl{display:flex;gap:6px;-webkit-app-region:no-drag;align-items:center;}
+    .lang-toggle{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-right:2px;}
+    .lang-btn{padding:3px 7px;font-family:'Space Mono',monospace;font-size:9px;font-weight:700;border:none;background:transparent;color:var(--text-dim);cursor:pointer;transition:all .15s;}
+    .lang-btn.active{background:var(--accent);color:#fff;}
     .wbtn{width:26px;height:26px;border:none;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--surface);color:var(--text-dim);font-size:13px;transition:all .15s;}
     .wbtn:hover{background:var(--surface2);color:var(--text);}
     .wbtn.cl:hover{background:var(--danger);color:#fff;}
@@ -86,6 +89,8 @@
     .tp.active{display:flex;}
 
     .pbox{background:#000;border:1px solid var(--border);border-radius:10px;padding:22px;display:flex;align-items:center;justify-content:center;min-height:100px;background-image:radial-gradient(circle at 50% 50%,#0d0d20 0%,#000 70%);}
+    .bpm-graph-wrap{position:relative;width:100%;height:72px;margin-top:4px;}
+    #bpmGraph{width:100%;height:100%;display:block;border-radius:8px;}
     .pw{display:flex;align-items:center;gap:13px;}
     .ph{font-size:40px;line-height:1;}
     .pn-wrap{display:flex;flex-direction:column;}
@@ -95,6 +100,8 @@
     .hint a{color:var(--accent3);text-decoration:none;}
 
     .tl-version{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);margin-left:2px;margin-top:1px;align-self:flex-end;}
+    .update-badge{display:none;align-items:center;gap:4px;padding:2px 8px;background:var(--accent);color:#fff;border-radius:20px;font-size:9px;font-weight:700;font-family:'Space Mono',monospace;cursor:pointer;margin-left:6px;border:none;transition:background .2s;-webkit-app-region:no-drag;}
+    .update-badge:hover{background:var(--accent-dim);}
     .hotkey-badge{display:flex;align-items:center;gap:6px;padding:7px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;color:var(--text-dim);}
     .hotkey-badge kbd{display:inline-block;padding:2px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text);}
     .bottom{padding:11px 14px;border-top:1px solid var(--border);display:flex;gap:9px;flex-shrink:0;}
@@ -194,8 +201,13 @@
     <div class="tl-icon"><img src="data:image/png;base64,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" alt="" /></div>
     <span class="tl-title">HYPERATE OVERLAY</span>
     <span class="tl-version" id="tlVersion">v1.0.0</span>
+    <button class="update-badge" id="updateBadge">↑ Update</button>
   </div>
   <div class="tl-ctrl">
+    <div class="lang-toggle">
+      <button class="lang-btn active" id="langEN" onclick="setLang('en')">EN</button>
+      <button class="lang-btn" id="langDE" onclick="setLang('de')">DE</button>
+    </div>
     <button class="wbtn" onclick="window.electronAPI.minimizeSettings()">─</button>
     <button class="wbtn cl" onclick="window.electronAPI.closeSettings()">✕</button>
   </div>
@@ -208,31 +220,31 @@
 
     <div class="status-bar">
       <div class="dot" id="dot"></div>
-      <span class="st-text" id="stText">Not connected</span>
+      <span class="st-text" id="stText" data-i18n="status_idle">Not connected</span>
       <span class="bpm-pill" id="bpmPill">-- BPM</span>
     </div>
 
     <div class="card">
-      <div class="ch"><span>🔗</span> Connection</div>
+      <div class="ch"><span>🔗</span> <span data-i18n="connection">Connection</span></div>
       <div class="cb">
         <div class="field">
-          <label>HypeRate Session ID</label>
+          <label data-i18n="session_id">HypeRate Session ID</label>
           <input type="text" id="hrId" placeholder="e.g. abc123" maxlength="40" />
-          <span class="hint">Find your Session ID in the HypeRate app → <a href="https://hyperate.io" target="_blank">hyperate.io</a></span>
+          <span class="hint"><span data-i18n="session_hint">Find your Session ID in the HypeRate app →</span> <a href="https://hyperate.io" target="_blank">hyperate.io</a></span>
         </div>
-        <button class="btn bp" onclick="toggleConn()"><span id="connLabel">Connect</span></button>
+        <button class="btn bp" onclick="toggleConn()"><span id="connLabel" data-i18n="connect">Connect</span></button>
       </div>
     </div>
 
     <div class="hotkey-badge">
-      <span>⌨️ Toggle overlay:</span>
+      <span>⌨️ <span data-i18n="hotkey_label">Toggle overlay:</span></span>
       <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>
     </div>
 
     <div class="card">
       <div class="cb">
         <div class="trow">
-          <span class="tl">Launch at startup</span>
+          <span class="tl" data-i18n="startup">Launch at startup</span>
           <label class="tog">
             <input type="checkbox" id="autostartToggle" onchange="window.electronAPI.setAutostart(this.checked)" />
             <span class="ts"></span>
@@ -242,9 +254,9 @@
     </div>
 
     <div class="card" id="newsCard">
-      <div class="ch"><span>📰</span> News</div>
+      <div class="ch"><span>📰</span> <span data-i18n="news">News</span></div>
       <div id="newsBody" style="display:flex;flex-direction:column;">
-        <div class="news-empty">Loading…</div>
+        <div class="news-empty" data-i18n="news_loading">Loading…</div>
       </div>
     </div>
 
@@ -254,31 +266,31 @@
   <div class="panel-right">
 
   <div class="card">
-    <div class="ch"><span>🎨</span> Customization</div>
+    <div class="ch"><span>🎨</span> <span data-i18n="customization">Customization</span></div>
     <div class="cb">
       <div class="tabs">
-        <button class="tab-btn active" onclick="tab('heart')">❤️ Heart</button>
-        <button class="tab-btn" onclick="tab('typo')">Aa Font</button>
-        <button class="tab-btn" onclick="tab('layout')">⚙️ Layout</button>
-        <button class="tab-btn" onclick="tab('zones')" id="tabBtnZones">🎯 Zones</button>
+        <button class="tab-btn active" onclick="tab('heart')">❤️ <span data-i18n="tab_heart">Heart</span></button>
+        <button class="tab-btn" onclick="tab('typo')">Aa <span data-i18n="tab_font">Font</span></button>
+        <button class="tab-btn" onclick="tab('layout')">⚙️ <span data-i18n="tab_layout">Layout</span></button>
+        <button class="tab-btn" onclick="tab('zones')" id="tabBtnZones">🎯 <span data-i18n="tab_zones">Zones</span></button>
       </div>
 
       <div class="tp active" id="tab-heart">
-        <div class="field"><label>Animation</label>
+        <div class="field"><label data-i18n="anim">Animation</label>
           <select id="heartAnim" onchange="live()"><option value="pulse">Pulse (classic)</option><option value="beat">Beat (double)</option><option value="bounce">Bounce</option><option value="shake">Shake</option><option value="glow">Glow</option><option value="none">None</option></select>
         </div>
-        <div class="field"><label>Heart Style</label>
+        <div class="field"><label data-i18n="heart_style">Heart Style</label>
           <select id="heartStyle" onchange="live()"><option value="emoji">❤️ Emoji</option><option value="outline">🫀 Outline</option><option value="filled">♥ Filled</option><option value="minimal">· Minimal dot</option></select>
         </div>
-        <div class="field"><label>Color</label>
+        <div class="field"><label data-i18n="color">Color</label>
           <div class="crow"><input type="color" id="heartColor" value="#2563eb" onchange="syncHex('heartColor','heartColorHex');live()" /><input type="text" id="heartColorHex" value="#2563eb" class="chex" oninput="syncPicker('heartColor','heartColorHex')" /></div>
         </div>
-        <div class="field"><label>Size</label>
+        <div class="field"><label data-i18n="size">Size</label>
           <div class="srow"><input type="range" id="heartSize" min="24" max="80" value="48" oninput="sv('heartSize','heartSizeV','px');live()" /><span class="sv" id="heartSizeV">48px</span></div>
         </div>
-        <div class="trow"><span class="tl">Glow effect</span><label class="tog"><input type="checkbox" id="heartGlow" checked onchange="live()" /><span class="ts"></span></label></div>
+        <div class="trow"><span class="tl" data-i18n="glow_effect">Glow effect</span><label class="tog"><input type="checkbox" id="heartGlow" checked onchange="live()" /><span class="ts"></span></label></div>
         <div class="field" id="glowColorWrap">
-          <label>Glow Color</label>
+          <label data-i18n="glow_color">Glow Color</label>
           <div class="crow">
             <input type="color" id="glowColor" value="#2563eb" onchange="syncHex('glowColor','glowColorHex');live()" />
             <input type="text" id="glowColorHex" value="#2563eb" class="chex" oninput="syncPicker('glowColor','glowColorHex')" />
@@ -287,7 +299,7 @@
       </div>
 
       <div class="tp" id="tab-typo">
-        <div class="field"><label>Font Style</label>
+        <div class="field"><label data-i18n="font_style">Font Style</label>
           <select id="fontStyle" onchange="live()">
             <optgroup label="Preset">
               <option value="mono">Space Mono</option>
@@ -306,50 +318,50 @@
           <input type="text" id="systemFontName" list="systemFontList" placeholder="Start typing a font name…" oninput="live()" />
           <datalist id="systemFontList"></datalist>
         </div>
-        <div class="field"><label>BPM Color</label>
+        <div class="field"><label data-i18n="bpm_color">BPM Color</label>
           <div class="crow"><input type="color" id="bpmColor" value="#ffffff" onchange="syncHex('bpmColor','bpmColorHex');live()" /><input type="text" id="bpmColorHex" value="#ffffff" class="chex" oninput="syncPicker('bpmColor','bpmColorHex')" /></div>
         </div>
-        <div class="field"><label>Label Color</label>
+        <div class="field"><label data-i18n="label_color">Label Color</label>
           <div class="crow"><input type="color" id="labelColor" value="#8888bb" onchange="syncHex('labelColor','labelColorHex');live()" /><input type="text" id="labelColorHex" value="#8888bb" class="chex" oninput="syncPicker('labelColor','labelColorHex')" /></div>
         </div>
-        <div class="field"><label>BPM Font Size</label>
+        <div class="field"><label data-i18n="bpm_size">BPM Font Size</label>
           <div class="srow"><input type="range" id="bpmSize" min="20" max="72" value="40" oninput="sv('bpmSize','bpmSizeV','px');live()" /><span class="sv" id="bpmSizeV">40px</span></div>
         </div>
-        <div class="field"><label>Number Animation</label>
+        <div class="field"><label data-i18n="num_anim">Number Animation</label>
           <select id="numAnim" onchange="live()"><option value="flip">Flip</option><option value="fade">Fade</option><option value="pop">Pop</option><option value="none">None</option></select>
         </div>
-        <div class="trow"><span class="tl">Text glow</span><label class="tog"><input type="checkbox" id="textGlow" checked onchange="live()" /><span class="ts"></span></label></div>
+        <div class="trow"><span class="tl" data-i18n="text_glow">Text glow</span><label class="tog"><input type="checkbox" id="textGlow" checked onchange="live()" /><span class="ts"></span></label></div>
       </div>
 
       <div class="tp" id="tab-layout">
-        <div class="field"><label>Background</label>
+        <div class="field"><label data-i18n="background">Background</label>
           <select id="bgStyle" onchange="live()"><option value="transparent">Transparent</option><option value="dark-pill" selected>Dark pill</option><option value="glass">Glassmorphism</option><option value="solid">Solid color</option><option value="gradient">Gradient</option></select>
         </div>
-        <div class="field" id="bgColorWrap" style="display:none;"><label>Background Color</label>
+        <div class="field" id="bgColorWrap" style="display:none;"><label data-i18n="bg_color">Background Color</label>
           <div class="crow"><input type="color" id="bgColor" value="#000000" onchange="syncHex('bgColor','bgColorHex');live()" /><input type="text" id="bgColorHex" value="#000000" class="chex" oninput="syncPicker('bgColor','bgColorHex')" /></div>
         </div>
-        <div class="field"><label>Background Opacity</label>
+        <div class="field"><label data-i18n="bg_opacity">Background Opacity</label>
           <div class="srow"><input type="range" id="bgOpacity" min="0" max="100" value="75" oninput="sv('bgOpacity','bgOpacityV','%');live()" /><span class="sv" id="bgOpacityV">75%</span></div>
         </div>
-        <div class="field"><label>Layout</label>
+        <div class="field"><label data-i18n="layout">Layout</label>
           <select id="layoutStyle" onchange="live()"><option value="horizontal">Horizontal</option><option value="vertical">Vertical</option><option value="compact">Compact</option></select>
         </div>
-        <div class="field"><label>Corner Radius</label>
+        <div class="field"><label data-i18n="corner_radius">Corner Radius</label>
           <div class="srow"><input type="range" id="borderRadius" min="0" max="50" value="16" oninput="sv('borderRadius','borderRadiusV','px');live()" /><span class="sv" id="borderRadiusV">16px</span></div>
         </div>
-        <div class="trow"><span class="tl">Show BPM label</span><label class="tog"><input type="checkbox" id="showLabel" checked onchange="live()" /><span class="ts"></span></label></div>
-        <div class="trow"><span class="tl">Show border</span><label class="tog"><input type="checkbox" id="showBorder" onchange="live()" /><span class="ts"></span></label></div>
+        <div class="trow"><span class="tl" data-i18n="show_label">Show BPM label</span><label class="tog"><input type="checkbox" id="showLabel" checked onchange="live()" /><span class="ts"></span></label></div>
+        <div class="trow"><span class="tl" data-i18n="show_border">Show border</span><label class="tog"><input type="checkbox" id="showBorder" onchange="live()" /><span class="ts"></span></label></div>
       </div>
 
       <!-- ── Heart Rate Zones Tab ── -->
       <div class="tp" id="tab-zones">
         <div class="zones-toggle-row">
-          <span class="zones-toggle-label">Enable zone colors</span>
+          <span class="zones-toggle-label" data-i18n="zones_enable">Enable zone colors</span>
           <label class="tog"><input type="checkbox" id="zonesEnabled" onchange="onZonesToggle()" /><span class="ts"></span></label>
         </div>
         <div id="zonesBody" style="display:none;flex-direction:column;gap:10px;">
           <div class="zones-toggle-row" style="margin-bottom:0;">
-            <span class="zones-toggle-label" style="font-size:12.5px;">Affect font color</span>
+            <span class="zones-toggle-label" style="font-size:12.5px;" data-i18n="zones_font">Affect font color</span>
             <label class="tog"><input type="checkbox" id="zonesAffectFont" checked onchange="live()" /><span class="ts"></span></label>
           </div>
           <div class="zone-hint">
@@ -366,7 +378,7 @@
   </div>
 
   <div class="card">
-    <div class="ch"><span>👁️</span> Preview</div>
+    <div class="ch"><span>👁️</span> <span data-i18n="preview">Preview</span></div>
     <div class="cb">
       <div class="pbox">
         <div class="pw" id="prevWidget">
@@ -377,6 +389,9 @@
           </div>
         </div>
       </div>
+      <div class="bpm-graph-wrap">
+        <canvas id="bpmGraph"></canvas>
+      </div>
     </div>
   </div>
 
@@ -384,13 +399,86 @@
 </div><!-- /main-layout -->
 
 <div class="bottom">
-  <button class="btn bs" id="overlayBtn" onclick="toggleOverlay()">🖥️ Show Overlay</button>
+  <button class="btn bs" id="overlayBtn" onclick="toggleOverlay()">🖥️ <span id="overlayBtnLabel" data-i18n="show_overlay">Show Overlay</span></button>
+  <button class="btn bs" onclick="window.electronAPI.openExternal('https://feedback.hyperate.io/form/iHnGf9vp')">💬 <span data-i18n="feedback">Feedback</span></button>
 </div>
 
 <script>
   const $=id=>document.getElementById(id), v=id=>$(id).value, cb=id=>$(id).checked;
 
+  // ── i18n ──
+  const I18N = {
+    en: {
+      connection:'Connection', session_id:'HypeRate Session ID',
+      session_hint:'Find your Session ID in the HypeRate app →',
+      connect:'Connect', disconnect:'Disconnect',
+      customization:'Customization',
+      tab_heart:'Heart', tab_font:'Font', tab_layout:'Layout', tab_zones:'Zones',
+      anim:'Animation', heart_style:'Heart Style', color:'Color', size:'Size',
+      glow_effect:'Glow effect', glow_color:'Glow Color',
+      font_style:'Font Style', sys_font:'System Font Name',
+      bpm_color:'BPM Color', label_color:'Label Color', bpm_size:'BPM Font Size',
+      num_anim:'Number Animation', text_glow:'Text glow',
+      background:'Background', bg_color:'Background Color', bg_opacity:'Background Opacity',
+      layout:'Layout', corner_radius:'Corner Radius',
+      show_label:'Show BPM label', show_border:'Show border',
+      zones_enable:'Enable zone colors', zones_font:'Affect font color',
+      preview:'Preview', hotkey_label:'Toggle overlay:',
+      startup:'Launch at startup', news:'News',
+      show_overlay:'Show Overlay', hide_overlay:'Close Overlay', feedback:'Feedback',
+      status_idle:'Not connected', status_connecting:'Connecting…',
+      status_disconnected:'Disconnected', status_error:'Connection error',
+      news_loading:'Loading…', news_empty:'No news yet.', news_error:'Could not load news.',
+      news_all:'View all news →', zone_name:'Zone',
+    },
+    de: {
+      connection:'Verbindung', session_id:'HypeRate Session ID',
+      session_hint:'Finde deine Session ID in der HypeRate App →',
+      connect:'Verbinden', disconnect:'Trennen',
+      customization:'Anpassung',
+      tab_heart:'Herz', tab_font:'Schrift', tab_layout:'Layout', tab_zones:'Zonen',
+      anim:'Animation', heart_style:'Herzstil', color:'Farbe', size:'Größe',
+      glow_effect:'Leuchten', glow_color:'Leuchtfarbe',
+      font_style:'Schriftstil', sys_font:'Systemschrift',
+      bpm_color:'BPM Farbe', label_color:'Label Farbe', bpm_size:'BPM Schriftgröße',
+      num_anim:'Zahlenanimation', text_glow:'Text Leuchten',
+      background:'Hintergrund', bg_color:'Hintergrundfarbe', bg_opacity:'Deckkraft',
+      layout:'Layout', corner_radius:'Eckenradius',
+      show_label:'BPM-Label anzeigen', show_border:'Rahmen anzeigen',
+      zones_enable:'Zonenfarben aktivieren', zones_font:'Schriftfarbe beeinflussen',
+      preview:'Vorschau', hotkey_label:'Overlay umschalten:',
+      startup:'Mit Computer starten', news:'Neuigkeiten',
+      show_overlay:'Overlay anzeigen', hide_overlay:'Overlay schließen', feedback:'Feedback',
+      status_idle:'Nicht verbunden', status_connecting:'Verbinde…',
+      status_disconnected:'Getrennt', status_error:'Verbindungsfehler',
+      news_loading:'Laden…', news_empty:'Noch keine Neuigkeiten.', news_error:'Neuigkeiten konnten nicht geladen werden.',
+      news_all:'Alle Neuigkeiten →', zone_name:'Zone',
+    },
+  };
+  let currentLang = 'en';
+  const t = key => I18N[currentLang][key] || I18N.en[key] || key;
+
+  function applyLang(lang) {
+    currentLang = lang;
+    $('langEN').classList.toggle('active', lang==='en');
+    $('langDE').classList.toggle('active', lang==='de');
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      if (el.id === 'stText') return; // managed by renderStatus()
+      const key = el.dataset.i18n;
+      if(key==='connect'&&isConn) el.textContent=t('disconnect');
+      else if(key==='show_overlay'&&overlayOpen) el.textContent=t('hide_overlay');
+      else el.textContent = t(key);
+    });
+    renderStatus();
+  }
+
+  function setLang(lang) {
+    applyLang(lang);
+    window.electronAPI?.saveSettings({lang});
+  }
+
   let isConn=false, overlayOpen=false, saveTimer=null;
+  let wsState = { state:'idle', sessionId:null, message:null };
 
   // ── Slider labels ──
   function sv(sid,vid,unit){ $(vid).textContent=$(sid).value+unit; }
@@ -536,9 +624,23 @@
   }
 
   // ── Status ──
-  function setStatus(state,html){
-    $('dot').className='dot'+(state!=='idle'?' '+state:'');
-    $('stText').innerHTML=html;
+  function renderStatus() {
+    const { state, sessionId, message } = wsState;
+    $('dot').className = 'dot' + (state !== 'idle' ? ' ' + state : '');
+    if (state === 'connected')
+      $('stText').innerHTML = `Connected &mdash; <strong>${sessionId || ''}</strong>`;
+    else if (state === 'connecting')
+      $('stText').textContent = t('status_connecting');
+    else if (state === 'error')
+      $('stText').innerHTML = t('status_error') + (message ? ' &mdash; ' + message : '');
+    else if (state === 'disconnected')
+      $('stText').textContent = t('status_disconnected');
+    else
+      $('stText').textContent = t('status_idle');
+  }
+  function setStatus(state, html, extra) {
+    wsState = { state, sessionId: extra?.sessionId || wsState.sessionId, message: extra?.message || null };
+    renderStatus();
   }
 
   // ── BPM received from main process ──
@@ -546,8 +648,11 @@
     $('bpmPill').style.display='block';
     $('bpmPill').textContent=bpm+' BPM';
     $('prevNum').textContent=bpm;
+    BPM_HISTORY.push(bpm);
+    if(BPM_HISTORY.length>BPM_MAX_POINTS) BPM_HISTORY.shift();
     updateZoneIndicator(bpm);
     updatePreview();
+    drawBpmGraph();
     if(overlayOpen) window.electronAPI.updateConfig(getConfig());
   });
 
@@ -555,16 +660,16 @@
   window.electronAPI.onWsStatus(({status, sessionId, message, code})=>{
     if(status==='connected'){
       isConn=true;
-      setStatus('connected',`Connected &mdash; <strong>${sessionId||v('hrId')}</strong>`);
-      $('connLabel').textContent='Disconnect';
+      setStatus('connected', null, { sessionId: sessionId||v('hrId') });
+      $('connLabel').textContent=t('disconnect');
     } else if(status==='error'){
-      setStatus('error',`Connection error${message?' &mdash; '+message:''}`);
-      if(!isConn){ isConn=false; $('connLabel').textContent='Connect'; }
+      setStatus('error', null, { message });
+      if(!isConn){ isConn=false; $('connLabel').textContent=t('connect'); }
     } else if(status==='closed'){
       if(isConn){
-        isConn=false; $('connLabel').textContent='Connect';
+        isConn=false; $('connLabel').textContent=t('connect');
         $('bpmPill').style.display='none';
-        setStatus('idle','Disconnected');
+        setStatus('disconnected');
       }
     }
   });
@@ -573,29 +678,31 @@
   function toggleConn(){
     if(isConn){ doDisconnect(); return; }
     const id=v('hrId').trim();
-    if(!id){ alert('Please enter your HypeRate Session ID.'); return; }
+    if(!id){ alert(currentLang==='de'?'Bitte gib deine HypeRate Session ID ein.':'Please enter your HypeRate Session ID.'); return; }
     $('hrId').value=id;
     window.electronAPI.saveSettings({hrId:id});
-    setStatus('connecting','Connecting…');
+    setStatus('connecting');
     window.electronAPI.wsConnect(id);
   }
 
   function doDisconnect(){
     window.electronAPI.wsDisconnect();
     isConn=false;
-    $('connLabel').textContent='Connect';
+    $('connLabel').textContent=t('connect');
     $('bpmPill').style.display='none';
-    setStatus('idle','Not connected');
+    setStatus('idle',t('status_idle'));
   }
 
   // ── Overlay ──
   function toggleOverlay(){
     if(!overlayOpen){
       window.electronAPI.launchOverlay(getConfig());
-      overlayOpen=true; $('overlayBtn').textContent='✕ Close Overlay';
+      overlayOpen=true;
+      $('overlayBtn').innerHTML='✕ '+t('hide_overlay');
     } else {
       window.electronAPI.closeOverlay();
-      overlayOpen=false; $('overlayBtn').textContent='🖥️ Show Overlay';
+      overlayOpen=false;
+      $('overlayBtn').innerHTML='🖥️ <span data-i18n="show_overlay">'+t('show_overlay')+'</span>';
     }
   }
 
@@ -688,6 +795,75 @@
     }
   }
 
+  // ── BPM Graph ──
+  const BPM_HISTORY = [];
+  const BPM_MAX_POINTS = 60;
+
+  function drawBpmGraph(){
+    const canvas=$('bpmGraph');
+    if(!canvas) return;
+    const dpr=window.devicePixelRatio||1;
+    const W=canvas.offsetWidth, H=canvas.offsetHeight;
+    canvas.width=W*dpr; canvas.height=H*dpr;
+    const ctx=canvas.getContext('2d');
+    ctx.scale(dpr,dpr);
+    ctx.clearRect(0,0,W,H);
+    if(BPM_HISTORY.length<2) return;
+
+    const c=getConfig();
+    const lineColor=(c.zonesEnabled&&BPM_HISTORY.length>0)
+      ? (zoneColorForBpm(BPM_HISTORY[BPM_HISTORY.length-1],c.zones)||c.heartColor)
+      : c.heartColor;
+
+    const pad=4;
+    const min=Math.max(30,Math.min(...BPM_HISTORY)-10);
+    const max=Math.min(220,Math.max(...BPM_HISTORY)+10);
+    const range=max-min||1;
+
+    const x=i=>(i/(BPM_MAX_POINTS-1))*(W-pad*2)+pad;
+    const y=v=>H-pad-((v-min)/range)*(H-pad*2);
+
+    // Fill
+    const grad=ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0,lineColor+'55');
+    grad.addColorStop(1,lineColor+'00');
+    ctx.beginPath();
+    ctx.moveTo(x(0),y(BPM_HISTORY[0]));
+    BPM_HISTORY.forEach((v,i)=>ctx.lineTo(x(i),y(v)));
+    ctx.lineTo(x(BPM_HISTORY.length-1),H);
+    ctx.lineTo(x(0),H);
+    ctx.closePath();
+    ctx.fillStyle=grad;
+    ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    ctx.moveTo(x(0),y(BPM_HISTORY[0]));
+    BPM_HISTORY.forEach((v,i)=>ctx.lineTo(x(i),y(v)));
+    ctx.strokeStyle=lineColor;
+    ctx.lineWidth=1.5;
+    ctx.lineJoin='round';
+    ctx.stroke();
+
+    // Latest BPM dot
+    const lx=x(BPM_HISTORY.length-1), ly=y(BPM_HISTORY[BPM_HISTORY.length-1]);
+    ctx.beginPath();
+    ctx.arc(lx,ly,3,0,Math.PI*2);
+    ctx.fillStyle=lineColor;
+    ctx.fill();
+  }
+
+  // ── Update Check ──
+  async function checkUpdate(){
+    if(!window.electronAPI?.checkUpdate) return;
+    const {hasUpdate, latestVersion, downloadUrl} = await window.electronAPI.checkUpdate();
+    if(!hasUpdate) return;
+    const badge=$('updateBadge');
+    badge.textContent=`↑ v${latestVersion}`;
+    badge.style.display='flex';
+    badge.onclick=()=>window.electronAPI.openExternal(downloadUrl);
+  }
+
   // ── News ──
   async function loadNews(){
     const body=$('newsBody');
@@ -712,18 +888,19 @@
           url:i.querySelector('link')?.getAttribute('href')||(i.querySelector('id')?.textContent||'').trim(),
           date:new Date(i.querySelector('updated')?.textContent||''),
         }));
-      if(!items.length){body.innerHTML='<div class="news-empty">No news yet.</div>';return;}
+      if(!items.length){body.innerHTML=`<div class="news-empty">${t('news_empty')}</div>`;return;}
+      const loc=currentLang==='de'?'de':'en';
       body.innerHTML=items.map(n=>`
         <div class="news-item" data-url="${n.url}">
           <div class="news-title">${n.title}</div>
-          <div class="news-date">${n.date.toLocaleDateString('en',{month:'short',day:'numeric',year:'numeric'})}</div>
+          <div class="news-date">${n.date.toLocaleDateString(loc,{month:'short',day:'numeric',year:'numeric'})}</div>
         </div>`).join('')+
-        `<div class="news-footer"><button onclick="window.electronAPI.openExternal('https://blog.hyperate.io/tags/news/')">View all news →</button></div>`;
+        `<div class="news-footer"><button onclick="window.electronAPI.openExternal('https://blog.hyperate.io/tags/news/')">${t('news_all')}</button></div>`;
       body.querySelectorAll('.news-item').forEach(el=>
         el.addEventListener('click',()=>window.electronAPI.openExternal(el.dataset.url))
       );
     }catch(e){
-      body.innerHTML='<div class="news-empty">Could not load news.</div>';
+      body.innerHTML=`<div class="news-empty">${t('news_error')}</div>`;
     }
   }
 
@@ -739,6 +916,7 @@
       systemFonts.sort().forEach(f=>{ const o=document.createElement('option'); o.value=f; dl.appendChild(o); });
     }
     if($('autostartToggle')) $('autostartToggle').checked = autostartOn;
+    applyLang(saved.lang||'en');
     // Show version
     if (saved.version) $('tlVersion').textContent = 'v' + saved.version;
     // Apply DPI scale factor to body font-size for 4K displays
@@ -753,6 +931,7 @@
   }
   init();
   loadNews();
+  checkUpdate();
 </script>
 </body>
 </html>
