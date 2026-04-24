@@ -18,7 +18,9 @@
       "Bash(python3 -c ' *)",
       "Read(//tmp/**)",
       "Bash(python3 -c \"from PIL import Image, ImageDraw, ImageFont; print\\('PIL ok'\\)\")",
-      "Bash(fc-list)"
+      "Bash(fc-list)",
+      "Bash(xargs ls *)",
+      "Bash(python3 -)"
     ]
   }
 }

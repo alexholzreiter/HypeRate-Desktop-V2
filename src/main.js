@@ -11,12 +11,15 @@ const HYPERATE_API_KEY = '7XnPqR2m9LdHsV4tYk8ZuEf1WaJ5GcB3rTsQ6v';
 const VERSION = app.getVersion();            // reads from package.json
 const IS_FIRST_RUN = !loadStore().onboarded; // FTUE flag
 
-let settingsWindow     = null;
-let overlayWindow      = null;
-let ftueWindow         = null;
-let tray               = null;
-let overlayMoveAllowed = false; // guards will-move: only our setPosition calls are allowed
-let showBpmInTray      = loadStore().showBpmInTray !== false; // default true
+let settingsWindow  = null;
+let overlayWindow   = null;
+let ftueWindow      = null;
+let tray            = null;
+let overlayTrackedX = 0; // main-process position tracking — avoids stale getPosition() reads
+let overlayTrackedY = 0;
+let overlayTrackedW = 300; // current window size, kept in sync with widget size
+let overlayTrackedH = 160;
+let showBpmInTray   = loadStore().showBpmInTray !== false; // default true
 
 // ── DPI helper ──
 function scaleFactor() {
@@ -120,28 +123,40 @@ function createOverlayWindow() {
   const { width, height } = workArea();
   const sf    = scaleFactor();
   const store = loadStore();
-  const ox = store.overlayX ?? (width - 300);
-  const oy = store.overlayY ?? 20;
+  const ox = Number.isFinite(store.overlayX) ? store.overlayX : (width - 300);
+  const oy = Number.isFinite(store.overlayY) ? store.overlayY : 20;
+  overlayTrackedX = Math.round(ox);
+  overlayTrackedY = Math.round(oy);
 
   overlayWindow = new BrowserWindow({
     width:300, height:160, x:ox, y:oy,
     frame:false, transparent:true, alwaysOnTop:true,
-    skipTaskbar:true, resizable:false, hasShadow:false,
+    skipTaskbar:true, resizable:false, maximizable:false, fullscreenable:false, hasShadow:false,
     webPreferences:{ nodeIntegration:false, contextIsolation:true, preload:path.join(__dirname,'preload.js') },
     icon: path.join(__dirname,'../assets/icon.png'),
   });
   overlayWindow.loadFile(path.join(__dirname,'windows/overlay/index.html'));
   overlayWindow.setAlwaysOnTop(true,'screen-saver');
 
-  // Block Aero Snap from resizing or moving the transparent window.
-  // Our own setPosition calls set overlayMoveAllowed=true before calling,
-  // so they are not affected.
-  overlayWindow.on('will-resize', (e) => e.preventDefault());
-  overlayWindow.on('will-move',   (e) => { if (!overlayMoveAllowed) e.preventDefault(); });
+  // will-resize and will-move are intentionally not blocked here.
+  // resizable:false + maximizable:false prevent user-initiated resizes.
+  // Dynamic resizing via resize-overlay IPC adjusts the window to widget size.
 
-  // Pass mouse events through transparent areas by default;
-  // the renderer toggles this off when the mouse enters the widget.
-  overlayWindow.setIgnoreMouseEvents(true, { forward: true });
+  // Pass mouse events through transparent areas by default.
+  // Linux doesn't support forward:true, so skip click-through there — drag still works.
+  if (process.platform !== 'linux') {
+    overlayWindow.setIgnoreMouseEvents(true, { forward: true });
+  }
+
+  // Track position via native OS drag events — no custom drag code needed.
+  overlayWindow.on('move', () => {
+    if (!overlayWindow) return;
+    const [x, y] = overlayWindow.getPosition();
+    overlayTrackedX = x; overlayTrackedY = y;
+  });
+  overlayWindow.on('moved', () => {
+    const store = loadStore(); store.overlayX = overlayTrackedX; store.overlayY = overlayTrackedY; saveStore(store);
+  });
 
   overlayWindow.on('closed', () => { overlayWindow = null; });
 
@@ -280,17 +295,20 @@ ipcMain.handle('get-overlay-position', () => {
   return { x, y };
 });
 
-ipcMain.on('overlay-move', (_, { x, y }) => {
+ipcMain.on('resize-overlay', (_, { width, height }) => {
   if (!overlayWindow) return;
+  const w = Math.round(Math.max(40, Math.min(Number(width)  || 300, 900)));
+  const h = Math.round(Math.max(20, Math.min(Number(height) || 160, 500)));
+  overlayTrackedW = w;
+  overlayTrackedH = h;
+  // Re-clamp position so widget stays fully on screen after size change
   const wa = workArea();
-  const [ww, wh] = overlayWindow.getSize();
-  const nx = Math.max(wa.x, Math.min(x, wa.x + wa.width  - ww));
-  const ny = Math.max(wa.y, Math.min(y, wa.y + wa.height - wh));
-  overlayMoveAllowed = true;
-  overlayWindow.setPosition(nx, ny);
-  overlayMoveAllowed = false;
-  const store = loadStore(); store.overlayX = nx; store.overlayY = ny; saveStore(store);
+  overlayTrackedX = Math.round(Math.max(wa.x, Math.min(overlayTrackedX, wa.x + wa.width  - w)));
+  overlayTrackedY = Math.round(Math.max(wa.y, Math.min(overlayTrackedY, wa.y + wa.height - h)));
+  overlayWindow.setSize(w, h);
+  overlayWindow.setPosition(overlayTrackedX, overlayTrackedY);
 });
+
 
 ipcMain.handle('load-settings', () => ({ ...loadStore(), version: VERSION, scaleFactor: scaleFactor() }));
 ipcMain.on('save-settings', (_, data) => {

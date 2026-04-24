@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "productName": "HypeRate Desktop",
   "description": "In-game heart rate overlay powered by HypeRate",
-  "author": "Your Name",
+  "author": { "name": "HypeRate", "email": "hello@hyperate.io" },
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -48,7 +48,7 @@
         { "target": "AppImage", "arch": ["x64"] },
         { "target": "deb", "arch": ["x64"] }
       ],
-      "icon": "assets/icon.png",
+      "icon": "assets/icons",
       "category": "Utility"
     }
   }

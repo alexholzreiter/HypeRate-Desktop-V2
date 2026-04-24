@@ -16,10 +16,16 @@
     #widget {
       display:inline-flex; align-items:center; gap:14px;
       padding:14px 20px; border-radius:16px;
-      cursor:grab; user-select:none; position:relative;
+      user-select:none; position:relative;
       transition: background .3s, border .3s, border-radius .3s, padding .3s;
     }
-    #widget:active { cursor:grabbing; }
+    /* Separate drag handle — no backdrop-filter/will-change so -webkit-app-region:drag
+       always works, even when the widget uses glass/blur backgrounds or animations. */
+    .drag-handle {
+      position:absolute; inset:0; border-radius:inherit;
+      -webkit-app-region: drag;
+      cursor: grab; z-index: 5;
+    }
     #widget::before {
       content:''; position:absolute; inset:-4px; border-radius:inherit;
       border:1.5px dashed rgba(255,255,255,0.15);
@@ -100,6 +106,7 @@
 <body>
 
 <div id="widget">
+  <div class="drag-handle"></div>
   <div id="heart">❤️</div>
   <div id="bpm-block">
     <span id="bpm-num">--</span>
@@ -115,43 +122,26 @@
 
   let cfg = null, currentBpm = null, numTimer = null;
 
-  // ── Click-through: only the widget is interactive, transparent bg passes through ──
+  // ── Click-through for transparent background ──
+  // .drag-handle (inside #widget) carries -webkit-app-region:drag so the OS
+  // handles dragging natively without compositing interference.
+  // We cache the last ignore state to avoid redundant IPC calls.
+  const isLinux = navigator.platform.toLowerCase().startsWith('linux');
+  let ignoring = true;
+  function setIgnore(val) {
+    if (val === ignoring) return;
+    ignoring = val;
+    window.electronAPI.setIgnoreMouseEvents(val);
+  }
+
   window.addEventListener('mousemove', e => {
-    if (dragging) return;
+    if (isLinux) return;
     const el = document.elementFromPoint(e.clientX, e.clientY);
     const overWidget = !!el && (el === widget || widget.contains(el));
-    window.electronAPI.setIgnoreMouseEvents(!overWidget);
+    setIgnore(!overWidget);
   });
   window.addEventListener('mouseleave', () => {
-    if (!dragging) window.electronAPI.setIgnoreMouseEvents(true);
-  });
-
-  // ── Drag (absolute positioning — no accumulated delta errors) ──
-  let dragging = false, dragStartScreenX = 0, dragStartScreenY = 0;
-  let winStartX = 0, winStartY = 0;
-
-  widget.addEventListener('mousedown', async e => {
-    if (e.button !== 0) return;
-    dragStartScreenX = e.screenX;
-    dragStartScreenY = e.screenY;
-    const pos = await window.electronAPI.getOverlayPosition();
-    winStartX = pos.x;
-    winStartY = pos.y;
-    dragging = true;
-    e.preventDefault();
-  });
-  window.addEventListener('mousemove', e => {
-    if (!dragging) return;
-    window.electronAPI.overlayMove({
-      x: winStartX + (e.screenX - dragStartScreenX),
-      y: winStartY + (e.screenY - dragStartScreenY),
-    });
-  });
-  window.addEventListener('mouseup', e => {
-    dragging = false;
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    const overWidget = !!el && (el === widget || widget.contains(el));
-    window.electronAPI.setIgnoreMouseEvents(!overWidget);
+    if (!isLinux) setIgnore(true);
   });
 
   const FONTS = {
@@ -314,8 +304,25 @@
     if (cfg) applyZoneColor(bpm, cfg);
   }
 
+  // Extra space around the widget so drop-shadow / glow animations (up to ~28px
+  // spread radius) are never clipped by the window boundary.
+  const GLOW_PAD = 48;
+
+  function reportSize() {
+    requestAnimationFrame(() => {
+      const r = widget.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        window.electronAPI.resizeOverlay({
+          width:  Math.ceil(r.width)  + GLOW_PAD * 2,
+          height: Math.ceil(r.height) + GLOW_PAD * 2,
+        });
+      }
+    });
+  }
+
   window.electronAPI.onConfigUpdate(cfg => {
     applyConfig(cfg);
+    reportSize();
     // Re-apply zone color immediately if we already have a BPM
     if (currentBpm !== null) applyZoneColor(currentBpm, cfg);
   });
@@ -336,6 +343,9 @@
     textGlow:true, bgStyle:'dark-pill', bgColor:'#000000', bgOpacity:70,
     layoutStyle:'horizontal', borderRadius:16, showLabel:true, showBorder:false,
   });
+  // Resize window to widget immediately on load — avoids visible transparent
+  // area around the widget before the first config-update arrives from main.
+  reportSize();
 </script>
 </body>
 </html>

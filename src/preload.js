@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeSettings:  ()     => ipcRenderer.send('close-settings'),
   getOverlayPosition:   ()       => ipcRenderer.invoke('get-overlay-position'),
   overlayMove:          (pos)    => ipcRenderer.send('overlay-move', pos),
+  resizeOverlay:        (size)   => ipcRenderer.send('resize-overlay', size),
   setIgnoreMouseEvents: (ignore) => ipcRenderer.send('set-ignore-mouse-events', ignore),
   loadSettings:   ()     => ipcRenderer.invoke('load-settings'),
   saveSettings:   (data) => ipcRenderer.send('save-settings', data),
