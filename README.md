@@ -53,6 +53,16 @@ Get the latest release from the [GitHub Releases](https://github.com/alexholzrei
 
 ---
 
+## ⚠️ Forking this project? Read this first
+
+The HypeRate API key hardcoded in `src/main.js` is private and belongs to this project.  
+**Do not use it in your own fork or build** — requests will be rejected or rate-limited.
+
+Get your own free API key here: **https://hyperate.io/api.html**  
+Then replace the `HYPERATE_API_KEY` constant at the top of `src/main.js` with your own key.
+
+---
+
 ## Requirements
 
 - A free [HypeRate](https://hyperate.io) account
