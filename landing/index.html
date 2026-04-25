@@ -11,6 +11,9 @@
   <meta name="author" content="HypeRate" />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://desktop.hyperate.io/" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
   <link rel="sitemap" type="application/xml" href="https://desktop.hyperate.io/sitemap.xml" />
   <link rel="alternate" type="text/plain" title="LLMs.txt" href="https://desktop.hyperate.io/llms.txt" />
 
@@ -47,6 +50,80 @@
     "publisher": { "@type": "Organization", "name": "HypeRate", "url": "https://hyperate.io" }
   }
   </script>
+
+  <!-- iubenda Cookie Consent -->
+  <script type="text/javascript">
+    var _iub = _iub || [];
+    _iub.csConfiguration = {
+      "askConsentAtCookiePolicyUpdate": true,
+      "countryDetection": true,
+      "floatingPreferencesButtonDisplay": false,
+      "enableFadp": true,
+      "enableLgpd": true,
+      "enableRemoteConsent": true,
+      "enableTcf": false,
+      "enableUspr": false,
+      "googleAdditionalConsentMode": false,
+      "lang": "en",
+      "lgpdAppliesGlobally": false,
+      "perPurposeConsent": true,
+      "reloadOnConsent": true,
+      "siteId": 2123681,
+      "tcfPurposes": { "2": "consent_only","7": "consent_only","8": "consent_only","9": "consent_only","10": "consent_only","11": "consent_only" },
+      "cookiePolicyId": 74477999,
+      "banner": {
+        "acceptButtonCaptionColor": "white",
+        "acceptButtonColor": "#007aff",
+        "acceptButtonDisplay": true,
+        "backgroundColor": "#000001",
+        "closeButtonDisplay": false,
+        "customizeButtonCaptionColor": "white",
+        "customizeButtonColor": "#212121",
+        "customizeButtonDisplay": true,
+        "explicitWithdrawal": true,
+        "listPurposes": true,
+        "position": "float-top-center",
+        "prependOnBody": true,
+        "rejectButtonDisplay": true,
+        "showPurposesToggles": true,
+        "textColor": "white"
+      },
+      "callback": {
+        onPreferenceExpressedOrNotNeeded: function (preference) {
+          try {
+            var measurementAllowed = true;
+            if (_iub.csConfiguration.perPurposeConsent && preference && preference.purposes) {
+              measurementAllowed = !!preference.purposes[4];
+            }
+            if (!measurementAllowed) return;
+            if (window.__hyperateUmamiLoaded) return;
+            window.__hyperateUmamiLoaded = true;
+
+            var s = document.createElement('script');
+            s.src = 'https://analytics.hyperate.io/script.js';
+            s.defer = true;
+            s.setAttribute('data-website-id', '162f0736-6b4b-43e9-8123-3842c76deb37');
+            s.setAttribute('data-auto-track', 'false');
+            s.onload = function () {
+              if (window.umami && typeof window.umami.track === 'function') {
+                umami.track(function (props) {
+                  return Object.assign({}, props, {
+                    url: 'desktop.hyperate.io',
+                    title: 'HypeRate Desktop Web'
+                  });
+                });
+              }
+            };
+            document.head.appendChild(s);
+          } catch (e) {
+            console.error('Error in iubenda callback for Umami/analytics.hyperate.io', e);
+          }
+        }
+      }
+    };
+  </script>
+  <script type="text/javascript" src="https://cs.iubenda.com/autoblocking/2123681.js"></script>
+  <script type="text/javascript" src="//cdn.iubenda.com/cs/iubenda_cs.js" charset="UTF-8" async></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet" />
@@ -230,8 +307,17 @@
       box-shadow: 0 8px 40px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.04), 0 0 20px var(--accent-glow);
       backdrop-filter: blur(12px);
       animation: float 5s ease-in-out infinite;
+      cursor: grab; user-select: none; touch-action: none;
     }
+    .overlay-float.dragging { cursor: grabbing; animation: none !important; }
     @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+
+    /* hint cursor */
+    #hint-cursor {
+      position: absolute; top: 0; left: 0;
+      pointer-events: none; z-index: 20; opacity: 0;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,.55));
+    }
     .ov-heart { color: var(--danger); animation: beat 1.2s ease-in-out infinite; }
     .ov-num { font-family: 'Space Mono', monospace; font-size: 28px; font-weight: 700; color: var(--text); }
     .ov-label { font-size: 10px; color: var(--text-dim); letter-spacing: .1em; text-transform: uppercase; }
@@ -471,7 +557,7 @@
 
   <p class="hero-label fade">Live Heart Rate Overlay</p>
   <h1 class="fade">Your heartbeat,<br><span class="dim">always visible.</span></h1>
-  <p class="fade">A native desktop app that displays your live heart rate as a floating overlay while you stream, game, or train. Powered by HypeRate.</p>
+  <p class="fade">A cross-platform desktop app that displays your live heart rate as a floating overlay while you stream, game, or train. Powered by HypeRate.</p>
 
   <div class="hero-actions fade">
     <a class="btn-primary" href="#download">
@@ -573,8 +659,14 @@
       </div>
     </div>
 
+    <!-- Hint cursor for drag demo -->
+    <div id="hint-cursor">
+      <svg width="28" height="32" viewBox="0 0 28 32" fill="none">
+        <path d="M4 2L4 24L9.5 18.5L13.5 28L16.5 27L12.5 17.5L20 17.5Z" fill="white" stroke="rgba(0,0,0,0.55)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+      </svg>
+    </div>
     <!-- Floating overlay chip -->
-    <div class="overlay-float">
+    <div id="overlay-float" class="overlay-float">
       <div class="ov-heart">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="#ef4444">
           <path d="M12 21S2 14 2 7.5A5.5 5.5 0 0 1 12 5a5.5 5.5 0 0 1 10 2.5C22 14 12 21 12 21z"/>
@@ -811,34 +903,37 @@
               </div>
               <div>
                 <div class="ws-bpm" style="color:var(--text)">98 <span style="font-size:13px;font-weight:400;color:var(--text-dim)">BPM</span></div>
-                <div class="ws-lbl">Default · Blue · Pulse</div>
+                <div class="ws-lbl">Default · Pulse</div>
               </div>
             </div>
-            <!-- Variant 2: Red high zone -->
+            <!-- Variant 2: Red high zone + glow -->
             <div class="ws-widget">
-              <div class="ws-heart">
-                <svg viewBox="0 0 24 24" fill="#ef4444" width="26" height="26">
+              <div class="ws-heart" id="ws-heart-glow">
+                <svg viewBox="0 0 24 24" fill="#ef4444" width="26" height="26"
+                     style="filter:drop-shadow(0 0 8px #ef4444) drop-shadow(0 0 18px #ef444488)">
                   <path d="M12 20.5S2 14 2 7.5A5.5 5.5 0 0112 5a5.5 5.5 0 0110 2.5C22 14 12 20.5 12 20.5z"/>
                 </svg>
               </div>
               <div>
-                <div class="ws-bpm" style="color:#ef4444">158 <span style="font-size:13px;font-weight:400;color:var(--text-dim)">BPM</span></div>
+                <div class="ws-bpm" style="color:#ef4444;text-shadow:0 0 14px #ef4444,0 0 28px #ef444455">158 <span style="font-size:13px;font-weight:400;color:var(--text-dim)">BPM</span></div>
                 <div class="ws-lbl">High Zone · Red · Glow</div>
               </div>
             </div>
-            <!-- Variant 3: Green low zone vertical -->
-            <div class="ws-widget" style="flex-direction:column;align-items:flex-start;gap:6px">
-              <div style="font-size:9px;color:var(--text-dim);letter-spacing:.12em;text-transform:uppercase">Heart Rate</div>
-              <div style="display:flex;align-items:center;gap:10px">
-                <svg viewBox="0 0 24 24" fill="#22c55e" width="22" height="22">
+            <!-- Variant 3: zone cycling -->
+            <div class="ws-widget">
+              <div class="ws-heart">
+                <svg id="ws-zone-heart" viewBox="0 0 24 24" fill="#22c55e" width="26" height="26" style="transition:fill .6s">
                   <path d="M12 20.5S2 14 2 7.5A5.5 5.5 0 0112 5a5.5 5.5 0 0110 2.5C22 14 12 20.5 12 20.5z"/>
                 </svg>
-                <div class="ws-bpm" style="color:#22c55e;font-size:24px">72 <span style="font-size:12px;font-weight:400;color:var(--text-dim)">BPM</span></div>
               </div>
-              <div class="ws-zones">
-                <div class="ws-zone" style="background:#22c55e;opacity:.9"></div>
-                <div class="ws-zone" style="background:var(--surface2)"></div>
-                <div class="ws-zone" style="background:var(--surface2)"></div>
+              <div style="flex:1;min-width:0">
+                <div id="ws-zone-bpm" class="ws-bpm" style="color:#22c55e;transition:color .6s">72 <span style="font-size:13px;font-weight:400;color:var(--text-dim)">BPM</span></div>
+                <div class="ws-zones" style="margin-top:6px">
+                  <div id="ws-z0" class="ws-zone" style="background:#22c55e;transition:background .6s"></div>
+                  <div id="ws-z1" class="ws-zone" style="background:var(--surface2);transition:background .6s"></div>
+                  <div id="ws-z2" class="ws-zone" style="background:var(--surface2);transition:background .6s"></div>
+                </div>
+                <div class="ws-lbl">Heart Rate Zones</div>
               </div>
             </div>
           </div>
@@ -1052,6 +1147,135 @@
     const mockupIcon = document.querySelector('.mockup-bar-logo-icon');
     if (mockupIcon) mockupIcon.style.backgroundImage = `url(${navLogoImg.src})`;
   }
+
+  // Zone cycling animation for variant 3
+  const zones = [
+    { bpm: 72,  color: '#22c55e', label: '72',  z: 0 },
+    { bpm: 118, color: '#f59e0b', label: '118', z: 1 },
+    { bpm: 158, color: '#ef4444', label: '158', z: 2 },
+  ];
+  const zDots = [document.getElementById('ws-z0'), document.getElementById('ws-z1'), document.getElementById('ws-z2')];
+  const zHeart = document.getElementById('ws-zone-heart');
+  const zBpm   = document.getElementById('ws-zone-bpm');
+  const zColors = ['#22c55e','#f59e0b','#ef4444'];
+  let zIdx = 0;
+  function cycleZone() {
+    zIdx = (zIdx + 1) % zones.length;
+    const z = zones[zIdx];
+    if (zHeart) zHeart.style.fill = z.color;
+    if (zBpm)   { zBpm.style.color = z.color; zBpm.childNodes[0].textContent = z.label + ' '; }
+    zDots.forEach((d, i) => {
+      if (d) d.style.background = i === z.z ? zColors[i] : 'var(--surface2)';
+    });
+  }
+  setInterval(cycleZone, 2000);
+
+  // ── Draggable overlay chip + hint cursor ──
+  (function() {
+    const overlay = document.getElementById('overlay-float');
+    const cursor  = document.getElementById('hint-cursor');
+    if (!overlay) return;
+
+    let isDragging = false, dragOffX = 0, dragOffY = 0;
+    let userInteracted = false, hintTimer = null;
+
+    function beginDrag(cx, cy) {
+      userInteracted = true;
+      stopHint();
+      isDragging = true;
+      const rect     = overlay.getBoundingClientRect();
+      const wrapRect = overlay.parentElement.getBoundingClientRect();
+      overlay.style.left       = (rect.left - wrapRect.left) + 'px';
+      overlay.style.right      = 'auto';
+      overlay.style.top        = (rect.top  - wrapRect.top)  + 'px';
+      overlay.style.animation  = 'none';
+      overlay.style.transform  = '';
+      overlay.style.transition = '';
+      overlay.classList.add('dragging');
+      dragOffX = cx - rect.left;
+      dragOffY = cy - rect.top;
+    }
+    function moveDrag(cx, cy) {
+      if (!isDragging) return;
+      const wrapRect = overlay.parentElement.getBoundingClientRect();
+      overlay.style.left = (cx - wrapRect.left - dragOffX) + 'px';
+      overlay.style.top  = (cy - wrapRect.top  - dragOffY) + 'px';
+    }
+    function endDrag() {
+      if (!isDragging) return;
+      isDragging = false;
+      overlay.classList.remove('dragging');
+    }
+
+    overlay.addEventListener('mousedown',  e => { if (e.button === 0) { beginDrag(e.clientX, e.clientY); e.preventDefault(); } });
+    overlay.addEventListener('touchstart', e => { if (e.touches.length === 1) { beginDrag(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); } }, { passive: false });
+    window.addEventListener('mousemove',   e => moveDrag(e.clientX, e.clientY));
+    window.addEventListener('touchmove',   e => { if (isDragging) { moveDrag(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); } }, { passive: false });
+    window.addEventListener('mouseup',  endDrag);
+    window.addEventListener('touchend', endDrag);
+
+    // ── Hint animation ──
+    if (!cursor || window.matchMedia('(pointer: coarse)').matches) return;
+
+    function runHint() {
+      if (userInteracted) return;
+      const oRect = overlay.getBoundingClientRect();
+      const wRect = overlay.parentElement.getBoundingClientRect();
+      const tx = oRect.left - wRect.left + oRect.width  * 0.38;
+      const ty = oRect.top  - wRect.top  + oRect.height * 0.42;
+      const sx = oRect.left - wRect.left + oRect.width  * 0.75;
+      const sy = oRect.top  - wRect.top  + oRect.height + 22;
+      const dx = -88, dy = -18;
+
+      cursor.style.transition = 'none';
+      cursor.style.transform  = `translate(${sx}px,${sy}px)`;
+      cursor.style.opacity    = '0';
+
+      setTimeout(() => {
+        cursor.style.transition = 'transform .9s cubic-bezier(.4,0,.2,1), opacity .35s';
+        cursor.style.transform  = `translate(${tx}px,${ty}px)`;
+        cursor.style.opacity    = '1';
+      }, 60);
+
+      setTimeout(() => {
+        cursor.style.transition = 'transform .11s ease-in';
+        cursor.style.transform  = `translate(${tx}px,${ty}px) scale(.82)`;
+      }, 1010);
+
+      setTimeout(() => {
+        overlay.style.animation  = 'none';
+        overlay.style.transition = 'transform 1.1s cubic-bezier(.4,0,.2,1)';
+        overlay.style.transform  = `translate(${dx}px,${dy}px)`;
+        cursor.style.transition  = 'transform 1.1s cubic-bezier(.4,0,.2,1)';
+        cursor.style.transform   = `translate(${tx+dx}px,${ty+dy}px) scale(.82)`;
+      }, 1170);
+
+      setTimeout(() => {
+        cursor.style.transition = 'transform .18s ease-out, opacity .38s';
+        cursor.style.transform  = `translate(${tx+dx+10}px,${ty+dy-16}px)`;
+        cursor.style.opacity    = '0';
+        overlay.style.transition = 'transform .6s cubic-bezier(.34,1.56,.64,1)';
+        overlay.style.transform  = '';
+      }, 2420);
+
+      setTimeout(() => {
+        if (!userInteracted) { overlay.style.transition = ''; overlay.style.animation = ''; }
+        if (!userInteracted) hintTimer = setTimeout(runHint, 4200);
+      }, 3200);
+    }
+
+    function stopHint() {
+      clearTimeout(hintTimer);
+      if (!cursor) return;
+      cursor.style.transition = 'none';
+      cursor.style.opacity    = '0';
+      overlay.style.transition = '';
+      overlay.style.transform  = '';
+      overlay.style.animation  = '';
+    }
+
+    hintTimer = setTimeout(runHint, 2200);
+  })();
 
   function toggleFaq(btn) {
     const answer = btn.nextElementSibling;

@@ -193,6 +193,25 @@
       50%    {filter:drop-shadow(0 0 24px var(--glow-color,currentColor)) brightness(1.5);}
     }
   </style>
+
+  <!-- Umami Analytics -->
+  <script>
+    (function () {
+      var s = document.createElement('script');
+      s.src = 'https://analytics.hyperate.io/script.js';
+      s.defer = true;
+      s.setAttribute('data-website-id', '162f0736-6b4b-43e9-8123-3842c76deb37');
+      s.setAttribute('data-auto-track', 'false');
+      s.onload = function () {
+        if (window.umami && typeof window.umami.track === 'function') {
+          umami.track(function (props) {
+            return Object.assign({}, props, { url: '/desktop-app', title: 'HypeRate Desktop' });
+          });
+        }
+      };
+      document.head.appendChild(s);
+    })();
+  </script>
 </head>
 <body>
 

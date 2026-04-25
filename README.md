@@ -1,127 +1,148 @@
-# HypeRate Overlay – Overwolf Electron App
+# HypeRate Desktop
 
-Ein In-Game Herzraten-Overlay für Streamer, das sich mit HypeRate verbindet und
-die Herzrate als anpassbares Overlay über dem Spiel anzeigt.
+**A cross-platform desktop app that displays your live heart rate as a floating, always-on-top overlay — for streamers, gamers, and athletes.**
 
-## 🚀 Setup
-
-### Voraussetzungen
-- Node.js 18+
-- npm oder yarn
-- Overwolf Electron SDK (für Production-Builds)
-
-### Installation
-
-```bash
-# Dependencies installieren
-npm install
-
-# App starten (Development)
-npm start
-```
-
-### Für Overwolf Electron Production
-Ersetze `electron` in `package.json` mit dem Overwolf Electron Paket:
-```bash
-npm install @overwolf/ow-electron
-```
-
-Und in `main.js` die Imports entsprechend anpassen (OW-spezifische Overlay-API
-nutzen statt Standard-Electron BrowserWindow).
+Powered by [HypeRate](https://hyperate.io) · Free & Open Source · macOS · Windows · Linux
 
 ---
 
-## 📁 Projektstruktur
+## Download
+
+Get the latest release from the [GitHub Releases](https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest) page:
+
+| Platform | File |
+|---|---|
+| macOS (Apple Silicon) | `HypeRate-Desktop-*-arm64.dmg` |
+| macOS (Intel) | `HypeRate-Desktop-*-x64.dmg` |
+| Windows | `HypeRate-Desktop-*-Setup.exe` |
+| Linux | `HypeRate-Desktop-*.AppImage` / `.deb` |
+
+> **macOS:** If Gatekeeper blocks the app, right-click → Open, or go to System Settings → Privacy & Security → Open Anyway.  
+> **Windows:** If SmartScreen appears, click "More info" → "Run anyway". The app is unsigned but safe.  
+> **Linux:** `chmod +x HypeRate-Desktop-*.AppImage` then run it.
+
+---
+
+## Features
+
+- **Live BPM Overlay** — floating, always-on-top widget that stays above every app, game, or browser
+- **Native drag & drop** — reposition the overlay anywhere on your screen; position is saved across restarts
+- **Fully customizable** — heart animation, style, color, size, glow, font, layout, background
+- **Heart Rate Zones** — color-coded zone indicators with configurable thresholds
+- **System tray / menu bar** — HypeRate Desktop lives in the tray; on macOS the live BPM is shown in the menu bar
+- **Auto-start** — optional launch at login
+- **Global hotkey** — `Ctrl+Shift+H` (or `Cmd+Shift+H`) toggles overlay visibility
+- **Update checker** — notifies you when a new release is available
+- **Multi-language** — English & German UI
+- **FTUE** — guided first-run setup
+
+### Overlay customization options
+
+| Category | Options |
+|---|---|
+| Animation | Pulse · Beat · Bounce · Shake · Glow · None |
+| Heart style | Filled · Outline · Emoji · Minimal |
+| Heart color | Full color picker + hex input |
+| Heart size | 24 px – 80 px |
+| Font | Space Mono · DM Sans · Playfair Display · Bebas Neue · VT323 · any system font |
+| Number animation | Flip · Fade · Pop · None |
+| Background | Transparent · Dark Pill · Glassmorphism · Solid · Gradient |
+| Layout | Horizontal · Vertical · Compact |
+| Border radius | 0 – 50 px |
+| Zones | On/Off · custom colors |
+
+---
+
+## Requirements
+
+- A free [HypeRate](https://hyperate.io) account
+- A compatible heart rate device (Apple Watch, Wear OS, Garmin, Polar, Fitbit, Amazfit, …)
+- The HypeRate mobile app running and broadcasting your heart rate
+
+---
+
+## Project Structure
 
 ```
-hyperate-overlay/
+HypeRate-Desktop-V2/
 ├── src/
-│   ├── main.js                 # Electron Main Process
-│   ├── preload.js              # Secure IPC Bridge
+│   ├── main.js                  # Electron main process
+│   ├── preload.js               # Secure IPC bridge (contextBridge)
 │   └── windows/
-│       ├── settings/
-│       │   └── index.html      # Settings & Konfiguration UI
-│       └── overlay/
-│           └── index.html      # In-Game Overlay
-├── assets/                     # Icons & Assets
+│       ├── settings/index.html  # Settings & customization UI
+│       ├── overlay/index.html   # Floating BPM overlay
+│       └── ftue/index.html      # First-run setup wizard
+├── assets/                      # App icons (icns, ico, png)
+├── landing/                     # Marketing landing page
+├── dist/                        # Build output (gitignored)
 └── package.json
 ```
 
 ---
 
-## ✨ Features
+## Development
 
-### HypeRate Integration
-- WebSocket-Verbindung zu `wss://app.hyperate.io/socket/websocket`
-- Phoenix Channel-Protokoll: Topic `hr:<deine-id>`
-- Automatischer Heartbeat alle 25 Sekunden
-- **Demo-Modus** bei Verbindungsproblemen (simuliert BPM-Daten)
+### Prerequisites
 
-### Herz-Anpassungen
-| Option | Beschreibung |
-|---|---|
-| Animation | Pulse, Beat, Bounce, Shake, Glow, Keine |
-| Style | Emoji ❤️, Outline 🫀, Filled ♥, Minimal ● |
-| Farbe | Voller Color Picker + Hex-Eingabe |
-| Größe | 24px – 80px |
-| Glow | On/Off |
+- Node.js 18+
+- npm
 
-### Schrift-Anpassungen
-| Option | Beschreibung |
-|---|---|
-| Font | Space Mono, DM Sans, Playfair Display, Bebas Neue, VT323 |
-| BPM-Farbe | Color Picker |
-| Label-Farbe | Color Picker |
-| BPM-Größe | 20px – 72px |
-| Zahlen-Animation | Flip, Fade, Pop, Keine |
-| Text-Glow | On/Off |
+### Run locally
 
-### Layout-Anpassungen
-| Option | Beschreibung |
-|---|---|
-| Hintergrund | Transparent, Dark Pill, Glassmorphism, Solid, Gradient |
-| BG-Transparenz | 0% – 100% |
-| Layout | Horizontal, Vertikal, Kompakt |
-| Abrundung | 0px – 50px |
-| Label anzeigen | On/Off |
-| Rand anzeigen | On/Off |
-
----
-
-## 🔧 Overwolf Electron – Nächste Schritte
-
-Für den echten In-Game Overlay-Betrieb:
-
-1. **Overwolf Developer Account** erstellen: https://dev.overwolf.com
-2. **App registrieren** im Developer Console
-3. `@overwolf/ow-electron` installieren
-4. In `main.js` die `overwolf.windows` API für Overlays nutzen:
-   ```js
-   const { overwolf } = require('@overwolf/ow-electron');
-   overwolf.windows.obtainDeclaredWindow('overlay', callback);
-   ```
-5. `manifest.json` für Overwolf App-Manifest erstellen
-
----
-
-## 🎯 HypeRate API Hinweise
-
-Die App verwendet das Phoenix WebSocket-Protokoll:
-```json
-// Join Message
-{
-  "topic": "hr:DEINE_SESSION_ID",
-  "event": "phx_join",
-  "payload": {},
-  "ref": 1
-}
-
-// Heart Rate Update (empfangen)
-{
-  "topic": "hr:DEINE_SESSION_ID",
-  "event": "hr_feed",
-  "payload": { "hr": 72 }
-}
+```bash
+npm install
+npm start
 ```
 
-Deine Session-ID findest du in der **HypeRate App** → Settings → Deine ID.
+### Build installers
+
+```bash
+# All platforms (requires macOS for universal builds)
+npm run build
+
+# Platform-specific
+npm run build:mac
+npm run build:win
+npm run build:linux
+```
+
+Build output lands in `dist/`. See [electron-builder docs](https://www.electron.build) for code signing and notarization.
+
+---
+
+## HypeRate WebSocket Protocol
+
+The app connects to `wss://app.hyperate.io/socket/websocket` using the Phoenix channel protocol:
+
+```json
+// Join
+{ "topic": "hr:<YOUR_SESSION_ID>", "event": "phx_join", "payload": {}, "ref": "join" }
+
+// Heartbeat (every 25 s)
+{ "topic": "phoenix", "event": "heartbeat", "payload": {}, "ref": "hb" }
+
+// Incoming BPM update
+{ "topic": "hr:<YOUR_SESSION_ID>", "event": "hr_feed", "payload": { "hr": 72 } }
+```
+
+Your Session ID is shown in the HypeRate app under **Settings → Session ID**.
+
+---
+
+## Releasing a New Version
+
+1. Bump the version in `package.json`
+2. Build all platforms: `npm run build:mac && npm run build:win && npm run build:linux`
+3. Create a GitHub Release tagged `v<version>` (e.g. `v1.1.0`)
+4. Upload the files from `dist/` as release assets
+5. The in-app update checker compares against the latest GitHub Release tag automatically
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE)
+
+---
+
+*Built with [Electron](https://electronjs.org) · Powered by [HypeRate](https://hyperate.io)*
