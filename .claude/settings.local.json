@@ -21,7 +21,9 @@
       "Bash(fc-list)",
       "Bash(xargs ls *)",
       "Bash(python3 -)",
-      "Bash(curl -s \"https://api.github.com/repos/alexholzreiter/HypeRate-Desktop-V2/releases/latest\")"
+      "Bash(curl -s \"https://api.github.com/repos/alexholzreiter/HypeRate-Desktop-V2/releases/latest\")",
+      "Bash(npx hyperframes *)",
+      "Bash(kill %1)"
     ]
   }
 }
