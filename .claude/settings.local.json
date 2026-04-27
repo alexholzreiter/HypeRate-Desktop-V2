@@ -23,7 +23,14 @@
       "Bash(python3 -)",
       "Bash(curl -s \"https://api.github.com/repos/alexholzreiter/HypeRate-Desktop-V2/releases/latest\")",
       "Bash(npx hyperframes *)",
-      "Bash(kill %1)"
+      "Bash(kill %1)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(magick --version)",
+      "Bash(npx puppeteer *)",
+      "Bash(npx puppeteer@24 node screenshot-mockups.mjs)",
+      "Bash(node --input-type=module)",
+      "Bash(npm uninstall *)"
     ]
   }
 }

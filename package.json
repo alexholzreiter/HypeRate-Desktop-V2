@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "productName": "HypeRate Desktop",
   "description": "In-game heart rate overlay powered by HypeRate",
-  "author": { "name": "HypeRate", "email": "hello@hyperate.io" },
+  "author": {
+    "name": "HypeRate",
+    "email": "hello@hyperate.io"
+  },
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -22,7 +25,9 @@
   "build": {
     "appId": "com.yourname.hyperate-overlay",
     "productName": "HypeRate Desktop",
-    "directories": { "output": "dist" },
+    "directories": {
+      "output": "dist"
+    },
     "win": {
       "target": "nsis",
       "icon": "assets/icon.png"
@@ -33,7 +38,13 @@
     },
     "mac": {
       "target": [
-        { "target": "dmg", "arch": ["x64", "arm64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ],
       "icon": "assets/icon.icns",
       "category": "public.app-category.utilities"
@@ -41,12 +52,25 @@
     "dmg": {
       "title": "${productName} ${version}",
       "background": null,
-      "window": { "width": 540, "height": 380 }
+      "window": {
+        "width": 540,
+        "height": 380
+      }
     },
     "linux": {
       "target": [
-        { "target": "AppImage", "arch": ["x64"] },
-        { "target": "deb", "arch": ["x64"] }
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "assets/icons",
       "category": "Utility"
