@@ -1114,6 +1114,26 @@
       </div>
 
     </div>
+    <!-- WebMCP declarative download form — lets AI agents select and navigate to the correct download -->
+    <form id="webmcp-download"
+          tool-name="download-hyperate-desktop"
+          tool-description="Download HypeRate Desktop for a specific operating system and architecture. Returns a direct download URL."
+          action="#download"
+          style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:32px;flex-wrap:wrap;">
+      <label for="platform-select" style="font-size:13px;color:var(--text-dim);">Quick download:</label>
+      <select id="platform-select" name="platform"
+              tool-param-description="Target platform: macos-arm64 (Apple Silicon), macos-x64 (Intel), windows, linux-appimage, linux-deb"
+              onchange="if(this.value)window.location.href=this.value"
+              style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;">
+        <option value="">Select platform…</option>
+        <option value="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0-arm64.dmg">macOS — Apple Silicon (arm64)</option>
+        <option value="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0.dmg">macOS — Intel (x64)</option>
+        <option value="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop.Setup.1.0.0.exe">Windows — Installer (64-bit)</option>
+        <option value="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0.AppImage">Linux — AppImage (x64)</option>
+        <option value="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/hyperate-overlay_1.0.0_amd64.deb">Linux — .deb (Debian/Ubuntu)</option>
+      </select>
+    </form>
+
     <p class="dl-note fade">
       Free and open source &mdash; <a href="https://github.com/alexholzreiter/HypeRate-Desktop-V2">view source on GitHub</a> &nbsp;·&nbsp; Requires a <a href="https://hyperate.io">HypeRate</a> account to stream heart rate data.
     </p>
@@ -1400,6 +1420,73 @@
       answer.classList.add('open');
     }
   }
+</script>
+
+<!-- WebMCP Imperative API — registers site tools for AI agents -->
+<script>
+(function () {
+  if (!navigator.modelContext) return;
+  try {
+    navigator.modelContext.provideContext({
+      tools: [
+        {
+          name: 'download-hyperate-desktop',
+          description: 'Returns a direct download URL for HypeRate Desktop for the specified platform.',
+          parameters: {
+            type: 'object',
+            required: ['platform'],
+            properties: {
+              platform: {
+                type: 'string',
+                description: 'Target platform',
+                enum: ['macos-arm64', 'macos-x64', 'windows', 'linux-appimage', 'linux-deb']
+              }
+            }
+          },
+          handler: function (params) {
+            var urls = {
+              'macos-arm64':    'https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0-arm64.dmg',
+              'macos-x64':      'https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0.dmg',
+              'windows':        'https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop.Setup.1.0.0.exe',
+              'linux-appimage': 'https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0.AppImage',
+              'linux-deb':      'https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/hyperate-overlay_1.0.0_amd64.deb'
+            };
+            var url = urls[params.platform];
+            return url ? { downloadUrl: url, platform: params.platform } : { error: 'Unknown platform' };
+          }
+        },
+        {
+          name: 'get-app-info',
+          description: 'Returns key facts about HypeRate Desktop: description, features, platforms, pricing, and links.',
+          parameters: { type: 'object', properties: {} },
+          handler: function () {
+            return {
+              name: 'HypeRate Desktop',
+              description: 'Free always-on-top heart rate overlay for streamers and athletes.',
+              pricing: 'Free',
+              openSource: true,
+              platforms: ['macOS (Apple Silicon + Intel)', 'Windows 10/11', 'Linux (AppImage + .deb)'],
+              features: ['Always-on-top BPM overlay', 'Draggable widget', 'Heart rate zones', 'Global hotkey', 'Full customization'],
+              download: 'https://desktop.hyperate.io/#download',
+              source: 'https://github.com/alexholzreiter/HypeRate-Desktop-V2',
+              api: 'https://desktop.hyperate.io/openapi.json'
+            };
+          }
+        },
+        {
+          name: 'get-faq',
+          description: 'Returns frequently asked questions and answers about HypeRate Desktop.',
+          parameters: { type: 'object', properties: {} },
+          handler: function () {
+            return fetch('/ai/faq.json').then(function (r) { return r.json(); });
+          }
+        }
+      ]
+    });
+  } catch (e) {
+    /* WebMCP not supported — fail silently */
+  }
+})();
 </script>
 </body>
 </html>

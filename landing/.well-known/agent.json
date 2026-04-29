@@ -1,0 +1,47 @@
+{
+  "name": "HypeRate Desktop",
+  "description": "HypeRate Desktop is a free, open-source desktop application that displays live heart rate data as a floating always-on-top overlay for macOS, Windows, and Linux. It connects to the HypeRate WebSocket API and is designed for streamers, gamers, and athletes.",
+  "url": "https://desktop.hyperate.io",
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false
+  },
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain", "application/json"],
+  "skills": [
+    {
+      "id": "download-info",
+      "name": "Get Download Links",
+      "description": "Returns download links for HypeRate Desktop for macOS (Apple Silicon & Intel), Windows, and Linux (AppImage & .deb)",
+      "examples": ["How do I download HypeRate Desktop?", "Where can I get the macOS version?"]
+    },
+    {
+      "id": "feature-info",
+      "name": "App Feature Information",
+      "description": "Returns details about HypeRate Desktop features: overlay customization, heart rate zones, hotkeys, platform support",
+      "examples": ["What features does HypeRate Desktop have?", "Does it work on Linux?"]
+    },
+    {
+      "id": "faq",
+      "name": "Frequently Asked Questions",
+      "description": "Answers common questions about HypeRate Desktop setup, compatibility, and usage",
+      "examples": ["Do I need an account?", "Which wearables are supported?"],
+      "outputModes": ["application/json"],
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "faq": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "question": { "type": "string" },
+                "answer":   { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

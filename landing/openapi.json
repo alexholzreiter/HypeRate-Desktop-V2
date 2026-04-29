@@ -1,0 +1,185 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "HypeRate WebSocket & Site API",
+    "description": "This document describes two interfaces: (1) the HypeRate WebSocket API for receiving live heart rate data from wearables, and (2) the static JSON endpoints exposed by desktop.hyperate.io for AI agent consumption.\n\nThe HypeRate WebSocket API uses the Phoenix channel protocol over a secure WebSocket connection. Clients subscribe to a device channel using a Session ID and receive real-time BPM updates.\n\nAn API key is required for the WebSocket API. Request one at https://hyperate.io/api",
+    "version": "1.0.0",
+    "contact": {
+      "name": "HypeRate",
+      "url": "https://hyperate.io"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://github.com/alexholzreiter/HypeRate-Desktop-V2/blob/main/LICENSE"
+    }
+  },
+  "externalDocs": {
+    "description": "HypeRate WebSocket API – Full Documentation",
+    "url": "https://github.com/alexholzreiter/HypeRate-Websocket-API"
+  },
+  "servers": [
+    {
+      "url": "https://desktop.hyperate.io",
+      "description": "HypeRate Desktop site and static AI endpoints"
+    }
+  ],
+  "paths": {
+    "/ai/summary.json": {
+      "get": {
+        "operationId": "getSiteSummary",
+        "summary": "Get site summary for AI engines",
+        "description": "Returns a structured JSON summary of HypeRate Desktop — name, description, platforms, key features, and links. Intended for AI indexing and agent consumption.",
+        "tags": ["AI Discovery"],
+        "responses": {
+          "200": {
+            "description": "Site summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "site_name":       { "type": "string", "example": "HypeRate Desktop" },
+                    "tagline":         { "type": "string" },
+                    "description":     { "type": "string" },
+                    "url":             { "type": "string", "format": "uri" },
+                    "pricing":         { "type": "string", "example": "Free" },
+                    "platforms":       { "type": "array", "items": { "type": "string" } },
+                    "key_features":    { "type": "array", "items": { "type": "string" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/faq.json": {
+      "get": {
+        "operationId": "getFaq",
+        "summary": "Get structured FAQ",
+        "description": "Returns frequently asked questions and answers about HypeRate Desktop in structured JSON format.",
+        "tags": ["AI Discovery"],
+        "responses": {
+          "200": {
+            "description": "FAQ list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "faq": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["question", "answer"],
+                        "properties": {
+                          "question": { "type": "string" },
+                          "answer":   { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/service.json": {
+      "get": {
+        "operationId": "getServiceDescription",
+        "summary": "Get service capabilities for AI agents",
+        "description": "Returns a detailed description of HypeRate Desktop's capabilities, supported platforms, compatible wearables, and privacy policy.",
+        "tags": ["AI Discovery"],
+        "responses": {
+          "200": {
+            "description": "Service description",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "service_name":         { "type": "string" },
+                    "service_type":         { "type": "string" },
+                    "pricing_model":        { "type": "string" },
+                    "open_source":          { "type": "boolean" },
+                    "platforms":            { "type": "object" },
+                    "capabilities":         { "type": "array", "items": { "type": "string" } },
+                    "compatible_wearables": { "type": "array", "items": { "type": "string" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/llms.txt": {
+      "get": {
+        "operationId": "getLlmsContext",
+        "summary": "Get LLM context file",
+        "description": "Returns the llms.txt file containing a plain-text description of HypeRate Desktop for large language model consumption.",
+        "tags": ["AI Discovery"],
+        "responses": {
+          "200": {
+            "description": "LLM context text",
+            "content": { "text/plain": { "schema": { "type": "string" } } }
+          }
+        }
+      }
+    },
+    "/feed.xml": {
+      "get": {
+        "operationId": "getRssFeed",
+        "summary": "Get RSS feed",
+        "description": "Returns the RSS 2.0 feed containing blog posts and updates from HypeRate Desktop.",
+        "tags": ["Content"],
+        "responses": {
+          "200": {
+            "description": "RSS feed",
+            "content": { "application/rss+xml": { "schema": { "type": "string" } } }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "AI Discovery",
+      "description": "Static JSON endpoints for AI agent and LLM consumption"
+    },
+    {
+      "name": "Content",
+      "description": "Blog and content feeds"
+    }
+  ],
+  "x-websocket-api": {
+    "description": "The HypeRate live heart rate data is delivered via WebSocket (Phoenix channel protocol). See external docs for full specification.",
+    "endpoint": "wss://app.hyperate.io/ws/{sessionId}",
+    "authentication": "Query parameter: ?token=YOUR_API_KEY (obtain at https://hyperate.io/api)",
+    "channel_topic": "hr:{sessionId}",
+    "join_message": {
+      "topic": "hr:{sessionId}",
+      "event": "phx_join",
+      "payload": {},
+      "ref": "1"
+    },
+    "heart_rate_event": {
+      "topic": "hr:{sessionId}",
+      "event": "hr_update",
+      "payload": { "hr": 75 },
+      "ref": null
+    },
+    "keepalive": {
+      "interval_seconds": 15,
+      "message": { "event": "ping", "payload": { "timestamp": "<unix_ms>" } }
+    },
+    "leave_message": {
+      "topic": "hr:{sessionId}",
+      "event": "phx_leave",
+      "payload": {},
+      "ref": "2"
+    }
+  }
+}

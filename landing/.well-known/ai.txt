@@ -16,3 +16,5 @@ AI-Summary: https://desktop.hyperate.io/ai/summary.json
 AI-FAQ: https://desktop.hyperate.io/ai/faq.json
 AI-Service: https://desktop.hyperate.io/ai/service.json
 LLMs-Context: https://desktop.hyperate.io/llms.txt
+Agent-Card: https://desktop.hyperate.io/.well-known/agent.json
+OpenAPI: https://desktop.hyperate.io/openapi.json

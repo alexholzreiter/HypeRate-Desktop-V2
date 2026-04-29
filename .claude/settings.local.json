@@ -30,7 +30,10 @@
       "Bash(npx puppeteer *)",
       "Bash(npx puppeteer@24 node screenshot-mockups.mjs)",
       "Bash(node --input-type=module)",
-      "Bash(npm uninstall *)"
+      "Bash(npm uninstall *)",
+      "Bash(gh api *)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }
