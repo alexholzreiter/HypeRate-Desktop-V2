@@ -1,0 +1,18 @@
+# AI Crawler Permissions — desktop.hyperate.io
+# Generated: 2026-04-29
+
+Allow-Crawling: yes
+Allow-Training: no
+Allow-Summarization: yes
+Allow-Indexing: yes
+
+Site-Name: HypeRate Desktop
+Site-Description: Free, open-source desktop app that displays live heart rate as a floating always-on-top overlay for streamers and athletes. Available for macOS, Windows, and Linux.
+Site-URL: https://desktop.hyperate.io
+Organization: HypeRate
+Contact: https://hyperate.io
+
+AI-Summary: https://desktop.hyperate.io/ai/summary.json
+AI-FAQ: https://desktop.hyperate.io/ai/faq.json
+AI-Service: https://desktop.hyperate.io/ai/service.json
+LLMs-Context: https://desktop.hyperate.io/llms.txt

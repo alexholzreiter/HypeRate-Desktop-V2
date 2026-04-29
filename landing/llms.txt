@@ -43,6 +43,19 @@ Free. No subscription. No account required beyond a HypeRate account for heart r
 - WebSocket connection to wss://app.hyperate.io
 - Heart rate data received via HypeRate Phoenix channel protocol
 
+## Key Pages
+
+- [Home — Download & Overview](https://desktop.hyperate.io/)
+- [Blog: Heart Rate Overlay Guide for Streamers](https://desktop.hyperate.io/blog/heart-rate-overlay-for-streamers)
+- [Sitemap](https://desktop.hyperate.io/sitemap.xml)
+- [RSS Feed](https://desktop.hyperate.io/feed.xml)
+
+## AI Resources
+
+- [AI Summary (JSON)](https://desktop.hyperate.io/ai/summary.json)
+- [AI FAQ (JSON)](https://desktop.hyperate.io/ai/faq.json)
+- [AI Service Description (JSON)](https://desktop.hyperate.io/ai/service.json)
+
 ## Links
 
 - Website: https://desktop.hyperate.io

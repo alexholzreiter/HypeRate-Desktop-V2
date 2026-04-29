@@ -1,0 +1,36 @@
+{
+  "faq": [
+    {
+      "question": "Do I need a HypeRate account to use HypeRate Desktop?",
+      "answer": "No account is needed. You only need your personal HypeRate Session ID, which you find in the HypeRate mobile app. Paste it into the desktop app and connect — that's it."
+    },
+    {
+      "question": "Which devices and heart rate monitors are supported?",
+      "answer": "Any device supported by the HypeRate platform works — including Apple Watch, Wear OS devices, Garmin, Fitbit, Amazfit, Polar, and other compatible heart rate sources."
+    },
+    {
+      "question": "Is HypeRate Desktop free?",
+      "answer": "Yes, completely free. No subscription, no in-app purchases, no hidden fees. The app is open source and will remain free."
+    },
+    {
+      "question": "Does it work with OBS or other streaming software?",
+      "answer": "Yes. The overlay is a native always-on-top window, so it works alongside any streaming software. In OBS, use Window Capture, Game Capture, or Display Capture to include it in your stream."
+    },
+    {
+      "question": "Why is the overlay not showing on top of my game?",
+      "answer": "This happens when a game runs in exclusive fullscreen mode. Switch your game to Borderless Windowed mode and the overlay will appear correctly on top."
+    },
+    {
+      "question": "Does HypeRate Desktop work without an internet connection?",
+      "answer": "No. The app connects to the HypeRate service via WebSocket to receive live heart rate data, so an active internet connection is required."
+    },
+    {
+      "question": "Is my heart rate data stored or shared?",
+      "answer": "No. HypeRate Desktop stores only your local preferences (appearance settings, overlay position) on your device. There is no telemetry, no analytics, and no data collection."
+    },
+    {
+      "question": "How do I update the app?",
+      "answer": "HypeRate Desktop checks for new releases automatically on launch. When an update is available, a badge appears in the title bar — click it to go to the download page."
+    }
+  ]
+}

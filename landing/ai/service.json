@@ -1,0 +1,47 @@
+{
+  "service_name": "HypeRate Desktop",
+  "service_type": "Desktop Application",
+  "description": "A free, open-source desktop application that displays live heart rate data as a floating, always-on-top overlay on macOS, Windows, and Linux. Designed for streamers, gamers, and athletes who want to show their real-time BPM on screen.",
+  "url": "https://desktop.hyperate.io",
+  "pricing_model": "Free",
+  "open_source": true,
+  "source_code": "https://github.com/alexholzreiter/HypeRate-Desktop-V2",
+  "platforms": {
+    "macOS": {
+      "versions": ["Apple Silicon (arm64)", "Intel (x64)"],
+      "minimum_os": "macOS 12"
+    },
+    "Windows": {
+      "versions": ["64-bit"],
+      "minimum_os": "Windows 10"
+    },
+    "Linux": {
+      "formats": ["AppImage", ".deb"],
+      "architecture": "x64"
+    }
+  },
+  "capabilities": [
+    "Live BPM display via WebSocket connection to HypeRate",
+    "Floating always-on-top overlay window",
+    "Draggable widget with persistent position",
+    "Heart rate zone color coding",
+    "Global keyboard shortcut to toggle overlay",
+    "macOS menu bar BPM indicator",
+    "Full UI customization (style, color, font, layout, animation)",
+    "Auto-update check on launch",
+    "Launch at system startup",
+    "English and German localization"
+  ],
+  "compatible_wearables": [
+    "Apple Watch",
+    "Wear OS",
+    "Garmin",
+    "Polar",
+    "Fitbit",
+    "Amazfit",
+    "Compatible Bluetooth chest straps"
+  ],
+  "data_privacy": "No telemetry, no analytics, no data collection. Preferences stored locally only.",
+  "contact": "https://hyperate.io",
+  "feedback": "https://feedback.hyperate.io/form/iHnGf9vp"
+}

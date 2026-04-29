@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Primary SEO -->
-  <title>HypeRate Desktop — Live Heart Rate — Native Desktop App for Streamers &amp; Athletes</title>
+  <title>HypeRate Desktop — Live Heart Rate Overlay for Streamers &amp; Athletes</title>
   <meta name="description" content="Display your live heart rate as a beautiful floating overlay while you stream, game, or work out. Free desktop app for macOS, Windows &amp; Linux. Powered by HypeRate." />
   <meta name="keywords" content="heart rate desktop app, HypeRate, streaming overlay, live BPM, heart rate monitor, streamer tools, OBS overlay, Twitch heart rate, desktop app" />
   <meta name="author" content="HypeRate" />
@@ -36,18 +36,108 @@
   <meta name="twitter:description" content="A cross-platform desktop app that displays your live heart rate as a floating overlay while you stream, game, or train. Free for macOS, Windows &amp; Linux." />
   <meta name="twitter:image" content="https://desktop.hyperate.io/og-image.png" />
 
-  <!-- Structured Data -->
+  <!-- RSS Feed -->
+  <link rel="alternate" type="application/rss+xml" title="HypeRate Desktop Blog" href="https://desktop.hyperate.io/feed.xml" />
+
+  <!-- Structured Data: SoftwareApplication -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "HypeRate Desktop",
-    "description": "A cross-platform desktop app showing live heart rate for streamers and athletes. Displays live BPM from HypeRate on any screen.",
+    "description": "A cross-platform desktop app that displays live heart rate as a floating always-on-top overlay for streamers, gamers, and athletes.",
     "url": "https://desktop.hyperate.io",
     "applicationCategory": "UtilitiesApplication",
     "operatingSystem": "macOS, Windows, Linux",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-    "publisher": { "@type": "Organization", "name": "HypeRate", "url": "https://hyperate.io" }
+    "publisher": { "@type": "Organization", "name": "HypeRate", "url": "https://hyperate.io" },
+    "downloadUrl": "https://desktop.hyperate.io/#download",
+    "softwareVersion": "1.0.0",
+    "releaseNotes": "https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases"
+  }
+  </script>
+
+  <!-- Structured Data: Organization -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "HypeRate",
+    "url": "https://hyperate.io",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://desktop.hyperate.io/apple-touch-icon.png",
+      "width": 180,
+      "height": 180
+    },
+    "sameAs": [
+      "https://twitter.com/HypeRate_io",
+      "https://github.com/alexholzreiter/HypeRate-Desktop-V2"
+    ],
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "contactType": "customer support",
+      "url": "https://feedback.hyperate.io/form/iHnGf9vp"
+    }
+  }
+  </script>
+
+  <!-- Structured Data: WebSite with SearchAction -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "HypeRate Desktop",
+    "url": "https://desktop.hyperate.io",
+    "description": "Free live heart rate overlay for streamers and athletes. Available for macOS, Windows, and Linux.",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://desktop.hyperate.io/?q={search_term_string}"
+      },
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+
+  <!-- Structured Data: FAQPage -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Do I need a HypeRate account to use HypeRate Desktop?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No account is needed. You only need your personal HypeRate Session ID, which you find in the HypeRate mobile app. Paste it into the desktop app and connect." }
+      },
+      {
+        "@type": "Question",
+        "name": "Which devices and heart rate monitors are supported?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Any device supported by the HypeRate platform works — including Apple Watch, Wear OS, Garmin, Fitbit, Amazfit, Polar, and other compatible heart rate sources." }
+      },
+      {
+        "@type": "Question",
+        "name": "Is HypeRate Desktop free?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes, completely free. No subscription, no in-app purchases, no hidden fees. The app is open source and will remain free." }
+      },
+      {
+        "@type": "Question",
+        "name": "Does it work with OBS or other streaming software?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. The overlay is a native always-on-top window, so it works alongside any streaming software. In OBS, use Window Capture, Game Capture, or Display Capture to include it in your stream." }
+      },
+      {
+        "@type": "Question",
+        "name": "Why is the overlay not showing on top of my game?",
+        "acceptedAnswer": { "@type": "Answer", "text": "This happens when a game runs in exclusive fullscreen mode. Switch your game to Borderless Windowed mode and the overlay will appear correctly on top." }
+      },
+      {
+        "@type": "Question",
+        "name": "Is my heart rate data stored or shared?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No. The app stores only your local preferences on your device. There is no telemetry, no analytics, and no data collection." }
+      }
+    ]
   }
   </script>
 
@@ -560,12 +650,18 @@
   <p class="fade">A cross-platform desktop app that displays your live heart rate as a floating overlay while you stream, game, or train. Powered by HypeRate.</p>
 
   <div class="hero-actions fade">
-    <a class="btn-primary" href="#download">
-      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v8M4 6l3 3 3-3M1 11h12"/></svg>
+    <a class="btn-primary" href="#download"
+       aria-label="Download HypeRate Desktop — free heart rate overlay app"
+       data-webmcp-toolname="cta-download"
+       data-webmcp-tooldescription="Navigate to download section to get the free heart rate overlay app">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 1v8M4 6l3 3 3-3M1 11h12"/></svg>
       Download Free
     </a>
-    <a class="btn-ghost" href="#features">
-      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="7" cy="7" r="6"/><path d="M7 5v4M7 4.5v.01"/></svg>
+    <a class="btn-ghost" href="#features"
+       aria-label="View all features of the heart rate overlay"
+       data-webmcp-toolname="cta-features"
+       data-webmcp-tooldescription="Navigate to the features section">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="6"/><path d="M7 5v4M7 4.5v.01"/></svg>
       See Features
     </a>
   </div>
@@ -714,7 +810,7 @@
           </svg>
         </div>
         <h3>Live BPM Overlay</h3>
-        <p>A floating, always-on-top widget showing your real-time heart rate from HypeRate. Stays above any app — games, OBS, browser, anything.</p>
+        <p>A floating, always-on-top widget showing your real-time BPM from your wearable. Stays above any app — games, OBS, browser, anything.</p>
       </div>
 
       <div class="feature-card">
@@ -794,7 +890,7 @@
           </svg>
         </div>
         <h3>Launch at Startup</h3>
-        <p>Enable once and forget. HypeRate Desktop registers with your OS login items so it's running before you even open a game or start a stream.</p>
+        <p>Enable once and forget. The app registers with your OS login items so it's running before you even open a game or start a stream.</p>
       </div>
 
     </div>
@@ -964,12 +1060,18 @@
         </div>
         <h3>macOS</h3>
         <p class="dl-sub">Apple Silicon &amp; Intel · macOS 12+</p>
-        <a class="dl-btn" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0-arm64.dmg">
-          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v8M4 6l3 3 3-3M1 12h12"/></svg>
+        <a class="dl-btn" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0-arm64.dmg"
+           aria-label="Download HypeRate Desktop for macOS Apple Silicon (arm64)"
+           data-webmcp-toolname="download-macos-arm64"
+           data-webmcp-tooldescription="Download HypeRate Desktop installer for macOS Apple Silicon">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 1v8M4 6l3 3 3-3M1 12h12"/></svg>
           Apple Silicon (arm64)
         </a>
-        <a class="dl-btn-ghost" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0.dmg">
-          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v8M4 6l3 3 3-3M1 12h12"/></svg>
+        <a class="dl-btn-ghost" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0.dmg"
+           aria-label="Download HypeRate Desktop for macOS Intel (x64)"
+           data-webmcp-toolname="download-macos-intel"
+           data-webmcp-tooldescription="Download HypeRate Desktop installer for macOS Intel">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 1v8M4 6l3 3 3-3M1 12h12"/></svg>
           Intel (x64)
         </a>
       </div>
@@ -980,8 +1082,11 @@
         </div>
         <h3>Windows</h3>
         <p class="dl-sub">64-bit installer · Windows 10 / 11</p>
-        <a class="dl-btn" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop.Setup.1.0.0.exe">
-          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v8M4 6l3 3 3-3M1 12h12"/></svg>
+        <a class="dl-btn" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop.Setup.1.0.0.exe"
+           aria-label="Download HypeRate Desktop installer for Windows"
+           data-webmcp-toolname="download-windows"
+           data-webmcp-tooldescription="Download HypeRate Desktop setup installer for Windows 10 and 11">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 1v8M4 6l3 3 3-3M1 12h12"/></svg>
           Download Installer
         </a>
       </div>
@@ -992,12 +1097,18 @@
         </div>
         <h3>Linux</h3>
         <p class="dl-sub">AppImage &amp; .deb · x64</p>
-        <a class="dl-btn" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0.AppImage">
-          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v8M4 6l3 3 3-3M1 12h12"/></svg>
+        <a class="dl-btn" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0.AppImage"
+           aria-label="Download HypeRate Desktop AppImage for Linux"
+           data-webmcp-toolname="download-linux-appimage"
+           data-webmcp-tooldescription="Download HypeRate Desktop AppImage package for Linux">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 1v8M4 6l3 3 3-3M1 12h12"/></svg>
           Download AppImage
         </a>
-        <a class="dl-btn-ghost" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/hyperate-overlay_1.0.0_amd64.deb">
-          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v8M4 6l3 3 3-3M1 12h12"/></svg>
+        <a class="dl-btn-ghost" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/hyperate-overlay_1.0.0_amd64.deb"
+           aria-label="Download HypeRate Desktop .deb package for Debian and Ubuntu Linux"
+           data-webmcp-toolname="download-linux-deb"
+           data-webmcp-tooldescription="Download HypeRate Desktop .deb package for Debian and Ubuntu">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 1v8M4 6l3 3 3-3M1 12h12"/></svg>
           Download .deb
         </a>
       </div>
@@ -1019,7 +1130,7 @@
     <div class="faq-list fade">
 
       <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
+        <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false" aria-haspopup="true">
           <span>Do I need a HypeRate account to use HypeRate Desktop?</span>
           <svg class="faq-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>
         </button>
@@ -1027,7 +1138,7 @@
       </div>
 
       <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
+        <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false" aria-haspopup="true">
           <span>Which devices and heart rate monitors are supported?</span>
           <svg class="faq-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>
         </button>
@@ -1035,7 +1146,7 @@
       </div>
 
       <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
+        <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false" aria-haspopup="true">
           <span>Is HypeRate Desktop really free?</span>
           <svg class="faq-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>
         </button>
@@ -1043,15 +1154,15 @@
       </div>
 
       <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
+        <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false" aria-haspopup="true">
           <span>Does it work with OBS or other streaming software?</span>
           <svg class="faq-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>
         </button>
-        <div class="faq-a">Yes. HypeRate Desktop is a native always-on-top window, so it works alongside any streaming software. In OBS, simply add a <strong>Window Capture</strong> or <strong>Game Capture</strong> source, or use a <strong>Display Capture</strong> to include the overlay in your stream.</div>
+        <div class="faq-a">Yes. The overlay runs as a native always-on-top window, so it works alongside any streaming software. In OBS, simply add a <strong>Window Capture</strong> or <strong>Game Capture</strong> source, or use a <strong>Display Capture</strong> to include it in your stream.</div>
       </div>
 
       <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
+        <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false" aria-haspopup="true">
           <span>Why is the overlay not showing on top of my game?</span>
           <svg class="faq-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>
         </button>
@@ -1059,15 +1170,15 @@
       </div>
 
       <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
+        <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false" aria-haspopup="true">
           <span>Does HypeRate Desktop work without an internet connection?</span>
           <svg class="faq-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>
         </button>
-        <div class="faq-a">No. HypeRate Desktop connects to the HypeRate service via WebSocket to receive live heart rate data, so an active internet connection is required.</div>
+        <div class="faq-a">No. The app connects to the heart rate service via WebSocket to receive live BPM data, so an active internet connection is required.</div>
       </div>
 
       <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
+        <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false" aria-haspopup="true">
           <span>Is my heart rate data stored or shared anywhere?</span>
           <svg class="faq-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>
         </button>
@@ -1075,7 +1186,7 @@
       </div>
 
       <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
+        <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false" aria-haspopup="true">
           <span>How do I update HypeRate Desktop to the latest version?</span>
           <svg class="faq-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>
         </button>
@@ -1083,7 +1194,7 @@
       </div>
 
       <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
+        <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false" aria-haspopup="true">
           <span>Windows says the app is blocked or unsafe — what do I do?</span>
           <svg class="faq-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>
         </button>
@@ -1093,7 +1204,7 @@
       </div>
 
       <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
+        <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false" aria-haspopup="true">
           <span>macOS says the app can't be opened because it's from an unidentified developer.</span>
           <svg class="faq-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>
         </button>
@@ -1103,7 +1214,7 @@
       </div>
 
       <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
+        <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false" aria-haspopup="true">
           <span>How do I install and run HypeRate Desktop on Linux?</span>
           <svg class="faq-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>
         </button>
