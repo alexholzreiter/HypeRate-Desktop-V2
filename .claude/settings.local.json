@@ -33,7 +33,13 @@
       "Bash(npm uninstall *)",
       "Bash(gh api *)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:docs.vrchat.com)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(node -e \"const asar = require\\('asar'\\); const c = asar.extractFile\\('dist/mac/HypeRate Desktop.app/Contents/Resources/app.asar', 'package.json'\\); console.log\\(c.toString\\(\\)\\);\")",
+      "Bash(node -e ' *)",
+      "Bash(shasum -a 256 /Users/anygood/Documents/GitHub/HypeRate-Desktop-V2/src/windows/settings/index.html)",
+      "Bash(shasum -a 256 /Users/anygood/Documents/GitHub/HypeRate-Desktop-V2/src/main.js)"
     ]
   }
 }

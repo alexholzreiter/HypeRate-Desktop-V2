@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setIgnoreMouseEvents: (ignore) => ipcRenderer.send('set-ignore-mouse-events', ignore),
   loadSettings:   ()     => ipcRenderer.invoke('load-settings'),
   saveSettings:   (data) => ipcRenderer.send('save-settings', data),
+  testOsc:        (cfg)  => ipcRenderer.invoke('test-osc', cfg),
   closeFtue:      ()     => ipcRenderer.send('close-ftue'),
   ftueComplete:   ()     => ipcRenderer.send('ftue-complete'),
   getAutostart:   ()     => ipcRenderer.invoke('get-autostart'),

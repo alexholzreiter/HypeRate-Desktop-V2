@@ -29,10 +29,14 @@
     .wbtn:hover{background:var(--surface2);color:var(--text);}
     .wbtn.cl:hover{background:var(--danger);color:#fff;}
 
-    .main-layout{flex:1;display:flex;overflow:hidden;}
-    .panel-left{width:270px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;padding:13px 10px 13px 13px;overflow-y:auto;border-right:1px solid var(--border);}
-    .panel-left::-webkit-scrollbar{width:3px;}
-    .panel-left::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+    .main-layout{flex:1;display:flex;overflow:hidden;min-height:0;}
+    .panel-left{width:270px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden;}
+    .panel-left-fixed{flex-shrink:0;display:flex;flex-direction:column;gap:12px;padding:13px 10px 0 13px;}
+    .panel-left-scroll{flex:1;min-height:0;overflow-y:scroll;display:flex;flex-direction:column;gap:12px;padding:12px 10px 13px 13px;}
+    .panel-left-scroll > *{flex-shrink:0;}
+    .panel-left-scroll::-webkit-scrollbar{width:4px;}
+    .panel-left-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+    .panel-left-scroll::-webkit-scrollbar-track{background:transparent;}
     .panel-right{flex:1;display:flex;flex-direction:column;gap:12px;padding:13px 13px 13px 10px;overflow-y:auto;min-width:0;}
     .panel-right::-webkit-scrollbar{width:3px;}
     .panel-right::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
@@ -237,23 +241,29 @@
   <!-- ── Left panel: Status + Connection ── -->
   <div class="panel-left">
 
-    <div class="status-bar">
-      <div class="dot" id="dot"></div>
-      <span class="st-text" id="stText" data-i18n="status_idle">Not connected</span>
-      <span class="bpm-pill" id="bpmPill">-- BPM</span>
-    </div>
+    <!-- Fixed: status + connection always visible -->
+    <div class="panel-left-fixed">
+      <div class="status-bar">
+        <div class="dot" id="dot"></div>
+        <span class="st-text" id="stText" data-i18n="status_idle">Not connected</span>
+        <span class="bpm-pill" id="bpmPill">-- BPM</span>
+      </div>
 
-    <div class="card">
-      <div class="ch"><span>🔗</span> <span data-i18n="connection">Connection</span></div>
-      <div class="cb">
-        <div class="field">
-          <label data-i18n="session_id">HypeRate Session ID</label>
-          <input type="text" id="hrId" placeholder="e.g. abc123" maxlength="40" />
-          <span class="hint"><span data-i18n="session_hint">Find your Session ID in the HypeRate app →</span> <a href="https://hyperate.io" target="_blank">hyperate.io</a></span>
+      <div class="card">
+        <div class="ch"><span>🔗</span> <span data-i18n="connection">Connection</span></div>
+        <div class="cb">
+          <div class="field">
+            <label data-i18n="session_id">HypeRate Session ID</label>
+            <input type="text" id="hrId" placeholder="e.g. abc123" maxlength="40" />
+            <span class="hint"><span data-i18n="session_hint">Find your Session ID in the HypeRate app →</span> <a href="https://hyperate.io" target="_blank">hyperate.io</a></span>
+          </div>
+          <button class="btn bp" onclick="toggleConn()"><span id="connLabel" data-i18n="connect">Connect</span></button>
         </div>
-        <button class="btn bp" onclick="toggleConn()"><span id="connLabel" data-i18n="connect">Connect</span></button>
       </div>
     </div>
+
+    <!-- Scrollable: everything below -->
+    <div class="panel-left-scroll">
 
     <div class="hotkey-badge">
       <span>⌨️ <span data-i18n="hotkey_label">Toggle overlay:</span></span>
@@ -272,6 +282,43 @@
       </div>
     </div>
 
+    <!-- ── OSC Card ── -->
+    <div class="card">
+      <div class="ch"><span>🎮</span> <span>VRChat OSC</span></div>
+      <div class="cb" style="gap:10px;">
+        <div class="trow">
+          <span class="tl">Send to VRChat</span>
+          <label class="tog"><input type="checkbox" id="oscEnabled" onchange="oscToggle()" /><span class="ts"></span></label>
+        </div>
+        <div id="oscBody" style="display:none;flex-direction:column;gap:9px;">
+          <div style="display:flex;gap:7px;">
+            <div class="field" style="flex:1;">
+              <label>Host</label>
+              <input type="text" id="oscHost" value="127.0.0.1" oninput="saveOsc()" style="font-size:12px;padding:6px 9px;" />
+            </div>
+            <div class="field" style="width:68px;">
+              <label>Port</label>
+              <input type="text" id="oscPort" value="9000" oninput="saveOsc()" style="font-size:12px;padding:6px 9px;" />
+            </div>
+          </div>
+          <div class="field">
+            <label>Parameter Name</label>
+            <input type="text" id="oscParam" value="HR" oninput="saveOsc()" style="font-size:12px;padding:6px 9px;" />
+          </div>
+          <div style="font-size:11px;color:var(--text-dim);line-height:1.5;background:var(--surface);border-radius:7px;padding:8px 10px;">
+            Sends <code style="color:var(--accent3);font-size:10.5px;">/avatar/parameters/HR</code> (int) +
+            <code style="color:var(--accent3);font-size:10.5px;">onesHR / tensHR / hundredsHR</code> (float) every heartbeat.
+            Enable OSC in VRChat: <strong>Settings → OSC → Enable</strong>
+          </div>
+          <button class="btn" id="oscTestBtn" onclick="testOsc()"
+            style="background:var(--surface2);color:var(--text);font-size:12px;padding:7px 12px;">
+            🔁 Send test ping (72 BPM)
+          </button>
+          <div id="oscStatus" style="font-size:11.5px;display:none;padding:5px 9px;border-radius:6px;text-align:center;"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="card" id="newsCard">
       <div class="ch"><span>📰</span> <span data-i18n="news">News</span></div>
       <div id="newsBody" style="display:flex;flex-direction:column;">
@@ -279,7 +326,8 @@
       </div>
     </div>
 
-  </div>
+    </div><!-- /panel-left-scroll -->
+  </div><!-- /panel-left -->
 
   <!-- ── Right panel: Customization + Preview ── -->
   <div class="panel-right">
@@ -923,30 +971,90 @@
     }
   }
 
+  // ── OSC ──
+  function oscToggle() {
+    const enabled = cb('oscEnabled');
+    $('oscBody').style.display = enabled ? 'flex' : 'none';
+    saveOsc();
+  }
+
+  function saveOsc() {
+    window.electronAPI.saveSettings({
+      oscEnabled: cb('oscEnabled'),
+      oscHost:    $('oscHost').value.trim()  || '127.0.0.1',
+      oscPort:    parseInt($('oscPort').value) || 9000,
+      oscParam:   $('oscParam').value.trim() || 'HR',
+    });
+  }
+
+  async function testOsc() {
+    const btn = $('oscTestBtn');
+    const st  = $('oscStatus');
+    btn.disabled = true;
+    btn.textContent = '⏳ Sending…';
+    try {
+      const res = await window.electronAPI.testOsc({
+        host:  $('oscHost').value.trim()  || '127.0.0.1',
+        port:  parseInt($('oscPort').value) || 9000,
+        param: $('oscParam').value.trim() || 'HR',
+      });
+      st.style.display = 'block';
+      if (res.ok) {
+        st.style.background = 'rgba(34,197,94,.15)';
+        st.style.color = '#22c55e';
+        st.textContent = '✓ Packet sent — check VRChat avatar parameters!';
+      } else {
+        st.style.background = 'rgba(239,68,68,.15)';
+        st.style.color = '#ef4444';
+        st.textContent = '✗ ' + (res.error || 'Unknown error');
+      }
+    } catch(e) {
+      st.style.display = 'block';
+      st.style.background = 'rgba(239,68,68,.15)';
+      st.style.color = '#ef4444';
+      st.textContent = '✗ ' + e.message;
+    }
+    btn.disabled = false;
+    btn.textContent = '🔁 Send test ping (72 BPM)';
+    setTimeout(() => { st.style.display = 'none'; }, 4000);
+  }
+
+  function applyOscSettings(s) {
+    if (s.oscEnabled !== undefined) {
+      $('oscEnabled').checked = !!s.oscEnabled;
+      $('oscBody').style.display = s.oscEnabled ? 'flex' : 'none';
+    }
+    if (s.oscHost)  $('oscHost').value  = s.oscHost;
+    if (s.oscPort)  $('oscPort').value  = s.oscPort;
+    if (s.oscParam) $('oscParam').value = s.oscParam;
+  }
+
   // ── Init ──
   async function init(){
-    const [saved, autostartOn, systemFonts] = await Promise.all([
-      window.electronAPI.loadSettings(),
-      window.electronAPI.getAutostart(),
-      window.electronAPI.getSystemFonts(),
-    ]);
-    if(systemFonts&&$('systemFontList')){
-      const dl=$('systemFontList');
-      systemFonts.sort().forEach(f=>{ const o=document.createElement('option'); o.value=f; dl.appendChild(o); });
-    }
-    if($('autostartToggle')) $('autostartToggle').checked = autostartOn;
-    applyLang(saved.lang||'en');
-    // Show version
-    if (saved.version) $('tlVersion').textContent = 'v' + saved.version;
-    // Apply DPI scale factor to body font-size for 4K displays
-    if (saved.scaleFactor && saved.scaleFactor > 1.5) {
-      // On 4K (scale=2) the window is already sized in logical px by Electron,
-      // but we nudge font sizes up slightly for sharpness
-      document.documentElement.style.fontSize = '15px';
-    }
-    if(saved.hrId) $('hrId').value=saved.hrId;
-    if(saved.config) applyConfigToForm(saved.config);
+    // 1) Load settings first — version + UI must appear immediately
+    let saved = {};
+    try { saved = await window.electronAPI.loadSettings(); } catch(e) { console.error('loadSettings:', e); }
+
+    applyLang(saved.lang || 'en');
+    $('tlVersion').textContent = 'v' + (saved.version || '?');
+    if (saved.scaleFactor && saved.scaleFactor > 1.5) document.documentElement.style.fontSize = '15px';
+    if (saved.hrId) $('hrId').value = saved.hrId;
+    if (saved.config) applyConfigToForm(saved.config);
+    applyOscSettings(saved);
     updatePreview(); live();
+
+    // 2) Load fonts + autostart in background — not critical for UI
+    try {
+      const [autostartOn, systemFonts] = await Promise.all([
+        window.electronAPI.getAutostart().catch(() => false),
+        window.electronAPI.getSystemFonts().catch(() => []),
+      ]);
+      if ($('autostartToggle')) $('autostartToggle').checked = autostartOn;
+      if (systemFonts && $('systemFontList')) {
+        const dl = $('systemFontList');
+        systemFonts.sort().forEach(f => { const o = document.createElement('option'); o.value = f; dl.appendChild(o); });
+      }
+    } catch(e) { console.error('secondary init:', e); }
   }
   init();
   loadNews();

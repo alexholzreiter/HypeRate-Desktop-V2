@@ -1,7 +1,65 @@
 const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell } = require('electron');
-const path = require('path');
-const fs   = require('fs');
+const path   = require('path');
+const fs     = require('fs');
+const dgram  = require('dgram');
 const { WebSocket } = require('ws');
+
+// ── OSC ──────────────────────────────────────────────────────────────────────
+// Pure Node.js UDP — no extra npm package needed.
+
+function padTo4(n) { return Math.ceil(n / 4) * 4; }
+
+function encodeOscStr(s) {
+  const buf = Buffer.alloc(padTo4(s.length + 1));
+  buf.write(s, 'utf8');
+  return buf;
+}
+
+// args: array of {t: 'i' | 'f', v: number}
+function buildOscMsg(address, args) {
+  const addrBuf = encodeOscStr(address);
+  const tagBuf  = encodeOscStr(',' + args.map(a => a.t).join(''));
+  const dataBufs = args.map(({ t, v }) => {
+    const b = Buffer.alloc(4);
+    t === 'i' ? b.writeInt32BE(v) : b.writeFloatBE(v);
+    return b;
+  });
+  return Buffer.concat([addrBuf, tagBuf, ...dataBufs]);
+}
+
+let oscSocket = null;
+function getOscSocket() {
+  if (!oscSocket) {
+    oscSocket = dgram.createSocket('udp4');
+    oscSocket.on('error', err => { console.error('[OSC] socket error:', err); oscSocket = null; });
+  }
+  return oscSocket;
+}
+
+function oscSend(host, port, address, args) {
+  try {
+    const msg = buildOscMsg(address, args);
+    getOscSocket().send(msg, 0, msg.length, port, host);
+  } catch(e) { console.error('[OSC] send:', e); }
+}
+
+function sendHeartRateOsc(bpm) {
+  const store = loadStore();
+  if (!store.oscEnabled) return;
+  const host  = store.oscHost  ?? '127.0.0.1';
+  const port  = parseInt(store.oscPort) || 9000;
+  const param = store.oscParam ?? 'HR';
+
+  // /avatar/parameters/HR  →  int, raw BPM (most avatar setups use this)
+  oscSend(host, port, `/avatar/parameters/${param}`, [{ t:'i', v: bpm }]);
+
+  // Legacy digit parameters for avatar displays that split digits
+  //   onesHR / tensHR / hundredsHR  →  float 0.0–0.9
+  oscSend(host, port, '/avatar/parameters/onesHR',     [{ t:'f', v: (bpm % 10) / 10 }]);
+  oscSend(host, port, '/avatar/parameters/tensHR',     [{ t:'f', v: (Math.floor(bpm / 10) % 10) / 10 }]);
+  oscSend(host, port, '/avatar/parameters/hundredsHR', [{ t:'f', v: Math.floor(bpm / 100) / 10 }]);
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 const STORE_PATH = path.join(app.getPath('userData'), 'settings.json');
 function loadStore()     { try { return JSON.parse(fs.readFileSync(STORE_PATH,'utf8')); } catch { return {}; } }
@@ -211,6 +269,7 @@ function wsConnect(sessionId) {
         const val = Number(bpm);
         sendToSettings('bpm-update', { bpm: val });
         sendToOverlay('heart-rate-update', { bpm: val });
+        sendHeartRateOsc(val);
         if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle(` ${val}`);
       }
     }
@@ -311,6 +370,16 @@ ipcMain.on('resize-overlay', (_, { width, height }) => {
 
 
 ipcMain.handle('load-settings', () => ({ ...loadStore(), version: VERSION, scaleFactor: scaleFactor() }));
+
+// OSC test — sends a dummy BPM of 72 to verify the connection
+ipcMain.handle('test-osc', (_, { host, port, param }) => {
+  try {
+    oscSend(host, parseInt(port) || 9000, `/avatar/parameters/${param}`, [{ t:'i', v: 72 }]);
+    return { ok: true };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+});
 ipcMain.on('save-settings', (_, data) => {
   const store = loadStore(); Object.assign(store, data); saveStore(store);
   if (data.lang && tray) tray.setContextMenu(buildMenu());
