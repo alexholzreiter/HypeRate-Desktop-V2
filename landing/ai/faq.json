@@ -31,6 +31,10 @@
     {
       "question": "How do I update the app?",
       "answer": "HypeRate Desktop checks for new releases automatically on launch. When an update is available, a badge appears in the title bar — click it to go to the download page."
+    },
+    {
+      "question": "What is OSC and how does it work with VRChat?",
+      "answer": "OSC (Open Sound Control) is a network protocol that VRChat uses to let external apps control avatar parameters in real time. HypeRate Desktop can send your live BPM directly to VRChat via OSC — no browser source or third-party tools needed. Enable OSC in the HypeRate Desktop settings tab and in VRChat under Options → OSC → Enable. Your heart rate is sent to the /avatar/parameters/Heartrate parameter automatically."
     }
   ]
 }

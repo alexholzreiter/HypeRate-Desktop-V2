@@ -52,7 +52,7 @@
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
     "publisher": { "@type": "Organization", "name": "HypeRate", "url": "https://hyperate.io" },
     "downloadUrl": "https://desktop.hyperate.io/#download",
-    "softwareVersion": "1.0.0",
+    "softwareVersion": "1.0.2",
     "releaseNotes": "https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases"
   }
   </script>
@@ -136,6 +136,11 @@
         "@type": "Question",
         "name": "Is my heart rate data stored or shared?",
         "acceptedAnswer": { "@type": "Answer", "text": "No. The app stores only your local preferences on your device. There is no telemetry, no analytics, and no data collection." }
+      },
+      {
+        "@type": "Question",
+        "name": "What is OSC and how does it work with VRChat?",
+        "acceptedAnswer": { "@type": "Answer", "text": "OSC (Open Sound Control) is a network protocol that VRChat uses to let external apps control avatar parameters in real time. HypeRate Desktop can send your live BPM directly to VRChat via OSC — no browser source or third-party tools needed. Enable OSC in the HypeRate Desktop settings tab and in VRChat (Options → OSC → Enable). Your heart rate is sent to the /avatar/parameters/Heartrate parameter automatically." }
       }
     ]
   }
@@ -464,6 +469,46 @@
     .feature-icon svg { width: 18px; height: 18px; }
     .feature-card h3 { font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700; letter-spacing: .02em; margin-bottom: 10px; }
     .feature-card p { color: var(--text-dim); font-size: 13.5px; line-height: 1.65; font-weight: 300; }
+
+    /* ── OSC highlight card ── */
+    .feature-card--osc {
+      background: linear-gradient(135deg, rgba(124,58,237,.07) 0%, rgba(37,99,235,.06) 100%);
+      position: relative;
+    }
+    .feature-card--osc:hover { background: linear-gradient(135deg, rgba(124,58,237,.13) 0%, rgba(37,99,235,.10) 100%); }
+    .feature-card--osc .feature-icon {
+      background: rgba(124,58,237,.15); border-color: rgba(124,58,237,.35); color: #a78bfa;
+    }
+    .feature-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(124,58,237,.18); border: 1px solid rgba(124,58,237,.4);
+      border-radius: 100px; padding: 2px 9px;
+      font-family: 'Space Mono', monospace; font-size: 9px; font-weight: 700;
+      letter-spacing: .12em; text-transform: uppercase; color: #c4b5fd;
+      margin-bottom: 14px;
+    }
+    /* ── OSC spotlight banner ── */
+    .osc-spotlight {
+      display: flex; align-items: center; gap: 16px;
+      background: linear-gradient(90deg, rgba(124,58,237,.12) 0%, rgba(37,99,235,.08) 100%);
+      border: 1px solid rgba(124,58,237,.28);
+      border-radius: 14px; padding: 16px 22px; margin-top: 40px; margin-bottom: -20px;
+    }
+    .osc-spotlight-icon {
+      width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+      background: rgba(124,58,237,.2); border: 1px solid rgba(124,58,237,.4);
+      display: flex; align-items: center; justify-content: center; color: #a78bfa;
+    }
+    .osc-spotlight-icon svg { width: 18px; height: 18px; }
+    .osc-spotlight-text { flex: 1; }
+    .osc-spotlight-text strong { font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700; color: #c4b5fd; display: block; margin-bottom: 3px; }
+    .osc-spotlight-text span { font-size: 13px; color: var(--text-dim); }
+    .osc-spotlight-badge {
+      font-family: 'Space Mono', monospace; font-size: 9px; font-weight: 700;
+      letter-spacing: .14em; text-transform: uppercase;
+      background: rgba(124,58,237,.25); border: 1px solid rgba(124,58,237,.5);
+      color: #c4b5fd; border-radius: 100px; padding: 4px 12px; flex-shrink: 0;
+    }
 
     /* ─── HOW IT WORKS ─── */
     .how-bg { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
@@ -801,6 +846,23 @@
       <h2 class="section-title">Built for streamers and athletes.</h2>
       <p class="section-sub">Every feature is intentional. Nothing bloated, nothing missing.</p>
     </div>
+
+    <!-- OSC Spotlight Banner -->
+    <div class="osc-spotlight fade">
+      <div class="osc-spotlight-icon">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 10a5 5 0 0 0 5 5m0-5a5 5 0 0 1 5-5M10 10v.01"/>
+          <path d="M3 10a7 7 0 0 0 7 7m0-7a7 7 0 0 1 7-7"/>
+          <circle cx="10" cy="10" r="1.5" fill="currentColor"/>
+        </svg>
+      </div>
+      <div class="osc-spotlight-text">
+        <strong>New — OSC Integration</strong>
+        <span>Send your live heart rate directly to VRChat. Drive avatar parameters in real time, straight from your wrist.</span>
+      </div>
+      <span class="osc-spotlight-badge">New in 1.1</span>
+    </div>
+
     <div class="features-grid fade">
 
       <div class="feature-card">
@@ -811,6 +873,19 @@
         </div>
         <h3>Live BPM Overlay</h3>
         <p>A floating, always-on-top widget showing your real-time BPM from your wearable. Stays above any app — games, OBS, browser, anything.</p>
+      </div>
+
+      <div class="feature-card feature-card--osc">
+        <div class="feature-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3.5 14.5a9 9 0 0 1 0-9M6.5 12.5a5 5 0 0 1 0-5M9.5 10.5a2 2 0 0 1 0-1"/>
+            <path d="M16.5 5.5a9 9 0 0 1 0 9M13.5 7.5a5 5 0 0 1 0 5M10.5 9.5a2 2 0 0 1 0 1"/>
+            <circle cx="10" cy="10" r="1.2" fill="currentColor" stroke="none"/>
+          </svg>
+        </div>
+        <div class="feature-badge">New in 1.1</div>
+        <h3>OSC · VRChat Integration</h3>
+        <p>Broadcast your live heart rate directly to VRChat via OSC. Drive avatar parameters in real time from your wearable — no browser source, no third-party tool.</p>
       </div>
 
       <div class="feature-card">
@@ -866,16 +941,6 @@
       <div class="feature-card">
         <div class="feature-icon">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="10" cy="10" r="8"/><path d="M7 10l2 2 4-4"/>
-          </svg>
-        </div>
-        <h3>Auto Update Check</h3>
-        <p>On launch, the app silently checks for new releases and shows a badge when an update is available. Always stay on the latest build.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 4h12v8a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/><path d="M8 18h4M10 14v4"/><path d="M4 8h12"/>
           </svg>
         </div>
@@ -887,10 +952,11 @@
         <div class="feature-icon">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
             <path d="M10 2L2 6v4c0 5 4 8 8 9 4-1 8-4 8-9V6L10 2z"/>
+            <path d="M10 8v4M10 14v.01"/>
           </svg>
         </div>
-        <h3>Launch at Startup</h3>
-        <p>Enable once and forget. The app registers with your OS login items so it's running before you even open a game or start a stream.</p>
+        <h3>Always Ready</h3>
+        <p>Launches automatically with your OS and silently checks for updates on startup — the overlay is there before your first game loads, always on the latest build.</p>
       </div>
 
     </div>
@@ -1060,14 +1126,14 @@
         </div>
         <h3>macOS</h3>
         <p class="dl-sub">Apple Silicon &amp; Intel · macOS 12+</p>
-        <a class="dl-btn" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0-arm64.dmg"
+        <a class="dl-btn" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.2-arm64.dmg"
            aria-label="Download HypeRate Desktop for macOS Apple Silicon (arm64)"
            data-webmcp-toolname="download-macos-arm64"
            data-webmcp-tooldescription="Download HypeRate Desktop installer for macOS Apple Silicon">
           <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 1v8M4 6l3 3 3-3M1 12h12"/></svg>
           Apple Silicon (arm64)
         </a>
-        <a class="dl-btn-ghost" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0.dmg"
+        <a class="dl-btn-ghost" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.2.dmg"
            aria-label="Download HypeRate Desktop for macOS Intel (x64)"
            data-webmcp-toolname="download-macos-intel"
            data-webmcp-tooldescription="Download HypeRate Desktop installer for macOS Intel">
@@ -1082,7 +1148,7 @@
         </div>
         <h3>Windows</h3>
         <p class="dl-sub">64-bit installer · Windows 10 / 11</p>
-        <a class="dl-btn" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop.Setup.1.0.0.exe"
+        <a class="dl-btn" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop.Setup.1.0.2.exe"
            aria-label="Download HypeRate Desktop installer for Windows"
            data-webmcp-toolname="download-windows"
            data-webmcp-tooldescription="Download HypeRate Desktop setup installer for Windows 10 and 11">
@@ -1097,14 +1163,14 @@
         </div>
         <h3>Linux</h3>
         <p class="dl-sub">AppImage &amp; .deb · x64</p>
-        <a class="dl-btn" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0.AppImage"
+        <a class="dl-btn" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.2.AppImage"
            aria-label="Download HypeRate Desktop AppImage for Linux"
            data-webmcp-toolname="download-linux-appimage"
            data-webmcp-tooldescription="Download HypeRate Desktop AppImage package for Linux">
           <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 1v8M4 6l3 3 3-3M1 12h12"/></svg>
           Download AppImage
         </a>
-        <a class="dl-btn-ghost" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/hyperate-overlay_1.0.0_amd64.deb"
+        <a class="dl-btn-ghost" href="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/hyperate-overlay_1.0.2_amd64.deb"
            aria-label="Download HypeRate Desktop .deb package for Debian and Ubuntu Linux"
            data-webmcp-toolname="download-linux-deb"
            data-webmcp-tooldescription="Download HypeRate Desktop .deb package for Debian and Ubuntu">
@@ -1126,11 +1192,11 @@
               onchange="if(this.value)window.location.href=this.value"
               style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;">
         <option value="">Select platform…</option>
-        <option value="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0-arm64.dmg">macOS — Apple Silicon (arm64)</option>
-        <option value="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0.dmg">macOS — Intel (x64)</option>
-        <option value="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop.Setup.1.0.0.exe">Windows — Installer (64-bit)</option>
-        <option value="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0.AppImage">Linux — AppImage (x64)</option>
-        <option value="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/hyperate-overlay_1.0.0_amd64.deb">Linux — .deb (Debian/Ubuntu)</option>
+        <option value="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.2-arm64.dmg">macOS — Apple Silicon (arm64)</option>
+        <option value="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.2.dmg">macOS — Intel (x64)</option>
+        <option value="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop.Setup.1.0.2.exe">Windows — Installer (64-bit)</option>
+        <option value="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.2.AppImage">Linux — AppImage (x64)</option>
+        <option value="https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/hyperate-overlay_1.0.2_amd64.deb">Linux — .deb (Debian/Ubuntu)</option>
       </select>
     </form>
 
@@ -1235,14 +1301,23 @@
 
       <div class="faq-item">
         <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false" aria-haspopup="true">
+          <span>What is OSC and how does it work with VRChat?</span>
+          <svg class="faq-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>
+        </button>
+        <div class="faq-a">OSC (Open Sound Control) is a network protocol that VRChat uses to let external apps control avatar parameters in real time. HypeRate Desktop can send your live BPM directly to VRChat via OSC — no browser source, no OBS plugin, no third-party tools needed.<br><br>
+          To enable it, open HypeRate Desktop, go to the <strong>OSC</strong> tab in settings, enable OSC output, and make sure VRChat is running with OSC enabled (<strong>Options → OSC → Enable</strong> inside VRChat). Your heart rate will be sent to the <code style="background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px;font-size:13px;">/avatar/parameters/Heartrate</code> parameter automatically.</div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false" aria-haspopup="true">
           <span>How do I install and run HypeRate Desktop on Linux?</span>
           <svg class="faq-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>
         </button>
         <div class="faq-a">Two packages are available for Linux:<br><br>
           <strong>AppImage</strong> (recommended — works on any distro, no install needed):<br>
-          <code style="background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px;font-size:13px;">chmod +x "HypeRate Desktop-1.0.0.AppImage" &amp;&amp; ./"HypeRate Desktop-1.0.0.AppImage"</code><br><br>
+          <code style="background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px;font-size:13px;">chmod +x "HypeRate Desktop-1.0.2.AppImage" &amp;&amp; ./"HypeRate Desktop-1.0.2.AppImage"</code><br><br>
           <strong>.deb</strong> (Debian, Ubuntu, Mint and derivatives):<br>
-          <code style="background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px;font-size:13px;">sudo dpkg -i hyperate-overlay_1.0.0_amd64.deb</code><br><br>
+          <code style="background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px;font-size:13px;">sudo dpkg -i hyperate-overlay_1.0.2_amd64.deb</code><br><br>
           On <strong>Wayland</strong>, if the overlay doesn't appear on top, try launching with <code style="background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px;font-size:13px;">GDK_BACKEND=x11</code> as a prefix.</div>
       </div>
 
@@ -1445,11 +1520,11 @@
           },
           handler: function (params) {
             var urls = {
-              'macos-arm64':    'https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0-arm64.dmg',
-              'macos-x64':      'https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0.dmg',
-              'windows':        'https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop.Setup.1.0.0.exe',
-              'linux-appimage': 'https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.0.AppImage',
-              'linux-deb':      'https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/hyperate-overlay_1.0.0_amd64.deb'
+              'macos-arm64':    'https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.2-arm64.dmg',
+              'macos-x64':      'https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.2.dmg',
+              'windows':        'https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop.Setup.1.0.2.exe',
+              'linux-appimage': 'https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.2.AppImage',
+              'linux-deb':      'https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/hyperate-overlay_1.0.2_amd64.deb'
             };
             var url = urls[params.platform];
             return url ? { downloadUrl: url, platform: params.platform } : { error: 'Unknown platform' };

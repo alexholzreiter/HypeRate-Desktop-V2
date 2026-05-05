@@ -3,7 +3,7 @@
   "info": {
     "title": "HypeRate WebSocket & Site API",
     "description": "This document describes two interfaces: (1) the HypeRate WebSocket API for receiving live heart rate data from wearables, and (2) the static JSON endpoints exposed by desktop.hyperate.io for AI agent consumption.\n\nThe HypeRate WebSocket API uses the Phoenix channel protocol over a secure WebSocket connection. Clients subscribe to a device channel using a Session ID and receive real-time BPM updates.\n\nAn API key is required for the WebSocket API. Request one at https://hyperate.io/api",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "contact": {
       "name": "HypeRate",
       "url": "https://hyperate.io"
