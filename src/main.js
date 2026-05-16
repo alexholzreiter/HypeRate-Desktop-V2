@@ -3,6 +3,7 @@ const path   = require('path');
 const fs     = require('fs');
 const dgram  = require('dgram');
 const { WebSocket } = require('ws');
+const ble    = require('./ble');
 
 // ── OSC ──────────────────────────────────────────────────────────────────────
 // Pure Node.js UDP — no extra npm package needed.
@@ -422,6 +423,33 @@ function isNewer(latest, current) {
   }
   return false;
 }
+
+// ── BLE ──────────────────────────────────────────────────────────────────────
+ble.init({
+  onDeviceFound: (id, name, rssi) => sendToSettings('ble-device-found', { id, name, rssi }),
+  onStatus: (state, extra = {}) => {
+    sendToSettings('ble-status', { state, ...extra });
+    if (state === 'connected' && process.platform === 'darwin' && tray) {
+      tray.setContextMenu(buildMenu());
+    }
+    if (state === 'disconnected' || state === 'idle') {
+      if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle('');
+    }
+  },
+  onBpm: (bpm) => {
+    sendToSettings('bpm-update', { bpm, source: 'ble' });
+    sendToOverlay('heart-rate-update', { bpm });
+    sendHeartRateOsc(bpm);
+    if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle(` ${bpm}`);
+  },
+});
+
+ipcMain.on('ble-scan-start',        ()              => ble.startScan());
+ipcMain.on('ble-scan-stop',         ()              => ble.stopScan());
+ipcMain.on('ble-connect',           (_, { id, name }) => ble.connect(id, name));
+ipcMain.on('ble-disconnect',        ()              => ble.disconnect());
+ipcMain.on('ble-set-auto-reconnect',(_, enabled)   => ble.setAutoReconnect(enabled));
+// ─────────────────────────────────────────────────────────────────────────────
 
 ipcMain.on('open-external', (_, url) => shell.openExternal(url));
 

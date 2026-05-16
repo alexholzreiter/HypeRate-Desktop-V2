@@ -1,6 +1,6 @@
 {
   "name": "hyperate-overlay",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "productName": "HypeRate Desktop",
   "description": "In-game heart rate overlay powered by HypeRate",
   "author": {
@@ -10,12 +10,15 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
+    "postinstall": "electron-builder install-app-deps",
     "build": "electron-builder",
     "build:mac": "electron-builder --mac",
+    "build:mac:arm64": "electron-builder --mac --arm64",
     "build:win": "electron-builder --win",
     "build:linux": "electron-builder --linux"
   },
   "dependencies": {
+    "@abandonware/noble": "^1.9.2-15",
     "ws": "^8.16.0"
   },
   "devDependencies": {
@@ -28,6 +31,8 @@
     "directories": {
       "output": "dist"
     },
+    "npmRebuild": true,
+    "buildDependenciesFromSource": true,
     "win": {
       "target": "nsis",
       "icon": "assets/icon.png"
@@ -41,13 +46,15 @@
         {
           "target": "dmg",
           "arch": [
-            "x64",
             "arm64"
           ]
         }
       ],
       "icon": "assets/icon.icns",
-      "category": "public.app-category.utilities"
+      "category": "public.app-category.utilities",
+      "extendInfo": {
+        "NSBluetoothAlwaysUsageDescription": "HypeRate Desktop needs Bluetooth to connect to heart rate monitors directly."
+      }
     },
     "dmg": {
       "title": "${productName} ${version}",
@@ -61,12 +68,6 @@
       "target": [
         {
           "target": "AppImage",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "deb",
           "arch": [
             "x64"
           ]

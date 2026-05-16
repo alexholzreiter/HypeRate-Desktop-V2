@@ -39,7 +39,15 @@
       "Bash(node -e \"const asar = require\\('asar'\\); const c = asar.extractFile\\('dist/mac/HypeRate Desktop.app/Contents/Resources/app.asar', 'package.json'\\); console.log\\(c.toString\\(\\)\\);\")",
       "Bash(node -e ' *)",
       "Bash(shasum -a 256 /Users/anygood/Documents/GitHub/HypeRate-Desktop-V2/src/windows/settings/index.html)",
-      "Bash(shasum -a 256 /Users/anygood/Documents/GitHub/HypeRate-Desktop-V2/src/main.js)"
+      "Bash(shasum -a 256 /Users/anygood/Documents/GitHub/HypeRate-Desktop-V2/src/main.js)",
+      "Read(//Users/woodryda/**)",
+      "Bash(mdfind -name \"npm\")",
+      "Bash(grep -E \"bin/npm$\")",
+      "Read(//opt/homebrew/bin/**)",
+      "Read(//usr/local/bin/**)",
+      "Bash(find /Users/woodryda /usr /opt -name \"node\" -type f 2>/dev/null | grep -v \".app\" | head -10)",
+      "Bash(/Users/woodryda/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node -e 'console.log\\(process.version\\)')",
+      "Bash(/opt/homebrew/bin/brew install *)"
     ]
   }
 }

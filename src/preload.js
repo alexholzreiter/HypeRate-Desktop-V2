@@ -29,4 +29,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onConfigUpdate:    (cb) => ipcRenderer.on('config-update',    (_, d) => cb(d)),
   onHeartRateUpdate: (cb) => ipcRenderer.on('heart-rate-update',(_, d) => cb(d)),
   onScaleFactor:     (cb) => ipcRenderer.on('scale-factor',     (_, d) => cb(d)),
+
+  bleScanStart:       ()              => ipcRenderer.send('ble-scan-start'),
+  bleScanStop:        ()              => ipcRenderer.send('ble-scan-stop'),
+  bleConnect:         (id, name)      => ipcRenderer.send('ble-connect', { id, name }),
+  bleDisconnect:      ()              => ipcRenderer.send('ble-disconnect'),
+  bleSetAutoReconnect:(enabled)       => ipcRenderer.send('ble-set-auto-reconnect', enabled),
+  onBleDeviceFound:   (cb)            => ipcRenderer.on('ble-device-found', (_, d) => cb(d)),
+  onBleStatus:        (cb)            => ipcRenderer.on('ble-status',       (_, d) => cb(d)),
 });

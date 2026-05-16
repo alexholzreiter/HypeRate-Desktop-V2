@@ -3,3 +3,4 @@ dist/
 hyperate-short/
 blog-images/
 landing/blog/
+.DS_Store

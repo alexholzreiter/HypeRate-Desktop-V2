@@ -282,6 +282,49 @@
       </div>
     </div>
 
+    <!-- ── BLE Card ── -->
+    <div class="card">
+      <div class="ch"><span>📡</span> <span>Bluetooth Direct</span></div>
+      <div class="cb" style="gap:9px;">
+
+        <!-- Status row -->
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="dot" id="bleDot"></span>
+          <span style="font-size:12.5px;color:var(--text-dim);flex:1;" id="bleStatusText">Not connected</span>
+        </div>
+
+        <!-- Connected device row -->
+        <div id="bleConnected" style="display:none;align-items:center;gap:8px;background:var(--surface);border-radius:8px;padding:7px 10px;">
+          <span style="font-size:12px;flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="bleDeviceName">—</span>
+          <button class="btn" onclick="bleDoDisconnect()" style="background:var(--danger);color:#fff;font-size:11px;padding:4px 9px;flex-shrink:0;">Disconnect</button>
+        </div>
+
+        <!-- Scan button + inline device list -->
+        <div id="bleScanArea">
+          <button class="btn" id="bleScanBtn" onclick="bleToggleScan()"
+            style="background:var(--surface2);color:var(--text);font-size:12px;padding:7px 12px;width:100%;">
+            🔍 Scan for devices
+          </button>
+          <div id="bleDeviceList" style="display:none;flex-direction:column;gap:4px;margin-top:6px;max-height:130px;overflow-y:auto;"></div>
+        </div>
+
+        <!-- Auto-reconnect toggle -->
+        <div class="trow" style="padding:0 1px;">
+          <span class="tl" style="font-size:12px;">Auto-reconnect if out of range</span>
+          <label class="tog"><input type="checkbox" id="bleAutoReconnect" onchange="bleAutoReconnectToggle()" /><span class="ts"></span></label>
+        </div>
+
+        <!-- Info text -->
+        <div style="font-size:11px;color:var(--text-dim);line-height:1.6;background:var(--surface);border-radius:7px;padding:8px 10px;">
+          Connect any <strong>Bluetooth LE</strong> heart rate monitor directly —
+          Garmin, Polar, Wahoo, Coospo, and most other straps.<br>
+          <a href="#" onclick="window.electronAPI.openExternal('https://hyperate.io/supported-devices');return false;"
+            style="color:var(--accent3);text-decoration:none;">View supported devices ↗</a>
+        </div>
+
+      </div>
+    </div>
+
     <!-- ── OSC Card ── -->
     <div class="card">
       <div class="ch"><span>🎮</span> <span>VRChat OSC</span></div>
@@ -971,6 +1014,112 @@
     }
   }
 
+  // ── BLE ──
+  let bleScanning = false;
+  const bleDevices = new Map(); // id → name
+
+  function setBleStatus(state, extra = {}) {
+    const dot     = $('bleDot');
+    const text    = $('bleStatusText');
+    const connRow = $('bleConnected');
+    const scanBtn = $('bleScanBtn');
+    const list    = $('bleDeviceList');
+
+    dot.className = 'dot';
+
+    if (state === 'scanning') {
+      dot.classList.add('connecting');
+      text.textContent = 'Scanning…';
+      scanBtn.innerHTML = '⏹ Stop scan';
+      bleScanning = true;
+      connRow.style.display = 'none';
+    } else if (state === 'connecting') {
+      dot.classList.add('connecting');
+      text.textContent = 'Connecting…';
+      list.style.display = 'none';
+    } else if (state === 'reconnecting') {
+      dot.classList.add('connecting');
+      text.textContent = 'Reconnecting to ' + (extra.name || 'device') + '…';
+      connRow.style.display = 'none';
+    } else if (state === 'connected') {
+      dot.classList.add('connected');
+      text.textContent = 'Connected via Bluetooth';
+      connRow.style.display = 'flex';
+      $('bleDeviceName').textContent = extra.name || 'HR Monitor';
+      bleScanning = false;
+      scanBtn.innerHTML = '🔍 Scan for devices';
+      list.style.display = 'none';
+      bleDevices.clear();
+      list.innerHTML = '';
+    } else if (state === 'disconnected') {
+      text.textContent = 'Disconnected';
+      connRow.style.display = 'none';
+      bleScanning = false;
+      scanBtn.innerHTML = '🔍 Scan for devices';
+    } else if (state === 'connect-error' || state === 'scan-error') {
+      dot.classList.add('error');
+      text.textContent = extra.reason || 'Error';
+      bleScanning = false;
+      scanBtn.innerHTML = '🔍 Scan for devices';
+    } else if (state === 'ble-unavailable') {
+      dot.classList.add('error');
+      text.textContent = 'Bluetooth unavailable — is it turned on?';
+    } else {
+      // idle
+      text.textContent = 'Not connected';
+      connRow.style.display = 'none';
+      bleScanning = false;
+      scanBtn.innerHTML = '🔍 Scan for devices';
+    }
+  }
+
+  function bleToggleScan() {
+    if (bleScanning) {
+      window.electronAPI.bleScanStop();
+      setBleStatus('idle');
+      $('bleDeviceList').style.display = 'none';
+    } else {
+      bleDevices.clear();
+      $('bleDeviceList').innerHTML = '';
+      $('bleDeviceList').style.display = 'flex';
+      window.electronAPI.bleScanStart();
+      setBleStatus('scanning');
+    }
+  }
+
+  function bleDoDisconnect() {
+    window.electronAPI.bleDisconnect();
+    setBleStatus('disconnected');
+  }
+
+  function bleAutoReconnectToggle() {
+    const enabled = $('bleAutoReconnect').checked;
+    window.electronAPI.bleSetAutoReconnect(enabled);
+    window.electronAPI.saveSettings({ bleAutoReconnect: enabled });
+  }
+
+  window.electronAPI.onBleDeviceFound(({ id, name, rssi }) => {
+    if (bleDevices.has(id)) return;
+    bleDevices.set(id, name);
+    const list = $('bleDeviceList');
+    const row  = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:7px;background:var(--surface);border-radius:7px;padding:6px 9px;';
+    const safeName = name.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    row.innerHTML = `
+      <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeName}</span>
+      <span style="font-size:10px;color:var(--text-dim);flex-shrink:0;">${rssi} dBm</span>
+      <button class="btn" style="font-size:11px;padding:4px 9px;flex-shrink:0;" onclick="bleConnect('${id}','${safeName}')">Connect</button>`;
+    list.appendChild(row);
+  });
+
+  function bleConnect(id, name) {
+    window.electronAPI.bleScanStop();
+    window.electronAPI.bleConnect(id, name);
+    setBleStatus('connecting');
+  }
+
+  window.electronAPI.onBleStatus(({ state, ...extra }) => setBleStatus(state, extra));
+
   // ── OSC ──
   function oscToggle() {
     const enabled = cb('oscEnabled');
@@ -1041,6 +1190,10 @@
     if (saved.hrId) $('hrId').value = saved.hrId;
     if (saved.config) applyConfigToForm(saved.config);
     applyOscSettings(saved);
+    if (saved.bleAutoReconnect) {
+      $('bleAutoReconnect').checked = true;
+      window.electronAPI.bleSetAutoReconnect(true);
+    }
     updatePreview(); live();
 
     // 2) Load fonts + autostart in background — not critical for UI
