@@ -46,6 +46,7 @@
         {
           "target": "dmg",
           "arch": [
+            "x64",
             "arm64"
           ]
         }
@@ -68,6 +69,12 @@
       "target": [
         {
           "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "tar.gz",
           "arch": [
             "x64"
           ]
