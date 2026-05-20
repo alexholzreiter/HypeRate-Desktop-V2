@@ -325,6 +325,28 @@
       </div>
     </div>
 
+    <!-- ── Discord Card ── -->
+    <div class="card">
+      <div class="ch"><span>🎮</span> <span>Discord Rich Presence</span></div>
+      <div class="cb" style="gap:10px;">
+        <div class="trow">
+          <span class="tl">Show heart rate in Discord</span>
+          <label class="tog"><input type="checkbox" id="discordEnabled" onchange="discordToggle()" /><span class="ts"></span></label>
+        </div>
+        <div id="discordBody" style="display:none;flex-direction:column;gap:9px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="dot" id="discordDot"></span>
+            <span style="font-size:12px;color:var(--text-dim);" id="discordStatusText">Not connected to Discord</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-dim);line-height:1.6;background:var(--surface);border-radius:7px;padding:8px 10px;">
+            Shows your live BPM and active zone name on your Discord profile.<br>
+            Zone names are taken from your <strong>Zones</strong> tab — label them however you like.<br>
+            Requires <strong>Discord Desktop</strong> to be running.
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ── OSC Card ── -->
     <div class="card">
       <div class="ch"><span>🎮</span> <span>VRChat OSC</span></div>
@@ -1120,6 +1142,30 @@
 
   window.electronAPI.onBleStatus(({ state, ...extra }) => setBleStatus(state, extra));
 
+  // ── Discord ──
+  function discordToggle() {
+    const enabled = $('discordEnabled').checked;
+    $('discordBody').style.display = enabled ? 'flex' : 'none';
+    window.electronAPI.saveSettings({ discordEnabled: enabled });
+    if (enabled) window.electronAPI.discordEnable();
+    else         window.electronAPI.discordDisable();
+  }
+
+  window.electronAPI.onDiscordStatus(({ state, reason }) => {
+    const dot  = $('discordDot');
+    const text = $('discordStatusText');
+    dot.className = 'dot';
+    if (state === 'connected') {
+      dot.classList.add('connected');
+      text.textContent = 'Connected to Discord';
+    } else if (state === 'error') {
+      dot.classList.add('error');
+      text.textContent = reason || 'Error';
+    } else {
+      text.textContent = 'Not connected to Discord';
+    }
+  });
+
   // ── OSC ──
   function oscToggle() {
     const enabled = cb('oscEnabled');
@@ -1193,6 +1239,11 @@
     if (saved.bleAutoReconnect) {
       $('bleAutoReconnect').checked = true;
       window.electronAPI.bleSetAutoReconnect(true);
+    }
+    if (saved.discordEnabled) {
+      $('discordEnabled').checked = true;
+      $('discordBody').style.display = 'flex';
+      window.electronAPI.discordEnable();
     }
     updatePreview(); live();
 

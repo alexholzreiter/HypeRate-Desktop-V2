@@ -47,7 +47,12 @@
       "Read(//usr/local/bin/**)",
       "Bash(find /Users/woodryda /usr /opt -name \"node\" -type f 2>/dev/null | grep -v \".app\" | head -10)",
       "Bash(/Users/woodryda/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node -e 'console.log\\(process.version\\)')",
-      "Bash(/opt/homebrew/bin/brew install *)"
+      "Bash(/opt/homebrew/bin/brew install *)",
+      "Bash(grep -v \"blockmap\\\\|unpacked\\\\|yml\\\\|mac$\\\\|mac-arm\")",
+      "Bash(grep -v \"blockmap\\\\|unpacked\\\\|yml\\\\|^.*mac$\\\\|mac-arm\")",
+      "Bash(grep \"1.0.4.*dmg$\")",
+      "Bash(open /Users/woodryda/Documents/GitHub/HypeRate-Desktop-Webpage/index.html)",
+      "WebFetch(domain:simpleicons.org)"
     ]
   }
 }

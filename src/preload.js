@@ -30,6 +30,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onHeartRateUpdate: (cb) => ipcRenderer.on('heart-rate-update',(_, d) => cb(d)),
   onScaleFactor:     (cb) => ipcRenderer.on('scale-factor',     (_, d) => cb(d)),
 
+  discordEnable:      ()     => ipcRenderer.send('discord-enable'),
+  discordDisable:     ()     => ipcRenderer.send('discord-disable'),
+  onDiscordStatus:    (cb)   => ipcRenderer.on('discord-status', (_, d) => cb(d)),
+
   bleScanStart:       ()              => ipcRenderer.send('ble-scan-start'),
   bleScanStop:        ()              => ipcRenderer.send('ble-scan-stop'),
   bleConnect:         (id, name)      => ipcRenderer.send('ble-connect', { id, name }),

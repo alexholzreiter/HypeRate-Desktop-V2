@@ -3,7 +3,8 @@ const path   = require('path');
 const fs     = require('fs');
 const dgram  = require('dgram');
 const { WebSocket } = require('ws');
-const ble    = require('./ble');
+const ble     = require('./ble');
+const discord = require('./discord');
 
 // ── OSC ──────────────────────────────────────────────────────────────────────
 // Pure Node.js UDP — no extra npm package needed.
@@ -69,6 +70,24 @@ function saveStore(data) { try { fs.writeFileSync(STORE_PATH, JSON.stringify(dat
 const HYPERATE_API_KEY = '7XnPqR2m9LdHsV4tYk8ZuEf1WaJ5GcB3rTsQ6v';
 const VERSION = app.getVersion();            // reads from package.json
 const IS_FIRST_RUN = !loadStore().onboarded; // FTUE flag
+
+// ── Discord state ────────────────────────────────────────────────────────────
+let discordEnabled    = false;
+let currentConnType   = 'cloud'; // 'cloud' | 'ble'
+
+function discordBpmUpdate(bpm) {
+  if (!discordEnabled) return;
+  const store  = loadStore();
+  const zones  = store.config?.zones || store.zones || [];
+  const zone   = zones.find(z => bpm >= (z.min||0) && bpm <= (z.max||999));
+  discord.updatePresence({
+    bpm,
+    zoneName:       zone?.name  || null,
+    zoneColor:      zone?.color || null,
+    connectionType: currentConnType,
+  });
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 let settingsWindow  = null;
 let overlayWindow   = null;
@@ -250,6 +269,7 @@ function wsConnect(sessionId) {
   ws = new WebSocket(url);
 
   ws.on('open', () => {
+    currentConnType = 'cloud';
     ws.send(JSON.stringify({ topic:`hr:${sessionId}`, event:'phx_join', payload:{}, ref:'join' }));
     heartbeatInt = setInterval(() => {
       if (ws?.readyState === WebSocket.OPEN)
@@ -271,6 +291,7 @@ function wsConnect(sessionId) {
         sendToSettings('bpm-update', { bpm: val });
         sendToOverlay('heart-rate-update', { bpm: val });
         sendHeartRateOsc(val);
+        discordBpmUpdate(val);
         if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle(` ${val}`);
       }
     }
@@ -429,17 +450,20 @@ ble.init({
   onDeviceFound: (id, name, rssi) => sendToSettings('ble-device-found', { id, name, rssi }),
   onStatus: (state, extra = {}) => {
     sendToSettings('ble-status', { state, ...extra });
-    if (state === 'connected' && process.platform === 'darwin' && tray) {
-      tray.setContextMenu(buildMenu());
+    if (state === 'connected') {
+      currentConnType = 'ble';
+      if (process.platform === 'darwin' && tray) tray.setContextMenu(buildMenu());
     }
     if (state === 'disconnected' || state === 'idle') {
       if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle('');
+      discord.clearPresence();
     }
   },
   onBpm: (bpm) => {
     sendToSettings('bpm-update', { bpm, source: 'ble' });
     sendToOverlay('heart-rate-update', { bpm });
     sendHeartRateOsc(bpm);
+    discordBpmUpdate(bpm);
     if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle(` ${bpm}`);
   },
 });
@@ -449,6 +473,20 @@ ipcMain.on('ble-scan-stop',         ()              => ble.stopScan());
 ipcMain.on('ble-connect',           (_, { id, name }) => ble.connect(id, name));
 ipcMain.on('ble-disconnect',        ()              => ble.disconnect());
 ipcMain.on('ble-set-auto-reconnect',(_, enabled)   => ble.setAutoReconnect(enabled));
+
+// ── Discord ──────────────────────────────────────────────────────────────────
+discord.init({
+  onStatus: (state, extra = {}) => sendToSettings('discord-status', { state, ...extra }),
+});
+
+ipcMain.on('discord-enable', () => {
+  discordEnabled = true;
+  discord.connect();
+});
+ipcMain.on('discord-disable', () => {
+  discordEnabled = false;
+  discord.disconnect();
+});
 // ─────────────────────────────────────────────────────────────────────────────
 
 ipcMain.on('open-external', (_, url) => shell.openExternal(url));

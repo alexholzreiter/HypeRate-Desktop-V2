@@ -1,6 +1,6 @@
 {
   "name": "hyperate-overlay",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "productName": "HypeRate Desktop",
   "description": "In-game heart rate overlay powered by HypeRate",
   "author": {
@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@abandonware/noble": "^1.9.2-15",
+    "discord-rpc": "^4.0.1",
     "ws": "^8.16.0"
   },
   "devDependencies": {
