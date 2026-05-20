@@ -52,7 +52,13 @@
       "Bash(grep -v \"blockmap\\\\|unpacked\\\\|yml\\\\|^.*mac$\\\\|mac-arm\")",
       "Bash(grep \"1.0.4.*dmg$\")",
       "Bash(open /Users/woodryda/Documents/GitHub/HypeRate-Desktop-Webpage/index.html)",
-      "WebFetch(domain:simpleicons.org)"
+      "WebFetch(domain:simpleicons.org)",
+      "Bash(curl -sI \"https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate%20Desktop-1.0.4-arm64.dmg\")",
+      "Bash(curl -sI \"https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/download/v1.0.4/HypeRate%20Desktop-1.0.4-arm64.dmg\")",
+      "Bash(curl -sI \"https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/download/v1.0.3/HypeRate%20Desktop-1.0.3-arm64.dmg\")",
+      "Bash(python3 -c \"import sys,json; r=json.load\\(sys.stdin\\); print\\('Latest release:', r.get\\('tag_name','N/A'\\)\\); print\\('Assets:', [a['name'] for a in r.get\\('assets',[]\\)]\\)\")",
+      "Bash(curl -sI \"https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop-1.0.4-arm64.dmg\")",
+      "Bash(curl -sI \"https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest/download/HypeRate.Desktop.Setup.1.0.4-x64.exe\")"
     ]
   }
 }
