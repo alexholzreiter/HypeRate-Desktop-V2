@@ -42,6 +42,7 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
     },
+    "afterPack": "./afterPack.js",
     "mac": {
       "target": [
         {
