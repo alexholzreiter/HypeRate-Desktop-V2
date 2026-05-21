@@ -27,6 +27,7 @@ let lastConnected    = null;  // { id, name } — persists across disconnects fo
 let autoReconnect    = false;
 let reconnectTimer   = null;
 let manualDisconnect = false; // true when user intentionally disconnects
+const peripheralCache = new Map(); // id -> peripheral, populated during scan
 
 let onDeviceFound = null; // cb(id, name, rssi)
 let onStatus      = null; // cb(state, extra?)
@@ -69,6 +70,7 @@ function startScan() {
 function _beginScan(n) {
   if (scanning) return;
   scanning = true;
+  peripheralCache.clear();
   onStatus?.('scanning');
   n.on('discover', _onDiscover);
   n.startScanning([HR_SERVICE], false, (err) => {
@@ -86,7 +88,10 @@ function stopScan() {
 }
 
 function _onDiscover(peripheral) {
-  const raw  = peripheral.advertisement?.localName;
+  peripheralCache.set(peripheral.id, peripheral);
+  const raw  = peripheral.advertisement?.localName
+            || peripheral.advertisement?.completeName
+            || peripheral.name;
   const name = (raw && raw.trim()) ? raw.trim() : 'HR Monitor';
   onDeviceFound?.(peripheral.id, name, peripheral.rssi);
 }
@@ -170,9 +175,15 @@ function _scheduleReconnect() {
 }
 
 function _findPeripheral(n, id) {
+  // Use the peripheral object from the scan — required on Windows WinRT
+  if (peripheralCache.has(id)) {
+    return Promise.resolve(peripheralCache.get(id));
+  }
+  // Fallback: short re-scan in case cache was cleared
   return new Promise((resolve) => {
     const onDisc = (p) => {
       if (p.id === id) {
+        peripheralCache.set(p.id, p);
         n.removeListener('discover', onDisc);
         n.stopScanning();
         resolve(p);
@@ -180,7 +191,7 @@ function _findPeripheral(n, id) {
     };
     n.on('discover', onDisc);
     n.startScanning([HR_SERVICE], false);
-    setTimeout(() => { n.removeListener('discover', onDisc); n.stopScanning(); resolve(null); }, 8000);
+    setTimeout(() => { n.removeListener('discover', onDisc); n.stopScanning(); resolve(null); }, 10000);
   });
 }
 
