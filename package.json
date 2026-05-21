@@ -34,6 +34,19 @@
     "directories": {
       "output": "dist"
     },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json",
+      "!src/native/win-ble/bin/**/*",
+      "!src/native/win-ble/obj/**/*",
+      "!src/native/win-ble/publish/**/*",
+      "!src/native/win-ble/publish-self/**/*",
+      "!landing/**/*",
+      "!dist/**/*",
+      "!.npm-cache/**/*",
+      "!node_modules/.cache/**/*"
+    ],
     "npmRebuild": true,
     "buildDependenciesFromSource": true,
     "asarUnpack": [
@@ -41,13 +54,33 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.png",
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false,
       "signingHashAlgorithms": null,
-      "sign": null
+      "sign": null,
+      "extraResources": [
+        {
+          "from": "src/native/win-ble/publish-self",
+          "to": "native/win-ble",
+          "filter": [
+            "**/*"
+          ]
+        },
+        {
+          "from": "assets",
+          "to": "assets",
+          "filter": [
+            "icon.ico"
+          ]
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "include": "build/installer.nsh"
     },
     "afterPack": "./afterPack.js",
     "mac": {

@@ -1,5 +1,11 @@
 node_modules/
 dist/
+.npm-cache/
+.tools/
+src/native/win-ble/bin/
+src/native/win-ble/obj/
+src/native/win-ble/publish/
+src/native/win-ble/publish-self/
 hyperate-short/
 blog-images/
 landing/blog/

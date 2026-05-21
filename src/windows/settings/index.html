@@ -1074,7 +1074,7 @@
       bleDevices.clear();
       list.innerHTML = '';
     } else if (state === 'disconnected') {
-      text.textContent = 'Disconnected';
+      text.textContent = extra.reason || 'Disconnected';
       connRow.style.display = 'none';
       bleScanning = false;
       scanBtn.innerHTML = '🔍 Scan for devices';
@@ -1135,7 +1135,6 @@
   });
 
   function bleConnect(id, name) {
-    window.electronAPI.bleScanStop();
     window.electronAPI.bleConnect(id, name);
     setBleStatus('connecting');
   }
