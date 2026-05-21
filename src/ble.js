@@ -6,8 +6,18 @@ const HR_CHARACTERISTIC = '2a37';
 const RECONNECT_DELAY   = 3000; // ms between reconnect attempts
 
 let noble = null;
+let nobleError = null;
+
 function getNobile() {
-  if (!noble) noble = require('@abandonware/noble');
+  if (nobleError) throw nobleError;
+  if (!noble) {
+    try {
+      noble = require('@abandonware/noble');
+    } catch (err) {
+      nobleError = err;
+      throw err;
+    }
+  }
   return noble;
 }
 
@@ -41,7 +51,11 @@ function setAutoReconnect(enabled) {
 }
 
 function startScan() {
-  const n = getNobile();
+  let n;
+  try { n = getNobile(); } catch (err) {
+    onStatus?.('ble-unavailable', { reason: err.message });
+    return;
+  }
   if (n.state === 'poweredOn') {
     _beginScan(n);
   } else {
@@ -78,7 +92,11 @@ function _onDiscover(peripheral) {
 }
 
 async function connect(peripheralId, deviceName) {
-  const n = getNobile();
+  let n;
+  try { n = getNobile(); } catch (err) {
+    onStatus?.('ble-unavailable', { reason: err.message });
+    return;
+  }
   manualDisconnect = false;
   clearTimeout(reconnectTimer);
   reconnectTimer = null;
