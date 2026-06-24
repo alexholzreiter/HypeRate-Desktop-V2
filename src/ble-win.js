@@ -5,7 +5,9 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const RECONNECT_DELAY = 3000;
+const RECONNECT_DELAY_BASE = 3000;
+const RECONNECT_DELAY_MAX = 30000;
+const RECONNECT_HELPER_RESTART_AFTER = 3; // restart helper process after this many consecutive failures
 
 let helper = null;
 let helperBuffer = '';
@@ -21,6 +23,7 @@ let manualDisconnect = false;
 let autoReconnect = false;
 let reconnectTimer = null;
 let lastConnected = null;
+let consecutiveFailures = 0;
 
 function init(callbacks) {
   onDeviceFound = callbacks.onDeviceFound;
@@ -35,7 +38,7 @@ function setAutoReconnect(enabled) {
     return;
   }
   if (!connected && lastConnected) {
-    scheduleReconnect(true);
+    scheduleReconnect();
   }
 }
 
@@ -123,6 +126,7 @@ function ensureHelper() {
     const wasStopping = helperStopping;
     helper = null;
     helperBuffer = '';
+    helperStopping = false;
     connected = false;
 
     if (!wasStopping) {
@@ -132,7 +136,7 @@ function ensureHelper() {
       writeLog(reason);
       onStatus?.('ble-unavailable', { reason });
       if (!manualDisconnect && autoReconnect && lastConnected) {
-        scheduleReconnect(true);
+        scheduleReconnect();
       }
     }
   });
@@ -202,18 +206,24 @@ function handleStatus(message) {
   if (state === 'connected') {
     connected = true;
     manualDisconnect = false;
+    consecutiveFailures = 0;
     clearReconnect();
     if (extra.name && lastConnected) lastConnected.name = extra.name;
   } else if (state === 'disconnected') {
     const shouldReconnect = !manualDisconnect && autoReconnect && lastConnected;
     connected = false;
+    consecutiveFailures = 0;
     onStatus?.(state, extra);
-    if (shouldReconnect) scheduleReconnect(true);
+    if (shouldReconnect) scheduleReconnect();
     return;
   } else if (state === 'connect-error') {
     connected = false;
+    consecutiveFailures++;
     if (!manualDisconnect && autoReconnect && lastConnected) {
-      scheduleReconnect(false);
+      if (consecutiveFailures >= RECONNECT_HELPER_RESTART_AFTER) {
+        restartHelper();
+      }
+      scheduleReconnect();
     }
   } else if (state === 'ble-unavailable') {
     connected = false;
@@ -222,16 +232,33 @@ function handleStatus(message) {
   onStatus?.(state, extra);
 }
 
-function scheduleReconnect(force = false) {
-  if (reconnectTimer || !lastConnected || (!autoReconnect && !force)) return;
+function scheduleReconnect() {
+  if (reconnectTimer || !lastConnected || !autoReconnect) return;
+
+  const delay = Math.min(
+    RECONNECT_DELAY_BASE * Math.pow(2, Math.max(0, consecutiveFailures - 1)),
+    RECONNECT_DELAY_MAX
+  );
 
   onStatus?.('reconnecting', { name: lastConnected.name });
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
-    if (!connected && lastConnected && (autoReconnect || force)) {
+    if (!connected && lastConnected && autoReconnect) {
       connect(lastConnected.id, lastConnected.name);
     }
-  }, RECONNECT_DELAY);
+  }, delay);
+}
+
+function restartHelper() {
+  if (!helper || helper.killed) return;
+  writeLog('Restarting Windows BLE helper after repeated connection failures.');
+  // helperStopping stays false so the exit handler triggers a reconnect
+  try { helper.stdin.write(JSON.stringify({ cmd: 'shutdown' }) + '\n'); } catch {}
+  setTimeout(() => {
+    if (helper && !helper.killed) {
+      try { helper.kill(); } catch {}
+    }
+  }, 500);
 }
 
 function clearReconnect() {

@@ -639,7 +639,8 @@ internal sealed class Program
 
     private static void OnConnectionStatusChanged(BluetoothLEDevice sender, object args)
     {
-        if (sender.ConnectionStatus != BluetoothConnectionStatus.Disconnected || _manualDisconnect || !_connectionReady) return;
+        if (sender.ConnectionStatus != BluetoothConnectionStatus.Disconnected || _manualDisconnect) return;
+        if (!ReferenceEquals(_device, sender)) return;
 
         var epoch = Volatile.Read(ref _connectionEpoch);
         Emit(new LogEvent("log", "Windows reported a disconnect; waiting to confirm it is not transient."));

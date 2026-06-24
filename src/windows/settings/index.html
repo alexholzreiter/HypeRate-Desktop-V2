@@ -284,7 +284,7 @@
 
     <!-- ── BLE Card ── -->
     <div class="card">
-      <div class="ch"><span>📡</span> <span>Bluetooth Direct</span></div>
+      <div class="ch"><span>📡</span> <span data-i18n="ble_heading">Bluetooth Direct</span></div>
       <div class="cb" style="gap:9px;">
 
         <!-- Status row -->
@@ -296,12 +296,12 @@
         <!-- Connected device row -->
         <div id="bleConnected" style="display:none;align-items:center;gap:8px;background:var(--surface);border-radius:8px;padding:7px 10px;">
           <span style="font-size:12px;flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="bleDeviceName">—</span>
-          <button class="btn" onclick="bleDoDisconnect()" style="background:var(--danger);color:#fff;font-size:11px;padding:4px 9px;flex-shrink:0;">Disconnect</button>
+          <button class="btn" onclick="bleDoDisconnect()" style="background:var(--danger);color:#fff;font-size:11px;padding:4px 9px;flex-shrink:0;" data-i18n="ble_disconnect">Disconnect</button>
         </div>
 
         <!-- Scan button + inline device list -->
         <div id="bleScanArea">
-          <button class="btn" id="bleScanBtn" onclick="bleToggleScan()"
+          <button class="btn" id="bleScanBtn" onclick="bleToggleScan()" data-i18n="ble_scan"
             style="background:var(--surface2);color:var(--text);font-size:12px;padding:7px 12px;width:100%;">
             🔍 Scan for devices
           </button>
@@ -310,12 +310,12 @@
 
         <!-- Auto-reconnect toggle -->
         <div class="trow" style="padding:0 1px;">
-          <span class="tl" style="font-size:12px;">Auto-reconnect if out of range</span>
+          <span class="tl" style="font-size:12px;" data-i18n="ble_auto_reconnect">Auto-reconnect if out of range</span>
           <label class="tog"><input type="checkbox" id="bleAutoReconnect" onchange="bleAutoReconnectToggle()" /><span class="ts"></span></label>
         </div>
 
         <!-- Info text -->
-        <div style="font-size:11px;color:var(--text-dim);line-height:1.6;background:var(--surface);border-radius:7px;padding:8px 10px;">
+        <div style="font-size:11px;color:var(--text-dim);line-height:1.6;background:var(--surface);border-radius:7px;padding:8px 10px;" data-i18n-html="ble_info_html">
           Connect any <strong>Bluetooth LE</strong> heart rate monitor directly —
           Garmin, Polar, Wahoo, Coospo, and most other straps.<br>
           <a href="#" onclick="window.electronAPI.openExternal('https://hyperate.io/supported-devices');return false;"
@@ -327,10 +327,10 @@
 
     <!-- ── Discord Card ── -->
     <div class="card">
-      <div class="ch"><span>🎮</span> <span>Discord Rich Presence</span></div>
+      <div class="ch"><span>🎮</span> <span data-i18n="discord_heading">Discord Rich Presence</span></div>
       <div class="cb" style="gap:10px;">
         <div class="trow">
-          <span class="tl">Show heart rate in Discord</span>
+          <span class="tl" data-i18n="discord_toggle">Show heart rate in Discord</span>
           <label class="tog"><input type="checkbox" id="discordEnabled" onchange="discordToggle()" /><span class="ts"></span></label>
         </div>
         <div id="discordBody" style="display:none;flex-direction:column;gap:9px;">
@@ -338,7 +338,7 @@
             <span class="dot" id="discordDot"></span>
             <span style="font-size:12px;color:var(--text-dim);" id="discordStatusText">Not connected to Discord</span>
           </div>
-          <div style="font-size:11px;color:var(--text-dim);line-height:1.6;background:var(--surface);border-radius:7px;padding:8px 10px;">
+          <div style="font-size:11px;color:var(--text-dim);line-height:1.6;background:var(--surface);border-radius:7px;padding:8px 10px;" data-i18n-html="discord_info_html">
             Shows your live BPM and active zone name on your Discord profile.<br>
             Zone names are taken from your <strong>Zones</strong> tab — label them however you like.<br>
             Requires <strong>Discord Desktop</strong> to be running.
@@ -349,10 +349,10 @@
 
     <!-- ── OSC Card ── -->
     <div class="card">
-      <div class="ch"><span>🎮</span> <span>VRChat OSC</span></div>
+      <div class="ch"><span>🎮</span> <span data-i18n="osc_heading">VRChat OSC</span></div>
       <div class="cb" style="gap:10px;">
         <div class="trow">
-          <span class="tl">Send to VRChat</span>
+          <span class="tl" data-i18n="osc_toggle">Send to VRChat</span>
           <label class="tog"><input type="checkbox" id="oscEnabled" onchange="oscToggle()" /><span class="ts"></span></label>
         </div>
         <div id="oscBody" style="display:none;flex-direction:column;gap:9px;">
@@ -367,16 +367,16 @@
             </div>
           </div>
           <div class="field">
-            <label>Parameter Name</label>
+            <label data-i18n="osc_param">Parameter Name</label>
             <input type="text" id="oscParam" value="HR" oninput="saveOsc()" style="font-size:12px;padding:6px 9px;" />
           </div>
-          <div style="font-size:11px;color:var(--text-dim);line-height:1.5;background:var(--surface);border-radius:7px;padding:8px 10px;">
+          <div style="font-size:11px;color:var(--text-dim);line-height:1.5;background:var(--surface);border-radius:7px;padding:8px 10px;" data-i18n-html="osc_info_html">
             Sends <code style="color:var(--accent3);font-size:10.5px;">/avatar/parameters/HR</code> (int) +
             <code style="color:var(--accent3);font-size:10.5px;">onesHR / tensHR / hundredsHR</code> (float) every heartbeat.
             Enable OSC in VRChat: <strong>Settings → OSC → Enable</strong>
           </div>
           <button class="btn" id="oscTestBtn" onclick="testOsc()"
-            style="background:var(--surface2);color:var(--text);font-size:12px;padding:7px 12px;">
+            style="background:var(--surface2);color:var(--text);font-size:12px;padding:7px 12px;" data-i18n="osc_test">
             🔁 Send test ping (72 BPM)
           </button>
           <div id="oscStatus" style="font-size:11.5px;display:none;padding:5px 9px;border-radius:6px;text-align:center;"></div>
@@ -562,6 +562,23 @@
       status_disconnected:'Disconnected', status_error:'Connection error',
       news_loading:'Loading…', news_empty:'No news yet.', news_error:'Could not load news.',
       news_all:'View all news →', zone_name:'Zone',
+      // BLE
+      ble_heading:'Bluetooth Direct',
+      ble_disconnect:'Disconnect', ble_scan:'🔍 Scan for devices', ble_scan_stop:'⏹ Stop scan',
+      ble_auto_reconnect:'Auto-reconnect if out of range',
+      ble_info_html:'Connect any <strong>Bluetooth LE</strong> heart rate monitor directly — Garmin, Polar, Wahoo, Coospo, and most other straps.<br><a href="#" onclick="window.electronAPI.openExternal(\'https://hyperate.io/supported-devices\');return false;" style="color:var(--accent3);text-decoration:none;">View supported devices ↗</a>',
+      ble_idle:'Not connected', ble_scanning:'Scanning…', ble_connecting:'Connecting…',
+      ble_reconnecting:'Reconnecting to {name}…', ble_connected:'Connected via Bluetooth',
+      ble_disconnected:'Disconnected', ble_unavailable:'Bluetooth unavailable — is it turned on?',
+      // Discord
+      discord_heading:'Discord Rich Presence', discord_toggle:'Show heart rate in Discord',
+      discord_idle:'Not connected to Discord', discord_connected:'Connected to Discord',
+      discord_info_html:'Shows your live BPM and active zone name on your Discord profile.<br>Zone names are taken from your <strong>Zones</strong> tab — label them however you like.<br>Requires <strong>Discord Desktop</strong> to be running.',
+      // OSC
+      osc_heading:'VRChat OSC', osc_toggle:'Send to VRChat', osc_param:'Parameter Name',
+      osc_test:'🔁 Send test ping (72 BPM)', osc_sending:'⏳ Sending…',
+      osc_sent:'✓ Packet sent — check VRChat avatar parameters!',
+      osc_info_html:'Sends <code style="color:var(--accent3);font-size:10.5px;">/avatar/parameters/HR</code> (int) + <code style="color:var(--accent3);font-size:10.5px;">onesHR / tensHR / hundredsHR</code> (float) every heartbeat. Enable OSC in VRChat: <strong>Settings → OSC → Enable</strong>',
     },
     de: {
       connection:'Verbindung', session_id:'HypeRate Session ID',
@@ -585,10 +602,31 @@
       status_disconnected:'Getrennt', status_error:'Verbindungsfehler',
       news_loading:'Laden…', news_empty:'Noch keine Neuigkeiten.', news_error:'Neuigkeiten konnten nicht geladen werden.',
       news_all:'Alle Neuigkeiten →', zone_name:'Zone',
+      // BLE
+      ble_heading:'Bluetooth Direct',
+      ble_disconnect:'Trennen', ble_scan:'🔍 Geräte suchen', ble_scan_stop:'⏹ Suche beenden',
+      ble_auto_reconnect:'Automatisch wieder verbinden',
+      ble_info_html:'Verbinde jeden <strong>Bluetooth LE</strong> Herzfrequenzmesser direkt — Garmin, Polar, Wahoo, Coospo und die meisten anderen Gurte.<br><a href="#" onclick="window.electronAPI.openExternal(\'https://hyperate.io/supported-devices\');return false;" style="color:var(--accent3);text-decoration:none;">Unterstützte Geräte ↗</a>',
+      ble_idle:'Nicht verbunden', ble_scanning:'Suche läuft…', ble_connecting:'Verbinde…',
+      ble_reconnecting:'Verbinde erneut mit {name}…', ble_connected:'Per Bluetooth verbunden',
+      ble_disconnected:'Getrennt', ble_unavailable:'Bluetooth nicht verfügbar — ist es eingeschaltet?',
+      // Discord
+      discord_heading:'Discord Rich Presence', discord_toggle:'Herzfrequenz in Discord anzeigen',
+      discord_idle:'Nicht mit Discord verbunden', discord_connected:'Mit Discord verbunden',
+      discord_info_html:'Zeigt deine Live-BPM und aktive Zone auf deinem Discord-Profil.<br>Zonennamen kommen aus dem <strong>Zonen</strong>-Tab — benenne sie wie du möchtest.<br>Erfordert den laufenden <strong>Discord Desktop</strong>.',
+      // OSC
+      osc_heading:'VRChat OSC', osc_toggle:'An VRChat senden', osc_param:'Parametername',
+      osc_test:'🔁 Test senden (72 BPM)', osc_sending:'⏳ Sende…',
+      osc_sent:'✓ Paket gesendet — Avatar-Parameter in VRChat prüfen!',
+      osc_info_html:'Sendet <code style="color:var(--accent3);font-size:10.5px;">/avatar/parameters/HR</code> (int) + <code style="color:var(--accent3);font-size:10.5px;">onesHR / tensHR / hundredsHR</code> (float) bei jedem Herzschlag. OSC aktivieren: <strong>Einstellungen → OSC → Aktivieren</strong>',
     },
   };
   let currentLang = 'en';
   const t = key => I18N[currentLang][key] || I18N.en[key] || key;
+
+  // Track current BLE/Discord state so applyLang can re-render after a language switch
+  let bleCurState = 'idle', bleCurExtra = {};
+  let discordCurState = null, discordCurReason = null;
 
   function applyLang(lang) {
     currentLang = lang;
@@ -596,12 +634,20 @@
     $('langDE').classList.toggle('active', lang==='de');
     document.querySelectorAll('[data-i18n]').forEach(el => {
       if (el.id === 'stText') return; // managed by renderStatus()
+      if (el.id === 'bleScanBtn' && bleScanning) return; // managed by setBleStatus()
       const key = el.dataset.i18n;
       if(key==='connect'&&isConn) el.textContent=t('disconnect');
       else if(key==='show_overlay'&&overlayOpen) el.textContent=t('hide_overlay');
       else el.textContent = t(key);
     });
+    document.querySelectorAll('[data-i18n-html]').forEach(el => {
+      const key = el.dataset.i18nHtml;
+      const val = I18N[lang][key] ?? I18N.en[key];
+      if (val !== undefined) el.innerHTML = val;
+    });
     renderStatus();
+    setBleStatus(bleCurState, bleCurExtra);
+    renderDiscordStatus(discordCurState, discordCurReason);
   }
 
   function setLang(lang) {
@@ -1041,6 +1087,7 @@
   const bleDevices = new Map(); // id → name
 
   function setBleStatus(state, extra = {}) {
+    bleCurState = state; bleCurExtra = extra;
     const dot     = $('bleDot');
     const text    = $('bleStatusText');
     const connRow = $('bleConnected');
@@ -1051,47 +1098,47 @@
 
     if (state === 'scanning') {
       dot.classList.add('connecting');
-      text.textContent = 'Scanning…';
-      scanBtn.innerHTML = '⏹ Stop scan';
+      text.textContent = t('ble_scanning');
+      scanBtn.textContent = t('ble_scan_stop');
       bleScanning = true;
       connRow.style.display = 'none';
     } else if (state === 'connecting') {
       dot.classList.add('connecting');
-      text.textContent = 'Connecting…';
+      text.textContent = t('ble_connecting');
       list.style.display = 'none';
     } else if (state === 'reconnecting') {
       dot.classList.add('connecting');
-      text.textContent = 'Reconnecting to ' + (extra.name || 'device') + '…';
+      text.textContent = t('ble_reconnecting').replace('{name}', extra.name || 'device');
       connRow.style.display = 'none';
     } else if (state === 'connected') {
       dot.classList.add('connected');
-      text.textContent = 'Connected via Bluetooth';
+      text.textContent = t('ble_connected');
       connRow.style.display = 'flex';
       $('bleDeviceName').textContent = extra.name || 'HR Monitor';
       bleScanning = false;
-      scanBtn.innerHTML = '🔍 Scan for devices';
+      scanBtn.textContent = t('ble_scan');
       list.style.display = 'none';
       bleDevices.clear();
       list.innerHTML = '';
     } else if (state === 'disconnected') {
-      text.textContent = extra.reason || 'Disconnected';
+      text.textContent = extra.reason || t('ble_disconnected');
       connRow.style.display = 'none';
       bleScanning = false;
-      scanBtn.innerHTML = '🔍 Scan for devices';
+      scanBtn.textContent = t('ble_scan');
     } else if (state === 'connect-error' || state === 'scan-error') {
       dot.classList.add('error');
       text.textContent = extra.reason || 'Error';
       bleScanning = false;
-      scanBtn.innerHTML = '🔍 Scan for devices';
+      scanBtn.textContent = t('ble_scan');
     } else if (state === 'ble-unavailable') {
       dot.classList.add('error');
-      text.textContent = 'Bluetooth unavailable — is it turned on?';
+      text.textContent = t('ble_unavailable');
     } else {
       // idle
-      text.textContent = 'Not connected';
+      text.textContent = t('ble_idle');
       connRow.style.display = 'none';
       bleScanning = false;
-      scanBtn.innerHTML = '🔍 Scan for devices';
+      scanBtn.textContent = t('ble_scan');
     }
   }
 
@@ -1150,20 +1197,23 @@
     else         window.electronAPI.discordDisable();
   }
 
-  window.electronAPI.onDiscordStatus(({ state, reason }) => {
+  function renderDiscordStatus(state, reason) {
+    discordCurState = state; discordCurReason = reason;
     const dot  = $('discordDot');
     const text = $('discordStatusText');
     dot.className = 'dot';
     if (state === 'connected') {
       dot.classList.add('connected');
-      text.textContent = 'Connected to Discord';
+      text.textContent = t('discord_connected');
     } else if (state === 'error') {
       dot.classList.add('error');
       text.textContent = reason || 'Error';
     } else {
-      text.textContent = 'Not connected to Discord';
+      text.textContent = t('discord_idle');
     }
-  });
+  }
+
+  window.electronAPI.onDiscordStatus(({ state, reason }) => renderDiscordStatus(state, reason));
 
   // ── OSC ──
   function oscToggle() {
@@ -1185,7 +1235,7 @@
     const btn = $('oscTestBtn');
     const st  = $('oscStatus');
     btn.disabled = true;
-    btn.textContent = '⏳ Sending…';
+    btn.textContent = t('osc_sending');
     try {
       const res = await window.electronAPI.testOsc({
         host:  $('oscHost').value.trim()  || '127.0.0.1',
@@ -1196,7 +1246,7 @@
       if (res.ok) {
         st.style.background = 'rgba(34,197,94,.15)';
         st.style.color = '#22c55e';
-        st.textContent = '✓ Packet sent — check VRChat avatar parameters!';
+        st.textContent = t('osc_sent');
       } else {
         st.style.background = 'rgba(239,68,68,.15)';
         st.style.color = '#ef4444';
@@ -1209,7 +1259,7 @@
       st.textContent = '✗ ' + e.message;
     }
     btn.disabled = false;
-    btn.textContent = '🔁 Send test ping (72 BPM)';
+    btn.textContent = t('osc_test');
     setTimeout(() => { st.style.display = 'none'; }, 4000);
   }
 

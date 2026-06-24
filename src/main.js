@@ -71,9 +71,15 @@ const HYPERATE_API_KEY = '7XnPqR2m9LdHsV4tYk8ZuEf1WaJ5GcB3rTsQ6v';
 const VERSION = app.getVersion();            // reads from package.json
 const IS_FIRST_RUN = !loadStore().onboarded; // FTUE flag
 
+// Detect autostart launch — start hidden (tray only, no settings window)
+const IS_AUTOSTART = process.platform === 'darwin'
+  ? app.getLoginItemSettings().wasOpenedAtLogin
+  : process.argv.includes('--hidden');
+
 // ── Discord state ────────────────────────────────────────────────────────────
 let discordEnabled    = false;
 let currentConnType   = 'cloud'; // 'cloud' | 'ble'
+let bleConnected      = false;
 
 function discordBpmUpdate(bpm) {
   if (!discordEnabled) return;
@@ -113,6 +119,7 @@ function createSettingsWindow() {
   settingsWindow = new BrowserWindow({
     width:820, height:870, minWidth:760, minHeight:780,
     frame:false, transparent:false, backgroundColor:'#080810',
+    show: false, // shown explicitly after ready (or not at all on autostart)
     skipTaskbar: process.platform === 'win32', // Windows: only live in tray
     webPreferences:{ nodeIntegration:false, contextIsolation:true, preload:path.join(__dirname,'preload.js') },
     icon: path.join(__dirname,'../assets/icon.png'),
@@ -333,11 +340,16 @@ app.whenReady().then(() => {
   createTray();
   registerHotkey();
 
-  // Show FTUE on first launch, after settings window is ready
-  if (IS_FIRST_RUN) {
+  if (IS_AUTOSTART) {
+    // Started via autostart — stay in tray, don't show settings window
+  } else if (IS_FIRST_RUN) {
+    // First launch — show settings window, then FTUE on top
+    settingsWindow.show();
     settingsWindow.webContents.on('did-finish-load', () => {
       setTimeout(createFtueWindow, 400);
     });
+  } else {
+    settingsWindow.show();
   }
 });
 
@@ -346,8 +358,11 @@ app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('window-all-closed', () => {});
 
 // ── IPC ──
-ipcMain.on('ws-connect',    (_, id)  => wsConnect(id));
-ipcMain.on('ws-disconnect', ()       => wsDisconnect());
+ipcMain.on('ws-connect', (_, id) => {
+  if (bleConnected) ble.disconnect();
+  wsConnect(id);
+});
+ipcMain.on('ws-disconnect', () => wsDisconnect());
 
 ipcMain.on('launch-overlay', (_, config) => {
   if (!overlayWindow) createOverlayWindow();
@@ -408,7 +423,13 @@ ipcMain.on('save-settings', (_, data) => {
 });
 
 ipcMain.handle('get-autostart', () => app.getLoginItemSettings().openAtLogin);
-ipcMain.on('set-autostart', (_, enable) => app.setLoginItemSettings({ openAtLogin: !!enable }));
+ipcMain.on('set-autostart', (_, enable) => {
+  if (process.platform === 'darwin') {
+    app.setLoginItemSettings({ openAtLogin: !!enable, openAsHidden: !!enable });
+  } else {
+    app.setLoginItemSettings({ openAtLogin: !!enable, args: enable ? ['--hidden'] : [] });
+  }
+});
 
 ipcMain.handle('get-system-fonts', () => app.getSystemFonts());
 
@@ -451,8 +472,13 @@ ble.init({
   onStatus: (state, extra = {}) => {
     sendToSettings('ble-status', { state, ...extra });
     if (state === 'connected') {
+      bleConnected = true;
       currentConnType = 'ble';
+      if (ws) wsDisconnect();
       if (process.platform === 'darwin' && tray) tray.setContextMenu(buildMenu());
+    }
+    if (state === 'disconnected' || state === 'connect-error' || state === 'idle') {
+      bleConnected = false;
     }
     if (state === 'disconnected' || state === 'idle') {
       if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle('');
@@ -470,7 +496,10 @@ ble.init({
 
 ipcMain.on('ble-scan-start',        ()              => ble.startScan());
 ipcMain.on('ble-scan-stop',         ()              => ble.stopScan());
-ipcMain.on('ble-connect',           (_, { id, name }) => ble.connect(id, name));
+ipcMain.on('ble-connect', (_, { id, name }) => {
+  if (ws) wsDisconnect();
+  ble.connect(id, name);
+});
 ipcMain.on('ble-disconnect',        ()              => ble.disconnect());
 ipcMain.on('ble-set-auto-reconnect',(_, enabled)   => ble.setAutoReconnect(enabled));
 
