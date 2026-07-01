@@ -17,14 +17,15 @@ function encodeOscStr(s) {
   return buf;
 }
 
-// args: array of {t: 'i' | 'f', v: number}
+// args: array of {t: 'i' | 'f' | 's' | 'T' | 'F', v?: any}
 function buildOscMsg(address, args) {
   const addrBuf = encodeOscStr(address);
   const tagBuf  = encodeOscStr(',' + args.map(a => a.t).join(''));
   const dataBufs = args.map(({ t, v }) => {
-    const b = Buffer.alloc(4);
-    t === 'i' ? b.writeInt32BE(v) : b.writeFloatBE(v);
-    return b;
+    if (t === 'i') { const b = Buffer.alloc(4); b.writeInt32BE(v); return b; }
+    if (t === 'f') { const b = Buffer.alloc(4); b.writeFloatBE(v); return b; }
+    if (t === 's') return encodeOscStr(String(v));
+    return Buffer.alloc(0); // T, F — no data bytes
   });
   return Buffer.concat([addrBuf, tagBuf, ...dataBufs]);
 }
@@ -45,6 +46,8 @@ function oscSend(host, port, address, args) {
   } catch(e) { console.error('[OSC] send:', e); }
 }
 
+let _chatboxLastSent = 0;
+
 function sendHeartRateOsc(bpm) {
   const store = loadStore();
   if (!store.oscEnabled) return;
@@ -60,6 +63,17 @@ function sendHeartRateOsc(bpm) {
   oscSend(host, port, '/avatar/parameters/onesHR',     [{ t:'f', v: (bpm % 10) / 10 }]);
   oscSend(host, port, '/avatar/parameters/tensHR',     [{ t:'f', v: (Math.floor(bpm / 10) % 10) / 10 }]);
   oscSend(host, port, '/avatar/parameters/hundredsHR', [{ t:'f', v: Math.floor(bpm / 100) / 10 }]);
+
+  if (store.oscChatbox) {
+    const now = Date.now();
+    if (now - _chatboxLastSent >= 2000) {
+      _chatboxLastSent = now;
+      const fmt  = store.oscChatboxFormat || '♥ {bpm} BPM';
+      const text = fmt.replace('{bpm}', bpm);
+      // /chatbox/input [string, T=send immediately, F=no notification sound]
+      oscSend(host, port, '/chatbox/input', [{ t:'s', v: text }, { t:'T' }, { t:'F' }]);
+    }
+  }
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -409,9 +423,13 @@ ipcMain.on('resize-overlay', (_, { width, height }) => {
 ipcMain.handle('load-settings', () => ({ ...loadStore(), version: VERSION, scaleFactor: scaleFactor() }));
 
 // OSC test — sends a dummy BPM of 72 to verify the connection
-ipcMain.handle('test-osc', (_, { host, port, param }) => {
+ipcMain.handle('test-osc', (_, { host, port, param, chatbox, chatboxFormat }) => {
   try {
     oscSend(host, parseInt(port) || 9000, `/avatar/parameters/${param}`, [{ t:'i', v: 72 }]);
+    if (chatbox) {
+      const text = (chatboxFormat || '♥ {bpm} BPM').replace('{bpm}', 72);
+      oscSend(host, parseInt(port) || 9000, '/chatbox/input', [{ t:'s', v: text }, { t:'T' }, { t:'F' }]);
+    }
     return { ok: true };
   } catch(e) {
     return { ok: false, error: e.message };

@@ -375,6 +375,20 @@
             <code style="color:var(--accent3);font-size:10.5px;">onesHR / tensHR / hundredsHR</code> (float) every heartbeat.
             Enable OSC in VRChat: <strong>Settings → OSC → Enable</strong>
           </div>
+          <div style="height:1px;background:var(--border);margin:2px 0;"></div>
+          <div class="trow">
+            <span class="tl" data-i18n="osc_chatbox_toggle">Send to ChatBox</span>
+            <label class="tog"><input type="checkbox" id="oscChatbox" onchange="oscChatboxToggle()" /><span class="ts"></span></label>
+          </div>
+          <div id="oscChatboxBody" style="display:none;flex-direction:column;gap:9px;">
+            <div class="field">
+              <label data-i18n="osc_chatbox_format">Message Format</label>
+              <input type="text" id="oscChatboxFormat" value="♥ {bpm} BPM" oninput="saveOsc()" style="font-size:12px;padding:6px 9px;" />
+            </div>
+            <div style="font-size:11px;color:var(--text-dim);line-height:1.5;background:var(--surface);border-radius:7px;padding:8px 10px;" data-i18n-html="osc_chatbox_info_html">
+              Sends your BPM to <code style="color:var(--accent3);font-size:10.5px;">/chatbox/input</code> — shown as text above your avatar's head. Use <code style="color:var(--accent3);font-size:10.5px;">{bpm}</code> as placeholder.
+            </div>
+          </div>
           <button class="btn" id="oscTestBtn" onclick="testOsc()"
             style="background:var(--surface2);color:var(--text);font-size:12px;padding:7px 12px;" data-i18n="osc_test">
             🔁 Send test ping (72 BPM)
@@ -579,6 +593,9 @@
       osc_test:'🔁 Send test ping (72 BPM)', osc_sending:'⏳ Sending…',
       osc_sent:'✓ Packet sent — check VRChat avatar parameters!',
       osc_info_html:'Sends <code style="color:var(--accent3);font-size:10.5px;">/avatar/parameters/HR</code> (int) + <code style="color:var(--accent3);font-size:10.5px;">onesHR / tensHR / hundredsHR</code> (float) every heartbeat. Enable OSC in VRChat: <strong>Settings → OSC → Enable</strong>',
+      osc_chatbox_toggle:'Send to ChatBox',
+      osc_chatbox_format:'Message Format',
+      osc_chatbox_info_html:'Sends your BPM to <code style="color:var(--accent3);font-size:10.5px;">/chatbox/input</code> — shown as text above your avatar\'s head in VRChat. Use <code style="color:var(--accent3);font-size:10.5px;">{bpm}</code> as placeholder.',
     },
     de: {
       connection:'Verbindung', session_id:'HypeRate Session ID',
@@ -619,6 +636,9 @@
       osc_test:'🔁 Test senden (72 BPM)', osc_sending:'⏳ Sende…',
       osc_sent:'✓ Paket gesendet — Avatar-Parameter in VRChat prüfen!',
       osc_info_html:'Sendet <code style="color:var(--accent3);font-size:10.5px;">/avatar/parameters/HR</code> (int) + <code style="color:var(--accent3);font-size:10.5px;">onesHR / tensHR / hundredsHR</code> (float) bei jedem Herzschlag. OSC aktivieren: <strong>Einstellungen → OSC → Aktivieren</strong>',
+      osc_chatbox_toggle:'An ChatBox senden',
+      osc_chatbox_format:'Nachrichtenformat',
+      osc_chatbox_info_html:'Sendet deine BPM an <code style="color:var(--accent3);font-size:10.5px;">/chatbox/input</code> — erscheint als Text über deinem Kopf in VRChat. Nutze <code style="color:var(--accent3);font-size:10.5px;">{bpm}</code> als Platzhalter.',
     },
   };
   let currentLang = 'en';
@@ -1222,12 +1242,19 @@
     saveOsc();
   }
 
+  function oscChatboxToggle() {
+    $('oscChatboxBody').style.display = cb('oscChatbox') ? 'flex' : 'none';
+    saveOsc();
+  }
+
   function saveOsc() {
     window.electronAPI.saveSettings({
-      oscEnabled: cb('oscEnabled'),
-      oscHost:    $('oscHost').value.trim()  || '127.0.0.1',
-      oscPort:    parseInt($('oscPort').value) || 9000,
-      oscParam:   $('oscParam').value.trim() || 'HR',
+      oscEnabled:       cb('oscEnabled'),
+      oscHost:          $('oscHost').value.trim()  || '127.0.0.1',
+      oscPort:          parseInt($('oscPort').value) || 9000,
+      oscParam:         $('oscParam').value.trim() || 'HR',
+      oscChatbox:       cb('oscChatbox'),
+      oscChatboxFormat: $('oscChatboxFormat').value.trim() || '♥ {bpm} BPM',
     });
   }
 
@@ -1238,9 +1265,11 @@
     btn.textContent = t('osc_sending');
     try {
       const res = await window.electronAPI.testOsc({
-        host:  $('oscHost').value.trim()  || '127.0.0.1',
-        port:  parseInt($('oscPort').value) || 9000,
-        param: $('oscParam').value.trim() || 'HR',
+        host:          $('oscHost').value.trim()  || '127.0.0.1',
+        port:          parseInt($('oscPort').value) || 9000,
+        param:         $('oscParam').value.trim() || 'HR',
+        chatbox:       cb('oscChatbox'),
+        chatboxFormat: $('oscChatboxFormat').value.trim() || '♥ {bpm} BPM',
       });
       st.style.display = 'block';
       if (res.ok) {
@@ -1271,6 +1300,11 @@
     if (s.oscHost)  $('oscHost').value  = s.oscHost;
     if (s.oscPort)  $('oscPort').value  = s.oscPort;
     if (s.oscParam) $('oscParam').value = s.oscParam;
+    if (s.oscChatbox !== undefined) {
+      $('oscChatbox').checked = !!s.oscChatbox;
+      $('oscChatboxBody').style.display = s.oscChatbox ? 'flex' : 'none';
+    }
+    if (s.oscChatboxFormat) $('oscChatboxFormat').value = s.oscChatboxFormat;
   }
 
   // ── Init ──
