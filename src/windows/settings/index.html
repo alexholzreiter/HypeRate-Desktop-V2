@@ -56,6 +56,17 @@
     .ch{display:flex;align-items:center;gap:8px;padding:10px 13px;border-bottom:1px solid var(--border);font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);}
     .cb{padding:13px;display:flex;flex-direction:column;gap:11px;}
 
+    /* Collapsible cards — header click toggles .open */
+    .card.collapsible > .ch{cursor:pointer;transition:color .15s;}
+    .card.collapsible > .ch:hover{color:var(--text);}
+    .ch-chev{margin-left:auto;width:12px;height:12px;flex-shrink:0;transition:transform .2s;}
+    .ch-dot{margin-left:auto;}
+    .ch-dot:not([hidden]) + .ch-chev{margin-left:0;}
+    .card.collapsible:not(.open) > .ch{border-bottom-color:transparent;}
+    .card.collapsible:not(.open) > .ch .ch-chev{transform:rotate(-90deg);}
+    .card.collapsible:not(.open) > .cb{display:none;}
+    .card.collapsible.open > .cb{animation:fadeIn .2s ease;}
+
     .field{display:flex;flex-direction:column;gap:5px;}
     label{font-size:11px;font-weight:500;color:var(--text-dim);letter-spacing:.04em;text-transform:uppercase;}
     input[type=text]{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-family:'Space Mono',monospace;font-size:13px;outline:none;transition:border-color .2s,box-shadow .2s;width:100%;}
@@ -283,8 +294,8 @@
     </div>
 
     <!-- ── BLE Card ── -->
-    <div class="card">
-      <div class="ch"><span>📡</span> <span data-i18n="ble_heading">Bluetooth Direct</span></div>
+    <div class="card collapsible">
+      <div class="ch" onclick="toggleCard(this)"><span>📡</span> <span data-i18n="ble_heading">Bluetooth Direct</span><span class="dot ch-dot" id="bleHeadDot" hidden></span><svg class="ch-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5l3 3 3-3"/></svg></div>
       <div class="cb" style="gap:9px;">
 
         <!-- Status row -->
@@ -326,8 +337,8 @@
     </div>
 
     <!-- ── Discord Card ── -->
-    <div class="card">
-      <div class="ch"><span>🎮</span> <span data-i18n="discord_heading">Discord Rich Presence</span></div>
+    <div class="card collapsible">
+      <div class="ch" onclick="toggleCard(this)"><span>🎮</span> <span data-i18n="discord_heading">Discord Rich Presence</span><span class="dot ch-dot" id="discordHeadDot" hidden></span><svg class="ch-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5l3 3 3-3"/></svg></div>
       <div class="cb" style="gap:10px;">
         <div class="trow">
           <span class="tl" data-i18n="discord_toggle">Show heart rate in Discord</span>
@@ -348,8 +359,8 @@
     </div>
 
     <!-- ── OSC Card ── -->
-    <div class="card">
-      <div class="ch"><span>🎮</span> <span data-i18n="osc_heading">VRChat OSC</span></div>
+    <div class="card collapsible">
+      <div class="ch" onclick="toggleCard(this)"><span>🎮</span> <span data-i18n="osc_heading">VRChat OSC</span><span class="dot ch-dot" id="oscHeadDot" hidden></span><svg class="ch-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5l3 3 3-3"/></svg></div>
       <div class="cb" style="gap:10px;">
         <div class="trow">
           <span class="tl" data-i18n="osc_toggle">Send to VRChat</span>
@@ -689,6 +700,16 @@
       document.querySelectorAll('.tab-btn')[i].classList.toggle('active',n===name);
       $('tab-'+n).classList.toggle('active',n===name);
     });
+  }
+
+  // ── Collapsible cards ──
+  function toggleCard(header){ header.closest('.card').classList.toggle('open'); }
+
+  // Status dot in the card header — visible even when the card is collapsed
+  function syncHeadDot(id, stateClass, visible){
+    const d = $(id);
+    d.className = 'dot ch-dot' + (stateClass ? ' ' + stateClass : '');
+    d.hidden = !visible;
   }
 
   // ── Config ──
@@ -1160,6 +1181,9 @@
       bleScanning = false;
       scanBtn.textContent = t('ble_scan');
     }
+
+    // Header dot mirrors the body dot; hidden while idle/disconnected
+    syncHeadDot('bleHeadDot', dot.classList[1], dot.classList.length > 1);
   }
 
   function bleToggleScan() {
@@ -1215,6 +1239,8 @@
     window.electronAPI.saveSettings({ discordEnabled: enabled });
     if (enabled) window.electronAPI.discordEnable();
     else         window.electronAPI.discordDisable();
+    // discord.disconnect() emits no status — reset locally so no stale state remains
+    renderDiscordStatus(enabled ? discordCurState : null, enabled ? discordCurReason : null);
   }
 
   function renderDiscordStatus(state, reason) {
@@ -1231,6 +1257,7 @@
     } else {
       text.textContent = t('discord_idle');
     }
+    syncHeadDot('discordHeadDot', dot.classList[1], cb('discordEnabled'));
   }
 
   window.electronAPI.onDiscordStatus(({ state, reason }) => renderDiscordStatus(state, reason));
@@ -1239,6 +1266,7 @@
   function oscToggle() {
     const enabled = cb('oscEnabled');
     $('oscBody').style.display = enabled ? 'flex' : 'none';
+    syncHeadDot('oscHeadDot', 'connected', enabled);
     saveOsc();
   }
 
@@ -1296,6 +1324,7 @@
     if (s.oscEnabled !== undefined) {
       $('oscEnabled').checked = !!s.oscEnabled;
       $('oscBody').style.display = s.oscEnabled ? 'flex' : 'none';
+      syncHeadDot('oscHeadDot', 'connected', !!s.oscEnabled);
     }
     if (s.oscHost)  $('oscHost').value  = s.oscHost;
     if (s.oscPort)  $('oscPort').value  = s.oscPort;
@@ -1326,6 +1355,7 @@
     if (saved.discordEnabled) {
       $('discordEnabled').checked = true;
       $('discordBody').style.display = 'flex';
+      renderDiscordStatus(discordCurState, discordCurReason);
       window.electronAPI.discordEnable();
     }
     updatePreview(); live();
