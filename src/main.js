@@ -7,6 +7,7 @@ const ble     = require('./ble');
 const discord = require('./discord');
 const moments = require('./moments');
 const wow     = require('./games/wow');
+const systemFonts = require('./system-fonts');
 
 // ── OSC ──────────────────────────────────────────────────────────────────────
 // Pure Node.js UDP — no extra npm package needed.
@@ -459,7 +460,7 @@ ipcMain.on('set-autostart', (_, enable) => {
   }
 });
 
-ipcMain.handle('get-system-fonts', () => app.getSystemFonts());
+ipcMain.handle('get-system-fonts', () => systemFonts.list());
 
 ipcMain.handle('check-update', () => new Promise((resolve) => {
   const https = require('https');
