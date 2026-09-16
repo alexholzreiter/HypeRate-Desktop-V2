@@ -41,4 +41,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   bleSetAutoReconnect:(enabled)       => ipcRenderer.send('ble-set-auto-reconnect', enabled),
   onBleDeviceFound:   (cb)            => ipcRenderer.on('ble-device-found', (_, d) => cb(d)),
   onBleStatus:        (cb)            => ipcRenderer.on('ble-status',       (_, d) => cb(d)),
+
+  wowEnable:          (opts)    => ipcRenderer.send('wow-enable', opts),
+  wowDisable:         ()        => ipcRenderer.send('wow-disable'),
+  wowSetOptions:      (opts)    => ipcRenderer.send('wow-set-options', opts),
+  wowDefaultPath:     ()        => ipcRenderer.invoke('wow-default-path'),
+  wowPickFolder:      (current) => ipcRenderer.invoke('wow-pick-folder', current),
+  wowShowDiagnostics: ()        => ipcRenderer.send('wow-show-diagnostics'),
+  wowTest:            (type)    => ipcRenderer.send('wow-test', type),
+  onWowStatus:        (cb)      => ipcRenderer.on('wow-status',  (_, d) => cb(d)),
+  onGameMoment:       (cb)      => ipcRenderer.on('game-moment', (_, d) => cb(d)),
 });

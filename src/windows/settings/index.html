@@ -61,6 +61,9 @@
     .card.collapsible > .ch:hover{color:var(--text);}
     .ch-chev{margin-left:auto;width:12px;height:12px;flex-shrink:0;transition:transform .2s;}
     .ch-dot{margin-left:auto;}
+    /* ⚔ is a text-style symbol with a thin glyph — force the colour emoji font and scale it up
+       (transform, so the header height stays the same) to match 📡 / 🎮 visually */
+    .ch-emoji{display:inline-block;font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;transform:scale(1.35);}
     .ch-dot:not([hidden]) + .ch-chev{margin-left:0;}
     .card.collapsible:not(.open) > .ch{border-bottom-color:transparent;}
     .card.collapsible:not(.open) > .ch .ch-chev{transform:rotate(-90deg);}
@@ -409,6 +412,56 @@
       </div>
     </div>
 
+    <!-- ── World of Warcraft Card ── -->
+    <div class="card collapsible">
+      <div class="ch" onclick="toggleCard(this)"><span class="ch-emoji">⚔️</span> <span data-i18n="wow_heading">World of Warcraft</span><span class="dot ch-dot" id="wowHeadDot" hidden></span><svg class="ch-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5l3 3 3-3"/></svg></div>
+      <div class="cb" style="gap:10px;">
+        <div class="trow">
+          <span class="tl" data-i18n="wow_toggle">Fight results in overlay</span>
+          <label class="tog"><input type="checkbox" id="wowEnabled" onchange="wowToggle()" /><span class="ts"></span></label>
+        </div>
+        <div id="wowBody" style="display:none;flex-direction:column;gap:9px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="dot" id="wowDot"></span>
+            <span style="font-size:12px;color:var(--text-dim);" id="wowStatusText">Off</span>
+          </div>
+          <div id="wowLastWrite" hidden style="font-size:11px;color:var(--text-dim);line-height:1.5;margin-top:-4px;"></div>
+          <div id="wowAdvancedHint" hidden style="font-size:11px;color:var(--warn);line-height:1.5;background:rgba(245,158,11,.1);border-radius:7px;padding:7px 10px;" data-i18n-html="wow_advanced_off_html">
+            <strong>Advanced Combat Logging is off</strong> — no health values, so no CLOSE CALL.
+          </div>
+          <div class="field">
+            <label data-i18n="wow_folder">WoW folder</label>
+            <div style="display:flex;gap:6px;">
+              <input type="text" id="wowPath" onchange="saveWow()" style="font-size:11px;padding:6px 9px;flex:1;min-width:0;" />
+              <button class="btn bs" onclick="wowAutoDetect()" style="padding:5px 8px;font-size:11px;">Auto</button>
+              <button class="btn bs" onclick="wowPickFolder()" style="padding:5px 10px;font-size:12px;">…</button>
+            </div>
+          </div>
+          <div class="field">
+            <label data-i18n="wow_close_call">Close call at health ≤</label>
+            <div class="srow"><input type="range" id="wowCloseCallPct" min="5" max="30" value="10" oninput="sv('wowCloseCallPct','wowCloseCallPctV','%')" onchange="saveWow()" /><span class="sv" id="wowCloseCallPctV">10%</span></div>
+          </div>
+          <div class="field">
+            <label data-i18n="wow_size">Widget size</label>
+            <div class="srow"><input type="range" id="wowScale" min="30" max="80" value="50" oninput="sv('wowScale','wowScaleV','%');live()" /><span class="sv" id="wowScaleV">50%</span></div>
+          </div>
+          <div class="field">
+            <label data-i18n="wow_preview">Preview</label>
+            <div style="display:flex;gap:5px;">
+              <button class="btn bs" onclick="wowTest('close')" style="flex:1;font-size:11px;padding:6px 4px;">Close Call</button>
+              <button class="btn bs" onclick="wowTest('boss')"  style="flex:1;font-size:11px;padding:6px 4px;">Boss</button>
+              <button class="btn bs" onclick="wowTest('death')" style="flex:1;font-size:11px;padding:6px 4px;">You Died</button>
+            </div>
+            <button class="btn bs" onclick="wowTest('insight')" style="font-size:11px;padding:6px 4px;margin-top:5px;" data-i18n="wow_preview_insight">Session insight (cycles through all)</button>
+          </div>
+          <div style="font-size:11px;color:var(--text-dim);line-height:1.6;background:var(--surface);border-radius:7px;padding:8px 10px;" data-i18n-html="wow_info_html">
+            Shows your heart rate at boss kills, close calls and deaths in WoW.
+          </div>
+          <a href="#" onclick="window.electronAPI.wowShowDiagnostics();return false;" style="font-size:11px;color:var(--accent3);text-decoration:none;" data-i18n="wow_diagnostics">Show diagnostics file</a>
+        </div>
+      </div>
+    </div>
+
     <div class="card" id="newsCard">
       <div class="ch"><span>📰</span> <span data-i18n="news">News</span></div>
       <div id="newsBody" style="display:flex;flex-direction:column;">
@@ -549,6 +602,7 @@
       <div class="bpm-graph-wrap">
         <canvas id="bpmGraph"></canvas>
       </div>
+      <div class="hint" id="wowPreviewHint" data-i18n="wow_preview_hint" hidden>WoW look active — use the preview buttons in the World of Warcraft card.</div>
     </div>
   </div>
 
@@ -562,6 +616,7 @@
 
 <script>
   const $=id=>document.getElementById(id), v=id=>$(id).value, cb=id=>$(id).checked;
+  const WOW_GUIDE_URL = 'https://blog.hyperate.io/world-of-warcraft-heart-rate-overlay/';
 
   // ── i18n ──
   const I18N = {
@@ -608,6 +663,16 @@
       osc_chatbox_toggle:'Send to ChatBox',
       osc_chatbox_format:'Message Format',
       osc_chatbox_info_html:'Sends your BPM to <code style="color:var(--accent3);font-size:10.5px;">/chatbox/input</code> — shown as text above your avatar\'s head in VRChat. Use <code style="color:var(--accent3);font-size:10.5px;">{bpm}</code> as placeholder.',
+      // World of Warcraft
+      wow_heading:'World of Warcraft', wow_toggle:'Fight results in overlay',
+      wow_idle:'Off', wow_no_folder:'WoW folder not found', wow_waiting:'Waiting for combat log…', wow_active:'Reading combat log',
+      wow_folder:'WoW folder', wow_close_call:'Close call at health ≤', wow_size:'Widget size', wow_preview:'Preview',
+      wow_diagnostics:'Show diagnostics file ↗',
+      wow_last_write:'WoW last wrote to the log {ago}', wow_just_now:'just now', wow_min_ago:'{n} min ago', wow_h_ago:'{n} h ago',
+      wow_preview_hint:'WoW look active — use the preview buttons in the World of Warcraft card.',
+      wow_advanced_off_html:'<strong>Advanced Combat Logging is off</strong> — without health values there is no CLOSE CALL. Enable it in WoW: <code style="font-size:10.5px;">/console advancedCombatLogging 1</code>',
+      wow_preview_insight:'Session insight (cycles through all)',
+      wow_info_html:'Shows your heart rate at boss kills, close calls and deaths in WoW, plus session highlights like your most intense enemy. <br><strong>Important:</strong> enable <strong>Advanced Combat Logging</strong> once in the WoW settings and type <code style="color:var(--accent3);font-size:10.5px;">/combatlog</code> after every login.<br><a href="#" onclick="window.electronAPI.openExternal(WOW_GUIDE_URL);return false;" style="color:var(--accent3);text-decoration:none;">How to set it up ↗</a>',
     },
     de: {
       connection:'Verbindung', session_id:'HypeRate Session ID',
@@ -652,6 +717,16 @@
       osc_chatbox_toggle:'An ChatBox senden',
       osc_chatbox_format:'Nachrichtenformat',
       osc_chatbox_info_html:'Sendet deine BPM an <code style="color:var(--accent3);font-size:10.5px;">/chatbox/input</code> — erscheint als Text über deinem Kopf in VRChat. Nutze <code style="color:var(--accent3);font-size:10.5px;">{bpm}</code> als Platzhalter.',
+      // World of Warcraft
+      wow_heading:'World of Warcraft', wow_toggle:'Kampf-Ergebnisse im Overlay',
+      wow_idle:'Aus', wow_no_folder:'WoW-Ordner nicht gefunden', wow_waiting:'Warte auf Combat Log…', wow_active:'Liest Combat Log mit',
+      wow_folder:'WoW-Ordner', wow_close_call:'Close Call bei Gesundheit ≤', wow_size:'Widget-Größe', wow_preview:'Vorschau',
+      wow_diagnostics:'Diagnose-Datei anzeigen ↗',
+      wow_last_write:'WoW hat zuletzt {ago} ins Log geschrieben', wow_just_now:'gerade eben', wow_min_ago:'vor {n} Min.', wow_h_ago:'vor {n} Std.',
+      wow_preview_hint:'WoW-Look aktiv — Vorschau über die Buttons in der World-of-Warcraft-Karte.',
+      wow_advanced_off_html:'<strong>Advanced Combat Logging ist aus</strong> — ohne Gesundheitswerte gibt es kein CLOSE CALL. In WoW aktivieren: <code style="font-size:10.5px;">/console advancedCombatLogging 1</code>',
+      wow_preview_insight:'Session-Auswertung (alle nacheinander)',
+      wow_info_html:'Zeigt deinen Puls bei Boss-Kills, knappen Kämpfen und Toden in WoW, dazu Session-Highlights wie deinen intensivsten Gegner. <br><strong>Wichtig:</strong> Aktiviere einmalig <strong>Advanced Combat Logging</strong> in den WoW-Einstellungen und gib nach jedem Login <code style="color:var(--accent3);font-size:10.5px;">/combatlog</code> ein.<br><a href="#" onclick="window.electronAPI.openExternal(WOW_GUIDE_URL);return false;" style="color:var(--accent3);text-decoration:none;">Anleitung ↗</a>',
     },
   };
   let currentLang = 'en';
@@ -660,6 +735,7 @@
   // Track current BLE/Discord state so applyLang can re-render after a language switch
   let bleCurState = 'idle', bleCurExtra = {};
   let discordCurState = null, discordCurReason = null;
+  let wowCurState = null, wowCurExtra = {};
 
   function applyLang(lang) {
     currentLang = lang;
@@ -681,6 +757,7 @@
     renderStatus();
     setBleStatus(bleCurState, bleCurExtra);
     renderDiscordStatus(discordCurState, discordCurReason);
+    renderWowStatus(wowCurState, wowCurExtra);
   }
 
   function setLang(lang) {
@@ -728,12 +805,15 @@
       zonesAffectFont:cb('zonesAffectFont'),
       zones: getZones(),
       glowColor:v('glowColor'),
+      // Game integrations bring their own overlay look
+      theme: cb('wowEnabled') ? 'wow' : 'default',
+      wowScale:+v('wowScale'),
     };
   }
 
   function applyConfigToForm(c){
     ['heartAnim','heartStyle','heartColor','heartSize','fontStyle','bpmColor','labelColor',
-     'bpmSize','numAnim','bgStyle','bgColor','bgOpacity','layoutStyle','borderRadius','glowColor'].forEach(id=>{
+     'bpmSize','numAnim','bgStyle','bgColor','bgOpacity','layoutStyle','borderRadius','glowColor','wowScale'].forEach(id=>{
       if($(id)&&c[id]!==undefined) $(id).value=c[id];
     });
     if(c.systemFont&&$('systemFontName')) $('systemFontName').value=c.systemFont;
@@ -743,7 +823,7 @@
     });
     ['heartColor','bpmColor','labelColor','bgColor','glowColor'].forEach(id=>syncHex(id,id+'Hex'));
     sv('heartSize','heartSizeV','px'); sv('bpmSize','bpmSizeV','px');
-    sv('bgOpacity','bgOpacityV','%'); sv('borderRadius','borderRadiusV','px');
+    sv('bgOpacity','bgOpacityV','%'); sv('borderRadius','borderRadiusV','px'); sv('wowScale','wowScaleV','%');
     if(c.zonesEnabled!==undefined){$('zonesEnabled').checked=c.zonesEnabled;onZonesToggle(false);}
     if(c.zonesAffectFont!==undefined&&$('zonesAffectFont'))$('zonesAffectFont').checked=c.zonesAffectFont;
     if(c.zones&&c.zones.length) renderZones(c.zones);
@@ -754,6 +834,7 @@
     $('bgColorWrap').style.display=['solid','gradient'].includes(v('bgStyle'))?'flex':'none';
     if($('glowColorWrap')) $('glowColorWrap').style.display=cb('heartGlow')?'flex':'none';
     if($('systemFontWrap')) $('systemFontWrap').style.display=v('fontStyle')==='system'?'flex':'none';
+    $('wowPreviewHint').hidden=!cb('wowEnabled');
     if(overlayOpen) window.electronAPI.updateConfig(getConfig());
     clearTimeout(saveTimer);
     saveTimer=setTimeout(()=>window.electronAPI.saveSettings({config:getConfig(),hrId:v('hrId')}),600);
@@ -1342,6 +1423,94 @@
     if (s.oscChatboxFormat) $('oscChatboxFormat').value = s.oscChatboxFormat;
   }
 
+  // ── World of Warcraft ──
+  function wowOptions() {
+    return { path: $('wowPath').value.trim(), closeCallPct: +v('wowCloseCallPct') };
+  }
+
+  async function wowToggle() {
+    const enabled = cb('wowEnabled');
+    $('wowBody').style.display = enabled ? 'flex' : 'none';
+    if (enabled && !$('wowPath').value.trim()) $('wowPath').value = await window.electronAPI.wowDefaultPath();
+    window.electronAPI.saveSettings({ wowEnabled: enabled, wowPath: $('wowPath').value.trim() });
+    if (enabled) {
+      renderWowStatus(null);
+      window.electronAPI.wowEnable(wowOptions());
+    } else {
+      window.electronAPI.wowDisable();
+      renderWowStatus(null);
+    }
+    live(); // switches the overlay between default and WoW look
+  }
+
+  function saveWow() {
+    window.electronAPI.saveSettings({ wowPath: $('wowPath').value.trim(), wowCloseCallPct: +v('wowCloseCallPct') });
+    if (cb('wowEnabled')) window.electronAPI.wowSetOptions(wowOptions());
+  }
+
+  // Finds the install via Battle.net's database, falls back to common locations
+  async function wowAutoDetect() {
+    $('wowPath').value = await window.electronAPI.wowDefaultPath();
+    saveWow();
+  }
+
+  async function wowPickFolder() {
+    const picked = await window.electronAPI.wowPickFolder($('wowPath').value.trim());
+    if (picked) { $('wowPath').value = picked; saveWow(); }
+  }
+
+  function wowTest(type) {
+    if (overlayOpen) { window.electronAPI.wowTest(type); return; }
+    toggleOverlay(); // overlay needs a moment to load and receive the WoW theme
+    setTimeout(() => window.electronAPI.wowTest(type), 1200);
+  }
+
+  function renderWowStatus(state, extra = {}) {
+    wowCurState = state; wowCurExtra = extra;
+    const dot = $('wowDot'), text = $('wowStatusText');
+    dot.className = 'dot';
+    text.title = extra.file || '';
+    if (state === 'active') {
+      dot.classList.add('connected');
+      text.textContent = t('wow_active');
+    } else if (state === 'waiting') {
+      dot.classList.add('connecting');
+      text.textContent = t('wow_waiting');
+    } else if (state === 'no-folder') {
+      dot.classList.add('error');
+      text.textContent = t('wow_no_folder');
+    } else {
+      text.textContent = t('wow_idle');
+    }
+    $('wowAdvancedHint').hidden = !((state === 'active' || state === 'waiting') && extra.advanced === false);
+    // WoW writes the log in blocks — show when it last did, so a delay doesn't look like a broken connection
+    const lw = $('wowLastWrite');
+    lw.hidden = !(state && extra.lastWriteAt);
+    if (!lw.hidden) {
+      const min = Math.floor((Date.now() - extra.lastWriteAt) / 60000);
+      const ago = min < 1 ? t('wow_just_now') : min < 60 ? t('wow_min_ago').replace('{n}', min) : t('wow_h_ago').replace('{n}', Math.floor(min / 60));
+      lw.textContent = t('wow_last_write').replace('{ago}', ago);
+    }
+    syncHeadDot('wowHeadDot', dot.classList[1], cb('wowEnabled'));
+  }
+
+  window.electronAPI.onWowStatus(({ state, ...extra }) => {
+    if (cb('wowEnabled')) renderWowStatus(state, extra);
+  });
+  // keep "… min ago" current between status updates
+  setInterval(() => { if (cb('wowEnabled') && wowCurState) renderWowStatus(wowCurState, wowCurExtra); }, 30000);
+
+  function applyWowSettings(s) {
+    if (s.wowPath) $('wowPath').value = s.wowPath;
+    if (s.wowCloseCallPct) { $('wowCloseCallPct').value = s.wowCloseCallPct; sv('wowCloseCallPct','wowCloseCallPctV','%'); }
+    if (s.wowEnabled) {
+      $('wowEnabled').checked = true;
+      $('wowBody').style.display = 'flex';
+      renderWowStatus(null);
+      window.electronAPI.wowEnable(wowOptions());
+    }
+  }
+
   // ── Init ──
   async function init(){
     // 1) Load settings first — version + UI must appear immediately
@@ -1364,6 +1533,7 @@
       renderDiscordStatus(discordCurState, discordCurReason);
       window.electronAPI.discordEnable();
     }
+    applyWowSettings(saved);
     updatePreview(); live();
 
     // 2) Load fonts + autostart in background — not critical for UI

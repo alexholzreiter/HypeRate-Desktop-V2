@@ -5,6 +5,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@700&family=Bebas+Neue&family=VT323&display=swap" rel="stylesheet" />
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
+    [hidden] { display:none !important; }
 
     html, body {
       width:100vw; height:100vh;
@@ -102,6 +103,7 @@
       height: var(--dot-size, 48px);
     }
   </style>
+  <link rel="stylesheet" href="wow/wow.css" />
 </head>
 <body>
 
@@ -112,6 +114,62 @@
     <span id="bpm-num">--</span>
     <span id="bpm-label">BPM</span>
   </div>
+</div>
+
+<!-- World of Warcraft theme (active while the WoW integration is enabled) -->
+<div id="wowRoot" class="wow-root" hidden>
+  <div class="wow-drag"></div>
+  <section class="wow" id="wow">
+    <div class="wow-frame"><div class="wow-inner-glow"></div></div>
+    <svg class="wow-graph" viewBox="0 0 1000 150" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <pattern id="wowGraphGrid" width="50" height="30" patternUnits="userSpaceOnUse"><path d="M50 0H0V30" fill="none" stroke="#4c8fbe" stroke-width="1"/></pattern>
+        <linearGradient id="wowGraphFill" x1="0" y1="0" x2="0" y2="1"><stop offset=".3" stop-color="#3b95d1" stop-opacity=".55"/><stop offset=".75" stop-color="#1b5a86" stop-opacity=".2"/><stop offset="1" stop-color="#0b304c" stop-opacity="0"/></linearGradient>
+        <filter id="wowGraphGlow" x="-10%" y="-80%" width="120%" height="260%"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <rect class="wow-graph-grid" width="1000" height="150" fill="url(#wowGraphGrid)"/>
+      <path class="wow-graph-area" id="wowGraphArea" fill="url(#wowGraphFill)" d="M0 105 L1000 105 L1000 150 L0 150 Z"/>
+      <polyline class="wow-graph-glow" id="wowGraphGlowLine" points="0,105 1000,105"/>
+      <polyline class="wow-graph-line" id="wowGraphLine" points="0,105 1000,105"/>
+    </svg>
+    <div class="wow-fx" aria-hidden="true">
+      <div class="wow-sheen"></div>
+      <div class="wow-sparks" id="wowSparks"></div>
+    </div>
+    <div class="wow-rail top"></div>
+    <div class="wow-rail bottom"></div>
+    <div class="wow-end-cap"></div>
+
+    <div class="wow-portrait">
+      <img class="wow-heart" src="wow/heart.svg" alt="" />
+      <span class="wow-flare"></span>
+      <i class="wow-rivet one"></i><i class="wow-rivet two"></i>
+      <i class="wow-spike north"></i><i class="wow-spike east"></i><i class="wow-spike south"></i><i class="wow-spike west"></i>
+    </div>
+
+    <div class="wow-bpm">
+      <div class="wow-bpm-number" id="wowBpm">--</div>
+      <div class="wow-bpm-label">BPM</div>
+    </div>
+
+    <div class="wow-detail">
+      <div class="wow-event-frame"><div class="wow-event-icon" id="wowEventIcon"></div></div>
+      <div class="wow-copy">
+        <div class="wow-headline">
+          <div class="wow-event-title" id="wowEventTitle"></div>
+          <div class="wow-event-type"><span class="wow-kicker-clip"><span class="wow-kicker-text" id="wowEventType">Post-fight result</span></span></div>
+        </div>
+        <div class="wow-stats" id="wowStats">
+          <div class="wow-stat"><span class="wow-stat-icon"></span><span class="wow-stat-copy"><span class="wow-stat-value"></span><span class="wow-stat-label"></span></span></div>
+          <div class="wow-stat"><span class="wow-stat-icon"></span><span class="wow-stat-copy"><span class="wow-stat-value"></span><span class="wow-stat-label"></span></span></div>
+          <div class="wow-stat"><span class="wow-stat-icon"></span><span class="wow-stat-copy"><span class="wow-stat-value"></span><span class="wow-stat-label"></span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="wow-flash"></div>
+    <div class="wow-particles" id="wowParticles"></div>
+  </section>
 </div>
 
 <script>
@@ -137,11 +195,13 @@
   window.addEventListener('mousemove', e => {
     if (isLinux) return;
     const el = document.elementFromPoint(e.clientX, e.clientY);
-    const overWidget = !!el && (el === widget || widget.contains(el));
+    const overWidget = !!el && (widget.contains(el) || wowRoot.contains(el));
     setIgnore(!overWidget);
+    setWowHover(!!el && wowRoot.contains(el));
   });
   window.addEventListener('mouseleave', () => {
     if (!isLinux) setIgnore(true);
+    setWowHover(false);
   });
 
   const FONTS = {
@@ -189,6 +249,7 @@
 
   function applyConfig(c) {
     cfg = c;
+    applyTheme(c);
     const isCompact = c.layoutStyle === 'compact';
     const isMinimal = c.heartStyle  === 'minimal';
     const isGlowAnim = c.heartAnim  === 'glow';
@@ -302,6 +363,278 @@
     }
     // Apply zone color if zones are enabled
     if (cfg) applyZoneColor(bpm, cfg);
+    wowUpdateBpm(bpm);
+  }
+
+  // ── World of Warcraft theme ──
+  const wowRoot       = document.getElementById('wowRoot');
+  const wowEl         = document.getElementById('wow');
+  const wowBpm        = document.getElementById('wowBpm');
+  const wowParticles  = document.getElementById('wowParticles');
+  const wowStatEls    = [...document.querySelectorAll('#wowStats .wow-stat')];
+
+  const WOW_W = 500, WOW_OPEN_W = 1540, WOW_H = 190;   // design size, scaled by --wow-scale
+  const WOW_SHOW_MS = 7000, WOW_ANIM_MS = 760, WOW_GAP_MS = 350;
+  const WOW_GRAPH_POINTS = 40;
+
+  const svg = (vb, body) => `<svg viewBox="${vb}" fill="currentColor" aria-hidden="true">${body}</svg>`;
+  const WOW_ICONS = {
+    crown:  svg('0 0 64 64', '<path d="M8 47 4 17l15 12L32 8l13 21 15-12-4 30z"/><path d="M9 51h46v7H9z"/>'),
+    skull:  svg('0 0 64 64', '<path d="M32 5C18 5 8 15 8 29c0 8 4 14 10 18v8a3 3 0 0 0 3 3h22a3 3 0 0 0 3-3v-8c6-4 10-10 10-18C56 15 46 5 32 5z"/><circle cx="22.5" cy="30" r="6.5" fill="#07090b"/><circle cx="41.5" cy="30" r="6.5" fill="#07090b"/><path d="M32 38l-4.5 7.5h9z" fill="#07090b"/><path d="M26 50v8M32 50v8M38 50v8" stroke="#07090b" stroke-width="2.5"/>'),
+    shield: svg('0 0 64 64', '<path d="M32 4l24 9v17c0 16-10 27-24 32C18 57 8 46 8 30V13z"/><path d="M35 13l-7 15 9 4-7 17" fill="none" stroke="#07090b" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>'),
+    heart:  svg('0 1 24 24', '<path d="M12 21s-8.5-5.4-8.5-11.4A4.9 4.9 0 0 1 12 6.8a4.9 4.9 0 0 1 8.5 2.8C20.5 15.6 12 21 12 21z"/>'),
+    drop:   svg('0 0 24 24', '<path d="M12 2.5s-6.5 7.4-6.5 12a6.5 6.5 0 0 0 13 0c0-4.6-6.5-12-6.5-12z"/>'),
+    arrow:  svg('0 0 24 24', '<path d="M12 3l8 9h-5v9H9v-9H4z"/>'),
+    clock:  svg('0 0 24 24', '<circle cx="12" cy="14" r="7.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M12 14V9.5M9.5 2.5h5M18.5 6.5l1.6-1.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>'),
+    flame:  svg('6 0 64 64', '<path d="M35 3c3 11-3 16-8 22-4 5-7 10-7 17 0 11 8 19 19 19 10 0 17-7 17-17 0-8-4-14-9-19 0 6-3 10-7 11 3-11-1-24-5-33z"/><path d="M36 58c-6 0-10-4-10-10 0-5 3-8 6-12 1 5 4 7 7 7 2 3 3 5 3 8 0 4-3 7-6 7z" fill="#07090b" opacity=".55"/>'), // viewBox shifted: path sits 6 units right of centre
+    pulse:  svg('0 0 64 64', '<path d="M32 58S5 42 5 22A14 14 0 0 1 32 15a14 14 0 0 1 27 7c0 20-27 36-27 36z"/><path d="M9 33h13l4-9 6 17 5-11h18" fill="none" stroke="#07090b" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/>'),
+    swords: svg('0 0 64 64', '<path d="M11 8l30 30M53 8L23 38" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><path d="M35 46l11-11M18 35l11 11M44 44l9 9M20 44l-9 9" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><circle cx="55" cy="55" r="4"/><circle cx="9" cy="55" r="4"/>'),
+    bolt:   svg('0 0 64 64', '<path d="M38 3 11 37h18l-5 24 29-36H35z"/>'),
+  };
+  // Card styles: live fight results + session insights
+  const WOW_STYLES = {
+    close:   { accent:'#e0a542', rgb:'224,165,66',  event:'#ffe0a0', rarity:'#ffd100', icon:'shield', burst:true },
+    boss:    { accent:'#ef8b3e', rgb:'239,139,62',  event:'#ffd09b', rarity:'#ff8000', icon:'crown',  burst:true },
+    death:   { accent:'#e22d38', rgb:'226,45,56',   event:'#ff8790', rarity:'#e6cc80', icon:'skull',  burst:false },
+    intense: { accent:'#b58cff', rgb:'181,140,255', event:'#e4d4ff', rarity:'#a335ee', icon:'flame',  burst:true },
+    peak:    { accent:'#ff5c7a', rgb:'255,92,122',  event:'#ffc4cf', rarity:'#ff4d6d', icon:'pulse',  burst:true },
+    closest: { accent:'#e0a542', rgb:'224,165,66',  event:'#ffe0a0', rarity:'#ffd100', icon:'shield', burst:false },
+    nemesis: { accent:'#d0443e', rgb:'208,68,62',   event:'#ffaba6', rarity:'#9d1a14', icon:'swords', burst:false },
+    streak:  { accent:'#62d26f', rgb:'98,210,111',  event:'#c9f5ce', rarity:'#1eff00', icon:'bolt',   burst:true },
+  };
+  const WOW_RESULT_TITLES = { close:'Close Call', boss:'Boss Defeated', death:'You Died' };
+
+  let theme = 'default', wowScale = .5;
+  let wowQueue = [], wowBusy = false, wowTimers = [];
+  let wowLastCard = null, wowHovering = false, wowHoverOpen = false, wowHoverTimer = null;
+  const WOW_HOVER_OPEN_MS = 350, WOW_HOVER_CLOSE_MS = 600;
+  const wowHistory = [];
+
+  function applyTheme(c) {
+    wowScale = Math.max(.3, Math.min(.8, (Number(c.wowScale) || 50) / 100));
+    wowRoot.style.setProperty('--wow-scale', wowScale);
+    const next = c.theme === 'wow' ? 'wow' : 'default';
+    if (next === theme) return;
+    theme = next;
+    document.body.classList.toggle('theme-wow', theme === 'wow');
+    widget.hidden  = theme === 'wow';
+    wowRoot.hidden = theme !== 'wow';
+    if (theme !== 'wow') wowReset();
+  }
+
+  function wowLater(fn, ms) { wowTimers.push(setTimeout(fn, ms)); }
+
+  function wowReset() {
+    wowTimers.forEach(clearTimeout);
+    clearTimeout(wowHoverTimer);
+    wowTimers = []; wowQueue = []; wowBusy = false; wowHoverOpen = false;
+    wowRoot.classList.remove('open');
+    wowEl.classList.remove('flash');
+    wowBpm.style.color = '';
+  }
+
+  function wowUpdateBpm(bpm) {
+    wowBpm.textContent = bpm;
+    wowEl.style.setProperty('--pulse-speed', Math.max(.3, 60 / bpm).toFixed(2) + 's');
+    wowHistory.push(bpm);
+    if (wowHistory.length > WOW_GRAPH_POINTS) wowHistory.shift();
+    wowLastBpmAt = Date.now();
+    wowDrawGraph();
+  }
+
+  // Sparks rise from the bar at high heart rate: none below SPARK_FROM, full rate at SPARK_FULL
+  const SPARK_FROM = 110, SPARK_FULL = 150, SPARK_MAX = 40;
+  const wowSparks = document.getElementById('wowSparks');
+  let wowLastBpmAt = 0;
+
+  function wowSpawnSpark() {
+    const s = document.createElement('i');
+    const size = 3 + Math.random() * 4;
+    s.className = 'wow-spark';
+    s.style.width = s.style.height = `${size}px`;
+    s.style.left = `${18 + Math.random() * 64}%`;
+    s.style.setProperty('--dx', `${(Math.random() - .5) * 40}px`);
+    s.style.setProperty('--rise', `${50 + Math.random() * 70}px`);
+    s.style.animationDuration = `${1.1 + Math.random() * 1.1}s`;
+    s.addEventListener('animationend', () => s.remove(), { once: true });
+    wowSparks.append(s);
+  }
+
+  setInterval(() => {
+    if (theme !== 'wow' || Date.now() - wowLastBpmAt > 10000) return; // no live data → no sparks
+    const intensity = Math.max(0, Math.min(1, (wowHistory.at(-1) - SPARK_FROM) / (SPARK_FULL - SPARK_FROM)));
+    if (!intensity || wowSparks.childElementCount >= SPARK_MAX) return;
+    if (Math.random() < intensity * .8) wowSpawnSpark();
+    if (Math.random() < intensity * .3) wowSpawnSpark();
+  }, 200);
+
+  // Newest sample at the right edge; until the history is full, the oldest value is
+  // repeated to the left so the filled area always spans the whole frame.
+  function wowDrawGraph() {
+    if (!wowHistory.length) return;
+    const series = [...Array(WOW_GRAPH_POINTS - wowHistory.length).fill(wowHistory[0]), ...wowHistory];
+    const lo = Math.min(...wowHistory), hi = Math.max(...wowHistory);
+    const span = Math.max(hi - lo + 6, 12);          // small variations stay visible, noise isn't exaggerated
+    const min = (lo + hi) / 2 - span / 2;
+    const step = 1000 / (WOW_GRAPH_POINTS - 1);
+    const pts = series.map((b, i) => [
+      Math.round(i * step),
+      Math.round(128 - ((b - min) / span) * 84),     // y 44…128 of 150
+    ]);
+    const line = pts.map(p => p.join(',')).join(' ');
+    document.getElementById('wowGraphLine').setAttribute('points', line);
+    document.getElementById('wowGraphGlowLine').setAttribute('points', line);
+    document.getElementById('wowGraphArea').setAttribute('d',
+      `M${pts[0][0]} ${pts[0][1]} L${pts.map(p => p.join(' ')).join(' L')} L${pts.at(-1)[0]} 150 L${pts[0][0]} 150 Z`);
+  }
+
+  function wowDuration(ms) {
+    const s = Math.round(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+    const p2 = n => String(n).padStart(2, '0');
+    return h ? `${h}:${p2(m)}:${p2(sec)}` : `${m}:${p2(sec)}`;
+  }
+
+  function wowParticleBurst() {
+    wowParticles.replaceChildren();
+    for (let i = 0; i < 24; i++) {
+      const p = document.createElement('i');
+      const angle = Math.random() * Math.PI * 2, distance = 55 + Math.random() * 190;
+      p.className = 'wow-particle';
+      p.style.setProperty('--x', `${Math.cos(angle) * distance}px`);
+      p.style.setProperty('--y', `${Math.sin(angle) * distance * .42}px`);
+      p.style.setProperty('--r', `${Math.random() * 280}deg`);
+      p.style.animationDelay = `${Math.random() * .14}s`;
+      wowParticles.append(p);
+    }
+  }
+
+  // Card: { style, kicker, title, stats: [{ icon, value, label }] } — insights arrive ready-made,
+  // live fight results (from moments.build) are turned into one here
+  function wowCardFor(m) {
+    if (m?.card) return m.card;
+    if (!WOW_RESULT_TITLES[m?.type]) return null;
+    const none = '–';
+    const vs = m.killer || m.by;
+    return {
+      style: m.type,
+      kicker: m.name || (vs ? `vs. ${vs.name}` : 'Post-fight result'),
+      title: WOW_RESULT_TITLES[m.type],
+      stats: [
+        { icon: 'heart', value: m.peakBpm != null ? `${m.peakBpm} BPM` : none, label: 'Peak' },
+        m.type === 'death'
+          ? { icon: 'arrow', value: m.hrIncrease != null ? `${m.hrIncrease >= 0 ? '+' : ''}${m.hrIncrease} BPM` : none, label: 'HR Increase' }
+          : { icon: 'drop',  value: m.lowestHealthPct != null ? `${m.lowestHealthPct}%` : none, label: 'Lowest Health' },
+        { icon: 'clock', value: wowDuration(m.durationMs || 0), label: 'Fight Duration' },
+      ],
+    };
+  }
+
+  function wowFill(card) {
+    const def = WOW_STYLES[card.style];
+    wowEl.style.setProperty('--accent', def.accent);
+    wowEl.style.setProperty('--accent-rgb', def.rgb);
+    wowEl.style.setProperty('--event', def.event);
+    wowEl.style.setProperty('--rarity', def.rarity);
+    document.getElementById('wowEventIcon').innerHTML = WOW_ICONS[def.icon];
+    document.getElementById('wowEventType').textContent  = card.kicker || '';
+    document.querySelector('.wow-kicker-clip').classList.remove('scroll');
+    document.getElementById('wowEventTitle').textContent = card.title;
+    wowStatEls.forEach((el, i) => {
+      const st = card.stats[i] || { icon: '', value: '', label: '' };
+      el.querySelector('.wow-stat-icon').innerHTML    = WOW_ICONS[st.icon] || '';
+      el.querySelector('.wow-stat-value').textContent = st.value;
+      el.querySelector('.wow-stat-label').textContent = st.label;
+    });
+    wowBpm.style.color = def.accent;
+  }
+
+  // Kicker names too long for the line scroll back and forth instead of being cut off.
+  // Layout widths (offsetWidth/clientWidth) ignore the widget's scale transform.
+  function wowFitKicker() {
+    const clip = document.querySelector('.wow-kicker-clip');
+    const text = document.getElementById('wowEventType');
+    clip.classList.remove('scroll');
+    const travel = text.offsetWidth - clip.clientWidth;
+    if (travel <= 2) return;
+    const shift = travel + 6;
+    clip.style.setProperty('--marquee-shift', `${-shift}px`);
+    clip.style.setProperty('--marquee-duration', `${Math.max(4, shift / 60 / 0.35).toFixed(1)}s`); // ~60 px/s while moving
+    clip.classList.add('scroll');
+  }
+
+  // Cards are queued so a death followed by a boss kill shows both, one after another
+  function showMoment(m) {
+    const card = theme === 'wow' ? wowCardFor(m) : null;
+    if (!card || !WOW_STYLES[card.style]) return;
+    wowQueue.push(card);
+    if (wowHoverOpen) { clearTimeout(wowHoverTimer); wowHoverClose(); } // a hover replay makes room right away
+    else if (!wowBusy) wowNext();
+  }
+
+  function wowNext() {
+    const m = wowQueue.shift();
+    if (!m) {
+      wowBusy = false;
+      document.querySelector('.wow-kicker-clip').classList.remove('scroll'); // no marquee while collapsed
+      reportSize();
+      if (wowHovering) wowHoverTimer = setTimeout(wowHoverReplay, WOW_HOVER_OPEN_MS); // pointer came back while closing
+      return;
+    }
+    wowBusy = true;
+    wowLastCard = m;
+    wowFill(m);
+    reportSize(); // grow the window first, then animate open
+    wowLater(wowFitKicker, 80 + WOW_ANIM_MS); // measure once fully open
+    wowLater(() => {
+      wowRoot.classList.add('open');
+      wowEl.classList.remove('flash');
+      void wowEl.offsetWidth;
+      wowEl.classList.add('flash');
+      if (WOW_STYLES[m.style].burst) wowParticleBurst(); else wowParticles.replaceChildren();
+    }, 80);
+    wowLater(wowClose, WOW_SHOW_MS);
+  }
+
+  function wowClose() {
+    if (wowHovering && !wowQueue.length) { wowHoverOpen = true; return; } // stays open while hovered
+    wowRoot.classList.remove('open');
+    wowEl.classList.remove('flash');
+    wowLater(() => {
+      wowBpm.style.color = '';
+      if (wowQueue.length) wowLater(wowNext, WOW_GAP_MS);
+      else wowNext(); // empty queue → shrink window back
+    }, WOW_ANIM_MS);
+  }
+
+  // Hover: the compact widget replays the last card (no flash/particles), an open card stays open
+  // while hovered, and both close shortly after the pointer leaves. New cards always take priority.
+  function wowHoverReplay() {
+    if (wowBusy || !wowHovering || !wowLastCard) return;
+    wowBusy = wowHoverOpen = true;
+    wowFill(wowLastCard);
+    reportSize();
+    wowLater(() => wowRoot.classList.add('open'), 80);
+    wowLater(wowFitKicker, 80 + WOW_ANIM_MS);
+  }
+
+  function wowHoverClose() {
+    if (!wowHoverOpen) return;
+    wowHoverOpen = false;
+    wowRoot.classList.remove('open');
+    wowLater(() => { wowBpm.style.color = ''; wowNext(); }, WOW_ANIM_MS);
+  }
+
+  function setWowHover(over) {
+    if (over === wowHovering) return;
+    wowHovering = over;
+    clearTimeout(wowHoverTimer);
+    if (theme !== 'wow') return;
+    if (over) { if (!wowBusy) wowHoverTimer = setTimeout(wowHoverReplay, WOW_HOVER_OPEN_MS); }
+    else if (wowHoverOpen) wowHoverTimer = setTimeout(wowHoverClose, WOW_HOVER_CLOSE_MS);
+  }
+  if (isLinux) { // no click-through forwarding on Linux, plain DOM hover works
+    wowRoot.addEventListener('mouseenter', () => setWowHover(true));
+    wowRoot.addEventListener('mouseleave', () => setWowHover(false));
   }
 
   // Extra space around the widget so drop-shadow / glow animations (up to ~28px
@@ -310,6 +643,13 @@
 
   function reportSize() {
     requestAnimationFrame(() => {
+      if (theme === 'wow') {
+        window.electronAPI.resizeOverlay({
+          width:  Math.ceil((wowBusy ? WOW_OPEN_W : WOW_W) * wowScale) + GLOW_PAD * 2,
+          height: Math.ceil(WOW_H * wowScale) + GLOW_PAD * 2,
+        });
+        return;
+      }
       const r = widget.getBoundingClientRect();
       if (r.width > 0 && r.height > 0) {
         window.electronAPI.resizeOverlay({
@@ -327,6 +667,7 @@
     if (currentBpm !== null) applyZoneColor(currentBpm, cfg);
   });
   window.electronAPI.onHeartRateUpdate(d => updateBpm(d.bpm));
+  window.electronAPI.onGameMoment(showMoment);
 
   // DPI: if on a high-DPI display, the Electron window is already in logical
   // pixels, but the content's devicePixelRatio may be 2. We use CSS zoom on

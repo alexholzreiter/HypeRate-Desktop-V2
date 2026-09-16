@@ -1,0 +1,264 @@
+/* World of Warcraft overlay theme.
+   Based on the "Azeroth Combat Widget" prototype — frame, portrait and ornaments are pure CSS,
+   no Blizzard artwork. Designed at 500×190 (open: 1540 wide) and scaled via --wow-scale. */
+
+@font-face{font-family:'Alegreya';src:url('Alegreya-Variable.ttf') format('truetype');font-weight:400 900;font-display:swap}
+
+body.theme-wow{justify-content:flex-start;padding-left:48px} /* GLOW_PAD — widget grows to the right */
+
+.wow-root{
+  --wow-scale:.5;
+  position:relative;flex-shrink:0;
+  width:calc(500px * var(--wow-scale));
+  height:calc(190px * var(--wow-scale));
+  transition:width .72s cubic-bezier(.16,1,.3,1);
+}
+.wow-root.open{width:calc(1540px * var(--wow-scale))}
+/* Unscaled drag handle — app-region rects ignore CSS transforms */
+.wow-drag{position:absolute;inset:0;z-index:30;-webkit-app-region:drag;cursor:grab}
+
+.wow{
+  --accent:#78b9ef;--accent-rgb:120,185,239;--event:#f6dfaa;--rarity:#ffd100;--pulse-speed:.82s;
+  position:absolute;left:0;top:0;
+  width:500px;height:190px;
+  transform:scale(var(--wow-scale));transform-origin:0 0;
+  isolation:isolate;
+  filter:drop-shadow(0 18px 22px rgba(0,0,0,.82));
+  transition:width .72s cubic-bezier(.16,1,.3,1);
+  font-family:'Alegreya',Georgia,serif;color:#f7edda;
+  user-select:none;
+}
+.wow-root.open .wow{width:1540px}
+
+/* ── Frame ── */
+.wow-frame{
+  position:absolute;inset:18px 0 18px 94px;overflow:hidden;
+  border:1px solid #17120b;border-radius:5px 18px 18px 5px;
+  background:linear-gradient(90deg,rgba(7,10,12,.98) 0 67%,rgba(7,14,20,.98) 82%,rgba(11,31,49,.98)),#050708;
+  box-shadow:0 0 0 3px #35250f,0 0 0 5px #b18436,0 0 0 8px #20160a,inset 0 0 0 2px #071523,inset 0 0 38px #000;
+}
+.wow-frame::before,.wow-frame::after{content:"";position:absolute;z-index:0;pointer-events:none}
+.wow-frame::before{
+  inset:11px 12px;
+  border-top:4px solid #153a5c;border-bottom:4px solid #102d48;border-radius:2px 10px 10px 2px;
+  background:
+    linear-gradient(180deg,rgba(75,137,181,.28),transparent 15%,transparent 80%,rgba(34,93,136,.24)),
+    radial-gradient(circle at 24% 45%,rgba(var(--accent-rgb),.09),transparent 33%);
+  box-shadow:inset 0 1px rgba(120,176,211,.18),inset 0 -1px #02070b;
+}
+.wow-frame::after{
+  left:359px;top:23px;bottom:23px;width:2px;
+  background:linear-gradient(transparent,#82632e 18%,#1b2a34 49%,#82632e 82%,transparent);
+  box-shadow:1px 0 rgba(220,187,104,.12);opacity:.92;
+}
+.wow-inner-glow{
+  position:absolute;inset:7px;z-index:1;pointer-events:none;
+  border-radius:5px 13px 13px 5px;box-shadow:inset 0 0 32px rgba(var(--accent-rgb),.12);opacity:.65;
+}
+
+/* ── Live BPM graph behind the frame content ── */
+.wow-graph{
+  position:absolute;left:94px;top:18px;z-index:2;
+  width:calc(100% - 94px);height:154px;overflow:hidden;
+  border-radius:5px 17px 17px 5px;opacity:.72;pointer-events:none;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 11%,#000 91%,transparent 100%);
+  mask-image:linear-gradient(90deg,transparent 0,#000 11%,#000 91%,transparent 100%);
+}
+.wow-graph-grid{opacity:.15}
+.wow-graph-area{opacity:.9}
+.wow-graph-glow,.wow-graph-line{fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}
+.wow-graph-glow{stroke:#277ab4;stroke-width:7;opacity:.22;filter:url(#wowGraphGlow)}
+.wow-graph-line{stroke:#5aa7d7;stroke-width:1.5;opacity:.64;stroke-dasharray:88 12;animation:wowGraphFlow 7s linear infinite}
+@keyframes wowGraphFlow{to{stroke-dashoffset:-200}}
+
+/* ── Bar effects: sheen + sparks ── */
+.wow-fx{
+  position:absolute;left:94px;right:0;top:18px;bottom:18px;z-index:3;
+  overflow:hidden;border-radius:5px 18px 18px 5px;pointer-events:none;
+}
+/* Full-width wrapper slides by its own width; the band sits at its right edge,
+   so it crosses the whole bar at any widget width (compact or open) */
+.wow-sheen{position:absolute;inset:0;will-change:transform;animation:wowSheen 7s ease-in-out infinite}
+.wow-sheen::before{
+  content:"";position:absolute;top:-10%;bottom:-10%;right:0;width:110px;
+  background:linear-gradient(90deg,rgba(210,235,255,0),rgba(210,235,255,.1) 35%,rgba(235,246,255,.24) 50%,rgba(210,235,255,.1) 65%,rgba(210,235,255,0));
+  transform:skewX(-22deg);
+}
+/* starts where the bar leaves the heart medallion (96px in) */
+@keyframes wowSheen{0%{transform:translateX(calc(-100% + 96px))}58%,100%{transform:translateX(160px)}}
+
+.wow-sparks{position:absolute;inset:0}
+.wow-spark{
+  position:absolute;bottom:-4px;border-radius:50%;
+  background:radial-gradient(circle,#fff6d6 0 30%,#ffc15a 60%,rgba(255,140,40,0) 100%);
+  box-shadow:0 0 8px 2px rgba(255,180,70,.8);
+  animation:wowSpark 1.6s ease-out forwards;
+}
+@keyframes wowSpark{
+  0%{transform:translate(0,0) scale(.6);opacity:0}
+  15%{opacity:1}
+  100%{transform:translate(var(--dx),calc(var(--rise) * -1)) scale(1);opacity:0}
+}
+
+/* ── Rails + end cap ── */
+.wow-rail{
+  position:absolute;left:135px;right:42px;height:8px;z-index:6;border-radius:1px;
+  background:linear-gradient(180deg,#3a260d 0 16%,#a67327 18% 35%,#f1cf70 42%,#8c5f20 62%,#2c1b08 76%),#8c6427;
+  box-shadow:0 2px 0 #071019,0 -2px 0 #0c0b08,0 0 0 1px #563816;
+}
+.wow-rail.top{top:9px}.wow-rail.bottom{bottom:9px}
+.wow-rail::after{
+  content:"";position:absolute;left:43%;top:-5px;width:31px;height:17px;
+  background:linear-gradient(135deg,#5b3b13,#e2ba5e 45%,#684316 54%,#241407);
+  clip-path:polygon(0 0,50% 35%,100% 0,74% 100%,26% 100%);
+  filter:drop-shadow(0 2px 1px #000);
+}
+.wow-end-cap{
+  position:absolute;right:-10px;top:5px;width:94px;height:180px;z-index:10;
+  background:
+    linear-gradient(90deg,transparent 0 21%,#21150a 22% 29%,#d0a351 30% 36%,#3b260e 38% 72%,#d4aa57 73% 80%,#25170a 82%),
+    linear-gradient(#69471c,#241609);
+  clip-path:polygon(8% 0,82% 5%,100% 27%,86% 50%,100% 73%,82% 95%,8% 100%,22% 79%,0 65%,12% 50%,0 35%,22% 20%);
+  filter:drop-shadow(2px 3px 2px #000);
+}
+.wow-end-cap::before{
+  content:"";position:absolute;left:31px;top:24px;width:34px;height:132px;
+  border:2px solid #120c07;background:linear-gradient(90deg,#071423,#174878 50%,#07192c);
+  box-shadow:inset 0 0 11px #000,0 0 0 2px #987037;
+  clip-path:polygon(22% 0,100% 10%,100% 90%,22% 100%,0 79%,11% 50%,0 21%);
+}
+.wow-end-cap::after{
+  content:"";position:absolute;right:7px;top:70px;width:18px;height:40px;
+  background:linear-gradient(90deg,#5d3b16,#e0b75f 48%,#38210b);box-shadow:0 0 0 2px #130c05;
+}
+
+/* ── Heart portrait ── */
+.wow-portrait{
+  position:absolute;left:0;top:0;width:190px;height:190px;z-index:11;
+  border-radius:50%;display:grid;place-items:center;
+  background:conic-gradient(from -12deg,#31200b,#dda94a 8%,#5d3b11 18%,#e5bc65 30%,#4d2f0c 43%,#f0ce78 55%,#4b2b09 68%,#d49b3d 83%,#31200b);
+  box-shadow:0 0 0 2px #0b0906,0 0 0 6px #7c5822,0 0 0 8px #241608,0 11px 22px #000,inset 0 0 0 3px #2d1b08;
+}
+.wow-portrait::before{
+  content:"";position:absolute;inset:14px;border-radius:50%;
+  background:#020304;border:5px solid #10161b;
+  box-shadow:0 0 0 3px #bea052,0 0 0 7px #261b0d,inset 0 0 22px #000;
+}
+.wow-portrait::after{
+  content:"";position:absolute;inset:25px;z-index:1;border-radius:50%;
+  border:2px solid #827340;box-shadow:inset 0 0 0 3px #0b1014,inset 0 0 24px #000,0 0 0 1px #0a0704;
+}
+.wow-heart{
+  width:112px;height:112px;display:block;object-fit:contain;position:relative;z-index:2;
+  filter:drop-shadow(0 5px 0 #5c0908) drop-shadow(0 0 12px #ff3b32) drop-shadow(0 0 24px rgba(255,45,37,.72));
+  animation:wowHeartBeat var(--pulse-speed) infinite;
+}
+.wow-flare{
+  position:absolute;inset:34px;z-index:2;border-radius:50%;pointer-events:none;
+  border:1px solid rgba(255,71,62,0);
+  box-shadow:0 0 31px rgba(255,44,39,.48),inset 0 0 22px rgba(255,44,39,.30);
+  animation:wowFlare var(--pulse-speed) infinite;
+}
+.wow-rivet{position:absolute;width:10px;height:10px;border-radius:50%;z-index:3;background:radial-gradient(circle at 35% 35%,#f4da91,#77501f 48%,#170e06 72%);box-shadow:0 1px 2px #000}
+.wow-rivet.one{left:8px;top:90px}.wow-rivet.two{right:8px;top:90px}
+.wow-spike{
+  position:absolute;z-index:-1;width:31px;height:38px;
+  background:linear-gradient(90deg,#3b240a,#e8c66d 50%,#4b2d0b);
+  clip-path:polygon(50% 0,100% 100%,50% 79%,0 100%);filter:drop-shadow(0 2px 1px #000);
+}
+.wow-spike.north{top:-23px;left:80px}
+.wow-spike.south{bottom:-23px;left:80px;transform:rotate(180deg)}
+.wow-spike.east{right:-25px;top:76px;transform:rotate(90deg)}
+.wow-spike.west{left:-25px;top:76px;transform:rotate(-90deg)}
+
+@keyframes wowHeartBeat{
+  0%,43%,100%{transform:scale(.94);filter:saturate(1.04) brightness(.8)}
+  10%{transform:scale(1.05);filter:saturate(1.28) brightness(1.17)}
+  22%{transform:scale(.97)}
+  31%{transform:scale(1.015)}
+}
+@keyframes wowFlare{
+  0%,46%,100%{transform:scale(.82);opacity:.22}
+  12%{transform:scale(1.18);opacity:.9;border-color:rgba(255,93,76,.46)}
+  33%{transform:scale(1.02);opacity:.48}
+}
+
+/* ── BPM ── */
+.wow-bpm{
+  position:absolute;left:176px;top:25px;width:238px;height:140px;z-index:8;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+}
+.wow-bpm-number{
+  font:700 72px/.82 'Alegreya',Georgia,serif;letter-spacing:-.075em;
+  color:#f5f5f2;text-shadow:3px 4px 0 #000,0 0 3px #fff5;
+  transition:color .25s,text-shadow .25s;
+}
+.wow-bpm-label{margin-top:18px;color:#e4e2dc;font:600 27px/.9 'Alegreya',Georgia,serif;letter-spacing:.04em;text-shadow:2px 3px 0 #000}
+
+/* ── Result card ── */
+.wow-detail{
+  position:absolute;left:474px;right:96px;top:20px;bottom:20px;z-index:8; /* right: clear of the end cap */
+  display:grid;grid-template-columns:100px minmax(0,1fr);align-items:center;gap:22px;
+  opacity:0;transform:translateX(-28px);pointer-events:none;
+  transition:opacity .24s .15s,transform .56s cubic-bezier(.16,1,.3,1) .06s;
+}
+.wow-root.open .wow-detail{opacity:1;transform:none}
+
+.wow-event-frame{
+  width:92px;height:92px;padding:6px;position:relative;
+  background:linear-gradient(135deg,#d7b766,#2e210e 35%,#f0d27e 70%,#4b3314);
+  border:1px solid #130c05;border-radius:7px;
+  box-shadow:0 0 0 2px #4c391e,0 0 13px rgba(var(--accent-rgb),.28),inset 0 0 0 1px #f0d587;
+}
+.wow-event-frame::after{content:"";position:absolute;inset:-3px;border:1px solid var(--rarity);border-radius:9px;opacity:.62;box-shadow:0 0 8px var(--rarity);pointer-events:none}
+.wow-event-icon{
+  width:100%;height:100%;display:grid;place-items:center;border-radius:3px;
+  background:radial-gradient(circle at 50% 42%,rgba(var(--accent-rgb),.38),#07090b 72%);
+  color:var(--accent);
+}
+.wow-event-icon svg{width:60px;height:60px;filter:drop-shadow(0 2px 0 #000) drop-shadow(0 0 8px rgba(var(--accent-rgb),.7))}
+
+/* Text block is pinned so the title's top and the stat labels' bottom line up with the compact
+   widget's text: labels end on the baseline of "BPM" (y≈142 of 190), title starts at y≈45. */
+.wow-copy{min-width:0;align-self:start;margin-top:18px}
+/* Title and kicker share one line: CLOSEST CALL — VS. ENEMY NAME */
+.wow-headline{display:flex;align-items:center;gap:18px;min-width:0}
+.wow-event-type{
+  flex:1;min-width:0;padding-top:8px;
+  display:flex;align-items:center;gap:8px;
+  color:#9c8d70;font-size:20px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+}
+.wow-event-type::before{content:"";flex-shrink:0;width:24px;height:2px;background:var(--accent);box-shadow:0 0 5px var(--accent)}
+.wow-kicker-clip{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap}
+.wow-kicker-text{display:inline-block;white-space:nowrap}
+/* Set by wowFitKicker when the name doesn't fit: pause, scroll to the end, pause, scroll back */
+.wow-kicker-clip.scroll .wow-kicker-text{animation:wowMarquee var(--marquee-duration,6s) ease-in-out infinite}
+@keyframes wowMarquee{0%,15%{transform:translateX(0)}50%,65%{transform:translateX(var(--marquee-shift))}100%{transform:translateX(0)}}
+.wow-event-title{
+  flex-shrink:0;max-width:62%;
+  font:700 43px/.96 'Alegreya',Georgia,serif;letter-spacing:.035em;text-transform:uppercase;
+  color:var(--event);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  text-shadow:0 2px 1px #000,0 0 12px rgba(var(--accent-rgb),.25);
+}
+.wow-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:0}
+.wow-stat{
+  min-width:0;min-height:66px;padding:6px 14px 2px;
+  display:grid;grid-template-columns:44px minmax(0,1fr);align-items:center;gap:9px;
+  border-left:2px solid color-mix(in srgb,var(--accent) 76%,#fff 10%);
+  background:linear-gradient(90deg,rgba(var(--accent-rgb),.23),rgba(4,10,15,.38));
+  box-shadow:inset 0 1px rgba(255,255,255,.07),0 0 14px rgba(var(--accent-rgb),.08);
+}
+.wow-stat-icon{display:grid;place-items:center;color:var(--accent)}
+.wow-stat-icon svg{width:34px;height:34px;filter:drop-shadow(0 0 6px rgba(var(--accent-rgb),.62))}
+.wow-stat-copy{min-width:0;display:flex;flex-direction:column;line-height:1}
+.wow-stat-value{overflow:hidden;color:#f7ead0;font-size:36px;font-weight:700;line-height:1;white-space:nowrap;text-overflow:ellipsis;text-shadow:0 2px 1px #000}
+.wow-stat-label{margin-top:5px;overflow:hidden;color:#d0c5ae;font-size:20px;font-weight:700;letter-spacing:.075em;line-height:1;text-transform:uppercase;white-space:nowrap;text-overflow:ellipsis}
+
+/* ── Effects ── */
+.wow-flash{position:absolute;inset:7px;z-index:14;border-radius:28px;pointer-events:none;opacity:0}
+.wow.flash .wow-flash{animation:wowFlash .9s ease}
+@keyframes wowFlash{32%{opacity:1;box-shadow:0 0 34px 5px rgba(var(--accent-rgb),.78),inset 0 0 24px rgba(var(--accent-rgb),.38)}100%{opacity:0}}
+
+.wow-particles{position:absolute;inset:-36px;z-index:18;pointer-events:none;overflow:visible}
+.wow-particle{position:absolute;left:64%;top:50%;width:5px;height:5px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px 2px var(--accent);animation:wowFly 1s ease-out forwards}
+@keyframes wowFly{to{transform:translate(var(--x),var(--y)) rotate(var(--r)) scale(.12);opacity:0}}

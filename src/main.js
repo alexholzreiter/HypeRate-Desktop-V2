@@ -1,10 +1,12 @@
-const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell, dialog } = require('electron');
 const path   = require('path');
 const fs     = require('fs');
 const dgram  = require('dgram');
 const { WebSocket } = require('ws');
 const ble     = require('./ble');
 const discord = require('./discord');
+const moments = require('./moments');
+const wow     = require('./games/wow');
 
 // ── OSC ──────────────────────────────────────────────────────────────────────
 // Pure Node.js UDP — no extra npm package needed.
@@ -117,6 +119,8 @@ let overlayTrackedX = 0; // main-process position tracking — avoids stale getP
 let overlayTrackedY = 0;
 let overlayTrackedW = 300; // current window size, kept in sync with widget size
 let overlayTrackedH = 160;
+let overlayClampedX = null; // last position set by resize-overlay (may differ from tracked near screen edges)
+let overlayClampedY = null;
 let showBpmInTray   = loadStore().showBpmInTray !== false; // default true
 
 // ── DPI helper ──
@@ -248,9 +252,12 @@ function createOverlayWindow() {
   }
 
   // Track position via native OS drag events — no custom drag code needed.
+  // overlayTracked* is where the user put the widget; moves caused by resize-overlay
+  // clamping are ignored so an expanding widget doesn't permanently drift from that spot.
   overlayWindow.on('move', () => {
     if (!overlayWindow) return;
     const [x, y] = overlayWindow.getPosition();
+    if (x === overlayClampedX && y === overlayClampedY) return;
     overlayTrackedX = x; overlayTrackedY = y;
   });
   overlayWindow.on('moved', () => {
@@ -307,14 +314,7 @@ function wsConnect(sessionId) {
     }
     if (msg.event === 'hr_update' || msg.event === 'hr_feed') {
       const bpm = msg.payload?.hr ?? msg.payload?.bpm ?? msg.payload?.heart_rate;
-      if (bpm != null) {
-        const val = Number(bpm);
-        sendToSettings('bpm-update', { bpm: val });
-        sendToOverlay('heart-rate-update', { bpm: val });
-        sendHeartRateOsc(val);
-        discordBpmUpdate(val);
-        if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle(` ${val}`);
-      }
+      if (bpm != null) broadcastBpm(Number(bpm), 'cloud');
     }
   });
 
@@ -334,6 +334,16 @@ function wsDisconnect() {
 
 function sendToSettings(ch, d) { if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.webContents.send(ch, d); }
 function sendToOverlay(ch, d)  { if (overlayWindow  && !overlayWindow.isDestroyed())  overlayWindow.webContents.send(ch, d); }
+
+// Every BPM sample (cloud or BLE) goes through here
+function broadcastBpm(bpm, source) {
+  sendToSettings('bpm-update', source === 'ble' ? { bpm, source } : { bpm });
+  sendToOverlay('heart-rate-update', { bpm });
+  sendHeartRateOsc(bpm);
+  discordBpmUpdate(bpm);
+  moments.recordBpm(bpm);
+  if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle(` ${bpm}`);
+}
 
 // ── Hotkey: Ctrl+Shift+H toggles overlay visibility ──
 function registerHotkey() {
@@ -408,16 +418,15 @@ ipcMain.handle('get-overlay-position', () => {
 
 ipcMain.on('resize-overlay', (_, { width, height }) => {
   if (!overlayWindow) return;
-  const w = Math.round(Math.max(40, Math.min(Number(width)  || 300, 900)));
+  const wa = workArea();
+  const w = Math.round(Math.max(40, Math.min(Number(width)  || 300, wa.width)));
   const h = Math.round(Math.max(20, Math.min(Number(height) || 160, 500)));
   overlayTrackedW = w;
   overlayTrackedH = h;
-  // Re-clamp position so widget stays fully on screen after size change
-  const wa = workArea();
-  overlayTrackedX = Math.round(Math.max(wa.x, Math.min(overlayTrackedX, wa.x + wa.width  - w)));
-  overlayTrackedY = Math.round(Math.max(wa.y, Math.min(overlayTrackedY, wa.y + wa.height - h)));
-  overlayWindow.setSize(w, h);
-  overlayWindow.setPosition(overlayTrackedX, overlayTrackedY);
+  // Clamp the user's position so the widget stays fully on screen at this size
+  overlayClampedX = Math.round(Math.max(wa.x, Math.min(overlayTrackedX, wa.x + wa.width  - w)));
+  overlayClampedY = Math.round(Math.max(wa.y, Math.min(overlayTrackedY, wa.y + wa.height - h)));
+  overlayWindow.setBounds({ x: overlayClampedX, y: overlayClampedY, width: w, height: h });
 });
 
 
@@ -504,13 +513,7 @@ ble.init({
       discord.clearPresence();
     }
   },
-  onBpm: (bpm) => {
-    sendToSettings('bpm-update', { bpm, source: 'ble' });
-    sendToOverlay('heart-rate-update', { bpm });
-    sendHeartRateOsc(bpm);
-    discordBpmUpdate(bpm);
-    if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle(` ${bpm}`);
-  },
+  onBpm: (bpm) => broadcastBpm(bpm, 'ble'),
 });
 
 ipcMain.on('ble-scan-start',        ()              => ble.startScan());
@@ -534,6 +537,53 @@ ipcMain.on('discord-enable', () => {
 ipcMain.on('discord-disable', () => {
   discordEnabled = false;
   discord.disconnect();
+});
+
+// ── Game integrations: World of Warcraft ─────────────────────────────────────
+const WOW_DIAGNOSTICS = path.join(app.getPath('userData'), 'wow-diagnostics.log');
+
+wow.init({
+  onStatus:  (state, extra = {}) => sendToSettings('wow-status', { state, ...extra }),
+  onResult:  (result) => sendToOverlay('game-moment', moments.build(result)),
+  onInsight: (card)   => sendToOverlay('game-moment', { card }),
+  diagnosticsPath: WOW_DIAGNOSTICS,
+  sessionsPath: path.join(app.getPath('userData'), 'wow-sessions.json'),
+});
+
+ipcMain.on('wow-enable',      (_, opts) => wow.start(opts || {}));
+ipcMain.on('wow-disable',     ()        => wow.stop());
+ipcMain.on('wow-set-options', (_, opts) => wow.setOptions(opts || {}));
+ipcMain.handle('wow-default-path', () => wow.defaultPath());
+ipcMain.handle('wow-pick-folder', async (_, current) => {
+  const res = await dialog.showOpenDialog(settingsWindow, {
+    properties: ['openDirectory'],
+    defaultPath: current || wow.defaultPath(),
+  });
+  return res.canceled ? null : res.filePaths[0];
+});
+ipcMain.on('wow-show-diagnostics', () => {
+  if (fs.existsSync(WOW_DIAGNOSTICS)) shell.showItemInFolder(WOW_DIAGNOSTICS);
+  else shell.openPath(app.getPath('userData'));
+});
+
+// Preview a result card; uses real BPM history when there is some
+const WOW_TEST_RESULTS = {
+  close: { durationMs: 134000, lowestHealthPct: 7,  peakBpm: 168, hrIncrease: 41 },
+  boss:  { durationMs: 278000, lowestHealthPct: 12, peakBpm: 171, hrIncrease: 52, name: 'Test Encounter' },
+  death: { durationMs: 112000, lowestHealthPct: 0,  peakBpm: 164, hrIncrease: 47 },
+};
+ipcMain.on('wow-test', (_, type) => {
+  if (type === 'insight') { sendToOverlay('game-moment', { card: wow.demoInsight() }); return; }
+  const demo = WOW_TEST_RESULTS[type];
+  if (!demo) return;
+  const now = Date.now();
+  const moment = moments.build({
+    game: 'wow', type, name: demo.name || null,
+    startedAt: now - demo.durationMs, endedAt: now, lowestHealthPct: demo.lowestHealthPct,
+  });
+  moment.peakBpm    ??= demo.peakBpm;
+  moment.hrIncrease ??= demo.hrIncrease;
+  sendToOverlay('game-moment', moment);
 });
 // ─────────────────────────────────────────────────────────────────────────────
 
