@@ -2,16 +2,22 @@
 // Application ID: 1506611163868172308
 // Assets: heart_green/yellow/orange/red/blue/purple, hyperate_logo, badge_ble, badge_cloud
 
-const CLIENT_ID      = '1506611163868172308';
-const UPDATE_INTERVAL = 15000; // Discord rate limit: min 15s between updates
+const ipc = require('./discord-ipc');
 
-let rpc         = null;
-let connected   = false;
-let startTime   = null;
+const CLIENT_ID       = '1506611163868172308';
+const UPDATE_INTERVAL = 15000; // Discord rate limit: min 15s between updates
+const RETRY_DELAYS    = [5000, 10000, 20000, 30000]; // backoff while Discord is unreachable; last value repeats
+
+let enabled     = false; // user wants Discord presence — keeps retrying while true
+let client      = null;  // live connection (after READY)
+let connecting  = false;
+let retryTimer  = null;
+let retryCount  = 0;
+let startTime   = null;  // survives reconnects so Discord's elapsed timer doesn't restart
 let lastUpdate  = 0;
-let pendingData = null;
+let lastData    = null;  // latest presence — re-sent after a reconnect
 let updateTimer = null;
-let onStatus    = null;
+let onStatus    = null;  // cb(state: 'waiting' | 'connected' | 'error', extra?)
 
 function init(callbacks) {
   onStatus = callbacks.onStatus;
@@ -46,53 +52,80 @@ function colorToAsset(hex) {
 }
 
 // ── Connect / Disconnect ─────────────────────────────────────────────────────
-async function connect() {
-  if (connected) return;
-  try {
-    const { Client } = require('discord-rpc');
-    rpc = new Client({ transport: 'ipc' });
-
-    rpc.on('ready', () => {
-      connected = true;
-      startTime = new Date();
-      onStatus?.('connected');
-      if (pendingData) _flush();
-    });
-
-    rpc.transport?.on?.('close', _onDisconnect);
-    rpc.on('disconnected', _onDisconnect);
-
-    await rpc.login({ clientId: CLIENT_ID });
-  } catch (err) {
-    rpc = null;
-    _onDisconnect();
-    onStatus?.('error', { reason: _friendlyError(err.message) });
+// connect() enables presence and keeps (re)connecting until disconnect() —
+// covers Discord starting after us (autostart), Discord updates/restarts and sleep/wake.
+function connect() {
+  if (enabled) {
+    onStatus?.(client ? 'connected' : 'waiting'); // re-sync a reloaded settings window
+    return;
   }
+  enabled    = true;
+  retryCount = 0;
+  onStatus?.('waiting');
+  _attempt();
 }
 
-function _onDisconnect() {
-  if (!connected && !rpc) return;
-  connected = false;
-  rpc       = null;
-  clearTimeout(updateTimer);
-  updateTimer = null;
-  onStatus?.('disconnected');
+function _attempt() {
+  if (!enabled || client || connecting) return;
+  clearTimeout(retryTimer);
+  retryTimer = null;
+  connecting = true;
+
+  let conn = null;
+  ipc.connect(CLIENT_ID, {
+    onClose: () => { if (conn && conn === client) _onConnectionLost(); },
+  }).then((c) => {
+    connecting = false;
+    if (!enabled) { c.close(); return; } // disabled while connecting
+    conn = client = c;
+    retryCount = 0;
+    startTime ??= new Date();
+    lastUpdate = 0;
+    onStatus?.('connected');
+    _flush();
+  }).catch((err) => {
+    connecting = false;
+    if (!enabled) return;
+    // Discord running but refusing us → show its reason; otherwise just wait for Discord
+    if (err.rejected) onStatus?.('error', { reason: err.message });
+    else              onStatus?.('waiting');
+    _scheduleRetry();
+  });
 }
 
-async function disconnect() {
+function _onConnectionLost() {
+  client = null;
   clearTimeout(updateTimer);
   updateTimer = null;
-  pendingData = null;
-  if (rpc) { try { await rpc.destroy(); } catch {} rpc = null; }
-  connected = false;
-  startTime = null;
+  if (!enabled) return;
+  onStatus?.('waiting');
+  _scheduleRetry();
+}
+
+function _scheduleRetry() {
+  clearTimeout(retryTimer);
+  const delay = RETRY_DELAYS[Math.min(retryCount, RETRY_DELAYS.length - 1)];
+  retryCount++;
+  retryTimer = setTimeout(_attempt, delay);
+}
+
+function disconnect() {
+  enabled = false;
+  clearTimeout(retryTimer);
+  clearTimeout(updateTimer);
+  retryTimer = updateTimer = null;
+  client?.close();
+  client     = null;
+  lastData   = null;
+  startTime  = null;
   lastUpdate = 0;
 }
 
 // ── Presence update ──────────────────────────────────────────────────────────
 function updatePresence({ bpm, zoneName, zoneColor, connectionType }) {
-  if (!connected || !rpc) return;
-  pendingData = { bpm, zoneName, zoneColor, connectionType };
+  if (!enabled) return;
+  lastData = { bpm, zoneName, zoneColor, connectionType };
+  if (!client) return; // sent as soon as the connection is (re)established
 
   const sinceLast = Date.now() - lastUpdate;
   if (sinceLast >= UPDATE_INTERVAL) {
@@ -103,23 +136,21 @@ function updatePresence({ bpm, zoneName, zoneColor, connectionType }) {
 }
 
 function _flush() {
-  if (!pendingData || !connected || !rpc) return;
-  const { bpm, zoneName, zoneColor, connectionType } = pendingData;
-  pendingData = null;
-  lastUpdate  = Date.now();
+  if (!lastData || !client) return;
+  const { bpm, zoneName, zoneColor, connectionType } = lastData;
+  lastUpdate = Date.now();
 
-  const largeImageKey  = zoneColor ? colorToAsset(zoneColor) : 'hyperate_logo';
-  const smallImageKey  = connectionType === 'ble' ? 'badge_ble' : 'badge_cloud';
-  const smallImageText = connectionType === 'ble' ? 'Bluetooth Direct' : 'HypeRate Cloud';
-
-  rpc.setActivity({
-    details:        `❤️  ${bpm} BPM`,
-    state:          zoneName || 'Active session',
-    largeImageKey,
-    largeImageText: 'HypeRate Desktop',
-    smallImageKey,
-    smallImageText,
-    startTimestamp: startTime,
+  const isBle = connectionType === 'ble';
+  client.setActivity({
+    details: `❤️  ${bpm} BPM`,
+    state:   zoneName || 'Active session',
+    timestamps: { start: startTime.getTime() },
+    assets: {
+      large_image: zoneColor ? colorToAsset(zoneColor) : 'hyperate_logo',
+      large_text:  'HypeRate Desktop',
+      small_image: isBle ? 'badge_ble' : 'badge_cloud',
+      small_text:  isBle ? 'Bluetooth Direct' : 'HypeRate Cloud',
+    },
     buttons: [
       { label: 'Get HypeRate Desktop for free', url: 'https://desktop.hyperate.io' },
     ],
@@ -128,17 +159,10 @@ function _flush() {
 }
 
 function clearPresence() {
-  if (!connected || !rpc) return;
   clearTimeout(updateTimer);
   updateTimer = null;
-  pendingData = null;
-  rpc.clearActivity().catch(() => {});
-}
-
-function _friendlyError(msg = '') {
-  if (msg.includes('ENOENT') || msg.includes('connect'))
-    return 'Discord is not running.';
-  return msg;
+  lastData    = null;
+  client?.clearActivity().catch(() => {});
 }
 
 module.exports = { init, connect, disconnect, updatePresence, clearPresence, colorToAsset };

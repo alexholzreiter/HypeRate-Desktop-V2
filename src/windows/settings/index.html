@@ -598,6 +598,7 @@
       // Discord
       discord_heading:'Discord Rich Presence', discord_toggle:'Show heart rate in Discord',
       discord_idle:'Not connected to Discord', discord_connected:'Connected to Discord',
+      discord_waiting:'Waiting for Discord…',
       discord_info_html:'Shows your live BPM and active zone name on your Discord profile.<br>Zone names are taken from your <strong>Zones</strong> tab — label them however you like.<br>Requires <strong>Discord Desktop</strong> to be running.',
       // OSC
       osc_heading:'VRChat OSC', osc_toggle:'Send to VRChat', osc_param:'Parameter Name',
@@ -641,6 +642,7 @@
       // Discord
       discord_heading:'Discord Rich Presence', discord_toggle:'Herzfrequenz in Discord anzeigen',
       discord_idle:'Nicht mit Discord verbunden', discord_connected:'Mit Discord verbunden',
+      discord_waiting:'Warte auf Discord…',
       discord_info_html:'Zeigt deine Live-BPM und aktive Zone auf deinem Discord-Profil.<br>Zonennamen kommen aus dem <strong>Zonen</strong>-Tab — benenne sie wie du möchtest.<br>Erfordert den laufenden <strong>Discord Desktop</strong>.',
       // OSC
       osc_heading:'VRChat OSC', osc_toggle:'An VRChat senden', osc_param:'Parametername',
@@ -1251,6 +1253,10 @@
     if (state === 'connected') {
       dot.classList.add('connected');
       text.textContent = t('discord_connected');
+    } else if (state === 'waiting') {
+      // Discord not reachable yet — main process retries automatically
+      dot.classList.add('connecting');
+      text.textContent = t('discord_waiting');
     } else if (state === 'error') {
       dot.classList.add('error');
       text.textContent = reason || 'Error';

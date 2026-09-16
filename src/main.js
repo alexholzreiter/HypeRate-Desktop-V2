@@ -329,6 +329,7 @@ function wsDisconnect() {
   clearInterval(heartbeatInt); heartbeatInt = null;
   if (ws) { try { ws.terminate(); } catch {} ws = null; }
   if (process.platform === 'darwin' && tray) tray.setTitle('');
+  discord.clearPresence(); // don't keep (or re-send after a Discord reconnect) a stale BPM
 }
 
 function sendToSettings(ch, d) { if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.webContents.send(ch, d); }
