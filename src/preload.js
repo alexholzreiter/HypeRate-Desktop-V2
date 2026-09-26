@@ -54,6 +54,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   wowTest:            (type)    => ipcRenderer.send('wow-test', type),
   onWowStatus:        (cb)      => ipcRenderer.on('wow-status',  (_, d) => cb(d)),
 
+  mqttEnable:         (opts)    => ipcRenderer.send('mqtt-enable', opts),
+  mqttDisable:        ()        => ipcRenderer.send('mqtt-disable'),
+  mqttSetOptions:     (opts)    => ipcRenderer.send('mqtt-set-options', opts),
+  mqttTest:           ()        => ipcRenderer.invoke('mqtt-test'),
+  mqttHasPassword:    ()        => ipcRenderer.invoke('mqtt-has-password'),
+  onMqttStatus:       (cb)      => ipcRenderer.on('mqtt-status', (_, d) => cb(d)),
+
   lolEnable:          (opts)    => ipcRenderer.send('lol-enable', opts),
   lolDisable:         ()        => ipcRenderer.send('lol-disable'),
   lolSetOptions:      (opts)    => ipcRenderer.send('lol-set-options', opts),

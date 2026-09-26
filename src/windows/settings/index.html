@@ -72,8 +72,8 @@
 
     .field{display:flex;flex-direction:column;gap:5px;}
     label{font-size:11px;font-weight:500;color:var(--text-dim);letter-spacing:.04em;text-transform:uppercase;}
-    input[type=text]{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-family:'Space Mono',monospace;font-size:13px;outline:none;transition:border-color .2s,box-shadow .2s;width:100%;}
-    input[type=text]:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
+    input[type=text],input[type=password]{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-family:'Space Mono',monospace;font-size:13px;outline:none;transition:border-color .2s,box-shadow .2s;width:100%;}
+    input[type=text]:focus,input[type=password]:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
     input[type=color]{-webkit-appearance:none;width:36px;height:34px;border:1px solid var(--border);border-radius:7px;cursor:pointer;background:none;padding:2px;}
     input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:2px;background:var(--surface2);outline:none;}
     input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 6px var(--accent-glow);}
@@ -415,6 +415,50 @@
       </div>
     </div>
 
+    <!-- ── Home Assistant / MQTT Card ── -->
+    <div class="card collapsible">
+      <div class="ch" onclick="toggleCard(this)"><span class="ch-emoji">🏠</span> <span data-i18n="mqtt_heading">Home Assistant</span><span class="dot ch-dot" id="mqttHeadDot" hidden></span><svg class="ch-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5l3 3 3-3"/></svg></div>
+      <div class="cb" style="gap:10px;">
+        <div class="trow">
+          <span class="tl" data-i18n="mqtt_toggle">Send heart rate via MQTT</span>
+          <label class="tog"><input type="checkbox" id="mqttEnabled" onchange="mqttToggle()" /><span class="ts"></span></label>
+        </div>
+        <div id="mqttBody" style="display:none;flex-direction:column;gap:9px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="dot" id="mqttDot"></span>
+            <span style="font-size:12px;color:var(--text-dim);" id="mqttStatusText">Off</span>
+          </div>
+          <div class="field">
+            <label data-i18n="mqtt_broker">Broker</label>
+            <div style="display:flex;gap:6px;">
+              <input type="text" id="mqttHost" placeholder="192.168.1.10" onchange="saveMqtt()" style="font-size:11px;padding:6px 9px;flex:1;min-width:0;" />
+              <input type="text" id="mqttPort" value="1883" onchange="saveMqtt()" style="font-size:11px;padding:6px 9px;width:62px;flex:none;" />
+            </div>
+          </div>
+          <div class="field">
+            <label data-i18n="mqtt_user">User (optional)</label>
+            <input type="text" id="mqttUser" autocomplete="off" onchange="saveMqtt()" style="font-size:11px;padding:6px 9px;" />
+          </div>
+          <div class="field">
+            <label data-i18n="mqtt_password">Password (optional)</label>
+            <input type="password" id="mqttPassword" autocomplete="new-password" onchange="saveMqtt()" style="font-size:11px;padding:6px 9px;" />
+          </div>
+          <label class="cardchk"><input type="checkbox" id="mqttTls" onchange="saveMqtt()" /><span data-i18n="mqtt_tls">Encrypted connection (TLS)</span></label>
+          <label class="cardchk"><input type="checkbox" id="mqttDiscovery" checked onchange="saveMqtt()" /><span data-i18n="mqtt_discovery">Create entities in Home Assistant automatically</span></label>
+          <label class="cardchk"><input type="checkbox" id="mqttEvents" checked onchange="saveMqtt()" /><span data-i18n="mqtt_events">Also send game events</span></label>
+          <div class="field">
+            <label data-i18n="mqtt_topic">Base topic</label>
+            <input type="text" id="mqttBaseTopic" value="hyperate" onchange="saveMqtt()" style="font-size:11px;padding:6px 9px;" />
+          </div>
+          <button class="btn bs" onclick="mqttTest()" style="font-size:11px;padding:6px 4px;" data-i18n="mqtt_test">Send test values</button>
+          <div id="mqttTestResult" style="font-size:11px;display:none;padding:5px 9px;border-radius:6px;text-align:center;"></div>
+          <div style="font-size:11px;color:var(--text-dim);line-height:1.6;background:var(--surface);border-radius:7px;padding:8px 10px;" data-i18n-html="mqtt_info_html">
+            Publishes your heart rate and zone to your MQTT broker.
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ── World of Warcraft Card ── -->
     <div class="card collapsible">
       <div class="ch" onclick="toggleCard(this)"><span class="ch-emoji">⚔️</span> <span data-i18n="wow_heading">World of Warcraft</span><span class="dot ch-dot" id="wowHeadDot" hidden></span><svg class="ch-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5l3 3 3-3"/></svg></div>
@@ -743,6 +787,13 @@
       wow_cards:'Show these cards', wow_card_boss:'Boss Defeated', wow_card_close:'Close Call', wow_card_death:'You Died',
       wow_card_intense:'Most Intense Enemy', wow_card_peak:'Peak Heart Rate', wow_card_closest:'Closest Call',
       wow_card_nemesis:'Nemesis', wow_card_streak:'Kill Streak',
+      mqtt_heading:'Home Assistant', mqtt_toggle:'Send heart rate via MQTT',
+      mqtt_idle:'Off', mqtt_connecting:'Connecting…', mqtt_connected:'Connected to {host}', mqtt_error:'Connection failed',
+      mqtt_broker:'Broker address & port', mqtt_user:'User (optional)', mqtt_password:'Password (optional)', mqtt_tls:'Encrypted connection (TLS)',
+      mqtt_discovery:'Create entities in Home Assistant automatically', mqtt_events:'Also send game events',
+      mqtt_topic:'Base topic', mqtt_test:'🔁 Send test values',
+      mqtt_test_ok:'Test values sent', mqtt_test_fail:'Not connected — check broker and credentials',
+      mqtt_info_html:'Publishes your heart rate and, if zones are on, the current zone with its colour — Home Assistant picks them up on its own. Game events like <strong>You Died</strong> or <strong>Pentakill</strong> come along as their own entity, so a light can react to them. The password is stored encrypted by your operating system.',
       lol_heading:'League of Legends', lol_toggle:'Match events in overlay',
       lol_idle:'Off', lol_waiting:'Waiting for a match…', lol_active:'Reading live match', lol_error:'Connection problem',
       lol_cards:'Show these cards', lol_card_deaths:'Deaths', lol_card_close:'Close calls', lol_card_multi:'Multikills',
@@ -809,6 +860,13 @@
       wow_cards:'Diese Karten anzeigen', wow_card_boss:'Boss besiegt', wow_card_close:'Knapper Kampf', wow_card_death:'Tod',
       wow_card_intense:'Intensivster Gegner', wow_card_peak:'Höchstpuls', wow_card_closest:'Knappster Kampf',
       wow_card_nemesis:'Nemesis', wow_card_streak:'Kill Streak',
+      mqtt_heading:'Home Assistant', mqtt_toggle:'Puls per MQTT senden',
+      mqtt_idle:'Aus', mqtt_connecting:'Verbinde…', mqtt_connected:'Verbunden mit {host}', mqtt_error:'Verbindung fehlgeschlagen',
+      mqtt_broker:'Broker-Adresse & Port', mqtt_user:'Benutzer (optional)', mqtt_password:'Passwort (optional)', mqtt_tls:'Verschlüsselte Verbindung (TLS)',
+      mqtt_discovery:'Einträge in Home Assistant automatisch anlegen', mqtt_events:'Spiel-Ereignisse mitsenden',
+      mqtt_topic:'Basis-Thema', mqtt_test:'🔁 Testwerte senden',
+      mqtt_test_ok:'Testwerte gesendet', mqtt_test_fail:'Nicht verbunden — Broker und Zugangsdaten prüfen',
+      mqtt_info_html:'Sendet deinen Puls und, wenn Zonen an sind, die aktuelle Zone samt Farbe — Home Assistant legt die Einträge selbst an. Spiel-Ereignisse wie <strong>You Died</strong> oder <strong>Pentakill</strong> kommen als eigener Eintrag dazu, damit eine Lampe darauf reagieren kann. Das Passwort legt dein Betriebssystem verschlüsselt ab.',
       lol_heading:'League of Legends', lol_toggle:'Spiel-Ereignisse im Overlay',
       lol_idle:'Aus', lol_waiting:'Warte auf ein Spiel…', lol_active:'Liest laufendes Spiel mit', lol_error:'Verbindungsproblem',
       lol_cards:'Diese Karten anzeigen', lol_card_deaths:'Tode', lol_card_close:'Knappe Kämpfe', lol_card_multi:'Multikills',
@@ -1620,6 +1678,94 @@
     }
   }
 
+  // ── Home Assistant / MQTT ──
+  const MQTT_PLACEHOLDER = '••••••••';   // shown instead of the stored password, never sent back
+  let mqttCurState = null, mqttCurExtra = {};
+
+  function mqttOptions() {
+    const pw = $('mqttPassword').value;
+    return {
+      host: $('mqttHost').value.trim(), port: +v('mqttPort') || 1883,
+      username: $('mqttUser').value.trim(),
+      password: pw === MQTT_PLACEHOLDER ? undefined : pw,   // undefined → keep the stored one
+      tls: cb('mqttTls'), baseTopic: $('mqttBaseTopic').value.trim() || 'hyperate',
+      discovery: cb('mqttDiscovery'), events: cb('mqttEvents'),
+    };
+  }
+
+  function mqttToggle() {
+    const enabled = cb('mqttEnabled');
+    $('mqttBody').style.display = enabled ? 'flex' : 'none';
+    saveMqttSettings();
+    if (enabled) window.electronAPI.mqttEnable(mqttOptions());
+    else { window.electronAPI.mqttDisable(); renderMqttStatus(null); }
+  }
+
+  function saveMqttSettings() {
+    window.electronAPI.saveSettings({
+      mqttEnabled: cb('mqttEnabled'), mqttHost: $('mqttHost').value.trim(), mqttPort: +v('mqttPort') || 1883,
+      mqttUser: $('mqttUser').value.trim(), mqttTls: cb('mqttTls'), mqttBaseTopic: $('mqttBaseTopic').value.trim() || 'hyperate',
+      mqttDiscovery: cb('mqttDiscovery'), mqttEvents: cb('mqttEvents'),
+    });
+  }
+
+  function saveMqtt() {
+    saveMqttSettings();
+    if (cb('mqttEnabled')) window.electronAPI.mqttSetOptions(mqttOptions());
+    if ($('mqttPassword').value && $('mqttPassword').value !== MQTT_PLACEHOLDER) $('mqttPassword').value = MQTT_PLACEHOLDER;
+  }
+
+  async function mqttTest() {
+    const box = $('mqttTestResult');
+    const ok = await window.electronAPI.mqttTest();
+    box.style.display = 'block';
+    box.textContent = t(ok ? 'mqtt_test_ok' : 'mqtt_test_fail');
+    box.style.background = ok ? 'rgba(34,197,94,.12)' : 'rgba(239,68,68,.12)';
+    box.style.color = ok ? 'var(--success)' : 'var(--danger)';
+    setTimeout(() => { box.style.display = 'none'; }, 4000);
+  }
+
+  function renderMqttStatus(state, extra = {}) {
+    mqttCurState = state; mqttCurExtra = extra;
+    const dot = $('mqttDot'), text = $('mqttStatusText');
+    dot.className = 'dot';
+    text.title = extra.error || '';
+    if (state === 'connected') {
+      dot.classList.add('connected');
+      text.textContent = t('mqtt_connected').replace('{host}', extra.host || '');
+    } else if (state === 'connecting') {
+      dot.classList.add('connecting');
+      text.textContent = t('mqtt_connecting');
+    } else if (state === 'error') {
+      dot.classList.add('error');
+      text.textContent = t('mqtt_error');
+    } else {
+      text.textContent = t('mqtt_idle');
+    }
+    syncHeadDot('mqttHeadDot', dot.classList[1], cb('mqttEnabled'));
+  }
+
+  window.electronAPI.onMqttStatus(({ state, ...extra }) => {
+    if (cb('mqttEnabled')) renderMqttStatus(state, extra);
+  });
+
+  async function applyMqttSettings(s) {
+    if (s.mqttHost) $('mqttHost').value = s.mqttHost;
+    if (s.mqttPort) $('mqttPort').value = s.mqttPort;
+    if (s.mqttUser) $('mqttUser').value = s.mqttUser;
+    if (s.mqttBaseTopic) $('mqttBaseTopic').value = s.mqttBaseTopic;
+    if (s.mqttTls) $('mqttTls').checked = true;
+    if (s.mqttDiscovery === false) $('mqttDiscovery').checked = false;
+    if (s.mqttEvents === false) $('mqttEvents').checked = false;
+    if (await window.electronAPI.mqttHasPassword()) $('mqttPassword').value = MQTT_PLACEHOLDER;
+    if (s.mqttEnabled) {
+      $('mqttEnabled').checked = true;
+      $('mqttBody').style.display = 'flex';
+      renderMqttStatus(null);
+      window.electronAPI.mqttEnable(mqttOptions());
+    }
+  }
+
   // ── League of Legends ──
   const LOL_CARD_IDS = {
     deaths: 'lolCardDeaths', closeCalls: 'lolCardCloseCalls', multikills: 'lolCardMultikills',
@@ -1719,6 +1865,7 @@
     }
     applyWowSettings(saved);
     applyLolSettings(saved);
+    applyMqttSettings(saved);
     updatePreview(); live();
 
     // 2) Load fonts + autostart in background — not critical for UI

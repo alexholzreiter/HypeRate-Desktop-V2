@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell, dialog, safeStorage } = require('electron');
 const path   = require('path');
 const fs     = require('fs');
 const dgram  = require('dgram');
@@ -8,6 +8,7 @@ const discord = require('./discord');
 const moments = require('./moments');
 const wow     = require('./games/wow');
 const lol     = require('./games/lol');
+const mqtt    = require('./mqtt');
 const systemFonts = require('./system-fonts');
 
 // ── OSC ──────────────────────────────────────────────────────────────────────
@@ -99,11 +100,15 @@ let discordEnabled    = false;
 let currentConnType   = 'cloud'; // 'cloud' | 'ble'
 let bleConnected      = false;
 
+function zoneForBpm(bpm) {
+  const store = loadStore();
+  const zones = store.config?.zones || store.zones || [];
+  return zones.find(z => bpm >= (z.min || 0) && bpm <= (z.max || 999)) || null;
+}
+
 function discordBpmUpdate(bpm) {
   if (!discordEnabled) return;
-  const store  = loadStore();
-  const zones  = store.config?.zones || store.zones || [];
-  const zone   = zones.find(z => bpm >= (z.min||0) && bpm <= (z.max||999));
+  const zone = zoneForBpm(bpm);
   discord.updatePresence({
     bpm,
     zoneName:       zone?.name  || null,
@@ -346,12 +351,19 @@ function wsDisconnect() {
 function sendToSettings(ch, d) { if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.webContents.send(ch, d); }
 function sendToOverlay(ch, d)  { if (overlayWindow  && !overlayWindow.isDestroyed())  overlayWindow.webContents.send(ch, d); }
 
+// Game moments go to the overlay and to every output that wants them (MQTT today)
+function emitGameMoment(moment) {
+  sendToOverlay('game-moment', moment);
+  mqtt.publishMoment(moment);
+}
+
 // Every BPM sample (cloud or BLE) goes through here
 function broadcastBpm(bpm, source) {
   sendToSettings('bpm-update', source === 'ble' ? { bpm, source } : { bpm });
   sendToOverlay('heart-rate-update', { bpm });
   sendHeartRateOsc(bpm);
   discordBpmUpdate(bpm);
+  mqtt.publishBpm(bpm, source, zoneForBpm(bpm) || {});
   moments.recordBpm(bpm);
   if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle(` ${bpm}`);
 }
@@ -602,8 +614,8 @@ const WOW_DIAGNOSTICS = path.join(app.getPath('userData'), 'wow-diagnostics.log'
 
 wow.init({
   onStatus:  (state, extra = {}) => sendToSettings('wow-status', { state, ...extra }),
-  onResult:  (result) => sendToOverlay('game-moment', moments.build(result)),
-  onInsight: (card)   => sendToOverlay('game-moment', { card }),
+  onResult:  (result) => emitGameMoment(moments.build(result)),
+  onInsight: (card)   => emitGameMoment({ game: 'wow', card }),
   diagnosticsPath: WOW_DIAGNOSTICS,
   sessionsPath: path.join(app.getPath('userData'), 'wow-sessions.json'),
 });
@@ -628,13 +640,13 @@ ipcMain.on('wow-show-diagnostics', () => {
 // No setup needed: Riot's Live Client Data API is there while a match runs.
 lol.init({
   onStatus: (state, extra = {}) => sendToSettings('lol-status', { state, ...extra }),
-  onCard:   (card) => sendToOverlay('game-moment', { game: 'lol', card }),
+  onCard:   (card) => emitGameMoment({ game: 'lol', card }),
 });
 
 ipcMain.on('lol-enable',      (_, opts) => lol.start(opts || {}));
 ipcMain.on('lol-disable',     ()        => lol.stop());
 ipcMain.on('lol-set-options', (_, opts) => lol.setOptions(opts || {}));
-ipcMain.on('lol-test',        (_, style) => sendToOverlay('game-moment', { game: 'lol', card: lol.demoCard(style) }));
+ipcMain.on('lol-test',        (_, style) => emitGameMoment({ game: 'lol', card: lol.demoCard(style) }));
 
 // Preview a result card; uses real BPM history when there is some
 const WOW_TEST_RESULTS = {
@@ -643,7 +655,7 @@ const WOW_TEST_RESULTS = {
   death: { durationMs: 112000, lowestHealthPct: 0,  peakBpm: 164, hrIncrease: 47 },
 };
 ipcMain.on('wow-test', (_, type) => {
-  if (type === 'insight') { sendToOverlay('game-moment', { card: wow.demoInsight() }); return; }
+  if (type === 'insight') { emitGameMoment({ game: 'wow', card: wow.demoInsight() }); return; }
   const demo = WOW_TEST_RESULTS[type];
   if (!demo) return;
   const now = Date.now();
@@ -653,9 +665,49 @@ ipcMain.on('wow-test', (_, type) => {
   });
   moment.peakBpm    ??= demo.peakBpm;
   moment.hrIncrease ??= demo.hrIncrease;
-  sendToOverlay('game-moment', moment);
+  emitGameMoment(moment);
 });
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ── MQTT / Home Assistant ────────────────────────────────────────────────────
+// The broker password is kept encrypted by the OS keychain, never in plain settings.json.
+function encryptSecret(plain) {
+  if (!plain) return '';
+  try { return safeStorage.isEncryptionAvailable() ? 'enc:' + safeStorage.encryptString(plain).toString('base64') : plain; }
+  catch { return plain; }
+}
+function decryptSecret(stored) {
+  if (!stored) return '';
+  if (!String(stored).startsWith('enc:')) return stored;
+  try { return safeStorage.decryptString(Buffer.from(String(stored).slice(4), 'base64')); }
+  catch { return ''; }
+}
+
+function mqttOptions(opts = {}) {
+  const store = loadStore();
+  return {
+    ...opts,
+    password: opts.password !== undefined && opts.password !== null
+      ? opts.password                                   // freshly typed in the settings
+      : decryptSecret(store.mqttPassword),
+    zonesEnabled: !!store.config?.zonesEnabled,
+    appVersion: VERSION,
+  };
+}
+
+mqtt.init({ onStatus: (state, extra = {}) => sendToSettings('mqtt-status', { state, ...extra }) });
+
+ipcMain.on('mqtt-enable', (_, opts = {}) => {
+  if (opts.password) { const store = loadStore(); store.mqttPassword = encryptSecret(opts.password); saveStore(store); }
+  mqtt.start(mqttOptions(opts.password ? opts : { ...opts, password: undefined }));
+});
+ipcMain.on('mqtt-disable', () => mqtt.stop());
+ipcMain.on('mqtt-set-options', (_, opts = {}) => {
+  if (opts.password) { const store = loadStore(); store.mqttPassword = encryptSecret(opts.password); saveStore(store); }
+  mqtt.setOptions(mqttOptions(opts.password ? opts : { ...opts, password: undefined }));
+});
+ipcMain.handle('mqtt-test', () => mqtt.test());
+ipcMain.handle('mqtt-has-password', () => !!loadStore().mqttPassword);
 
 ipcMain.on('open-external', (_, url) => shell.openExternal(url));
 
