@@ -185,6 +185,23 @@ npm install
 npm start
 ```
 
+### Tests
+
+```bash
+npm test            # everything
+npm test -- lol     # only the files whose name contains "lol"
+```
+
+No test framework: each file in `test/` prints one `PASS` or `FAIL` line per assertion and exits non-zero when something failed, and `test/run.js` collects the results.
+
+| File | What it covers |
+|---|---|
+| `mqtt.test.js` | Discovery entities, throttling, event types, last will — against a small MQTT broker written for this purpose (`test/helpers/tiny-broker.js`) |
+| `lol.test.js` | A scripted League match: close calls, deaths, multikills, objectives, readable enemy names |
+| `lol-e2e.test.js` | The real module against a fake Live Client Data server over HTTPS. Needs `openssl` for a throwaway certificate and skips itself without it |
+| `lol-fixture.test.js` | A recorded real match (`test/fixtures/lol-match.json`) replayed as a regression test |
+| `wow-cards.test.js` | Cards switched off in the settings stay hidden but still count towards the session statistics |
+
 ### Build installers
 
 ```bash
