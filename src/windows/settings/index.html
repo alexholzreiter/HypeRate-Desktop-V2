@@ -608,6 +608,7 @@
         </div>
         <div class="field"><label data-i18n="color">Color</label>
           <div class="crow"><input type="color" id="heartColor" value="#2563eb" onchange="syncHex('heartColor','heartColorHex');live()" /><input type="text" id="heartColorHex" value="#2563eb" class="chex" oninput="syncPicker('heartColor','heartColorHex')" /></div>
+          <div class="hint" id="heartColorZoneHint" hidden data-i18n-html="color_zone_hint"></div>
         </div>
         <div class="field"><label data-i18n="size">Size</label>
           <div class="srow"><input type="range" id="heartSize" min="24" max="80" value="48" oninput="sv('heartSize','heartSizeV','px');live()" /><span class="sv" id="heartSizeV">48px</span></div>
@@ -752,6 +753,7 @@
       layout:'Layout', corner_radius:'Corner Radius',
       show_label:'Show BPM label', show_border:'Show border',
       zones_enable:'Enable zone colors', zones_font:'Affect font color',
+      color_zone_hint:'Heart rate zones are on, so the zone colour replaces this one as soon as a heart rate arrives. <a href="#" onclick="tab(\'zones\');return false;" style="color:var(--accent3);text-decoration:none;">Open zones ↗</a>',
       preview:'Preview', hotkey_label:'Toggle overlay:',
       startup:'Launch at startup', news:'News',
       show_overlay:'Show Overlay', hide_overlay:'Close Overlay', feedback:'Feedback',
@@ -826,6 +828,7 @@
       layout:'Layout', corner_radius:'Eckenradius',
       show_label:'BPM-Label anzeigen', show_border:'Rahmen anzeigen',
       zones_enable:'Zonenfarben aktivieren', zones_font:'Schriftfarbe beeinflussen',
+      color_zone_hint:'Zonen sind an, deshalb ersetzt die Zonenfarbe diese Farbe, sobald ein Puls ankommt. <a href="#" onclick="tab(\'zones\');return false;" style="color:var(--accent3);text-decoration:none;">Zonen öffnen ↗</a>',
       preview:'Vorschau', hotkey_label:'Overlay ein/aus:',
       startup:'Mit Computer starten', news:'Neuigkeiten',
       show_overlay:'Overlay anzeigen', hide_overlay:'Overlay schließen', feedback:'Feedback',
@@ -983,6 +986,7 @@
     sv('heartSize','heartSizeV','px'); sv('bpmSize','bpmSizeV','px');
     sv('bgOpacity','bgOpacityV','%'); sv('borderRadius','borderRadiusV','px'); sv('wowScale','wowScaleV','%'); sv('lolScale','lolScaleV','%');
     if(c.zonesEnabled!==undefined){$('zonesEnabled').checked=c.zonesEnabled;onZonesToggle(false);}
+    syncZoneColorHint();
     if(c.zonesAffectFont!==undefined&&$('zonesAffectFont'))$('zonesAffectFont').checked=c.zonesAffectFont;
     if(c.zones&&c.zones.length) renderZones(c.zones);
   }
@@ -1237,9 +1241,17 @@
     live();
   }
 
+  // Sind Zonen an, ersetzt die Zonenfarbe die Herzfarbe. Das gehört dorthin, wo man die
+  // Farbe einstellt, und nicht erst ins Overlay.
+  function syncZoneColorHint(){
+    const h = $('heartColorZoneHint');
+    if (h) h.hidden = !cb('zonesEnabled');
+  }
+
   function onZonesToggle(doLive=true){
     const enabled = cb('zonesEnabled');
     $('zonesBody').style.display = enabled ? 'flex' : 'none';
+    syncZoneColorHint();
     if(enabled && $('zoneList').children.length===0) renderZones(DEFAULT_ZONES);
     // Sync cache so updatePreview can use zones even when tab isn't visible
     if(enabled) getZones();
