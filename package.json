@@ -17,7 +17,8 @@
     "build:mac:arm64": "electron-builder --mac --arm64",
     "build:win": "electron-builder --win",
     "build:linux": "electron-builder --linux",
-    "test": "node test/run.js"
+    "test": "node test/run.js",
+    "hearts": "node tools/build-hearts.js"
   },
   "dependencies": {
     "@abandonware/noble": "^1.9.2-15",
@@ -44,6 +45,7 @@
       "!src/native/win-ble/obj/**/*",
       "!src/native/win-ble/publish/**/*",
       "!src/native/win-ble/publish-self/**/*",
+      "!assets/hearts/**/*",
       "!landing/**/*",
       "!dist/**/*",
       "!.npm-cache/**/*",

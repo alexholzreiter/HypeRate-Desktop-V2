@@ -604,7 +604,7 @@
           <select id="heartAnim" onchange="live()"><option value="pulse">Pulse (classic)</option><option value="beat">Beat (double)</option><option value="bounce">Bounce</option><option value="shake">Shake</option><option value="glow">Glow</option><option value="none">None</option></select>
         </div>
         <div class="field"><label data-i18n="heart_style">Heart Style</label>
-          <select id="heartStyle" onchange="live()"><option value="emoji">❤️ Emoji</option><option value="outline">🫀 Outline</option><option value="filled">♥ Filled</option><option value="minimal">· Minimal dot</option></select>
+          <select id="heartStyle" onchange="live()"><option value="emoji">❤️ Emoji</option><option value="minimal">· Minimal dot</option></select>
         </div>
         <div class="field"><label data-i18n="color">Color</label>
           <div class="crow"><input type="color" id="heartColor" value="#2563eb" onchange="syncHex('heartColor','heartColorHex');live()" /><input type="text" id="heartColorHex" value="#2563eb" class="chex" oninput="syncPicker('heartColor','heartColorHex')" /></div>
@@ -730,6 +730,7 @@
   <button class="btn bs" onclick="window.electronAPI.openExternal('https://feedback.hyperate.io/form/iHnGf9vp')">💬 <span data-i18n="feedback">Feedback</span></button>
 </div>
 
+<script src="../../hearts.js"></script>
 <script>
   const $=id=>document.getElementById(id), v=id=>$(id).value, cb=id=>$(id).checked;
   const WOW_GUIDE_URL  = 'https://blog.hyperate.io/post/world-of-warcraft-heart-rate-overlay/';
@@ -1051,12 +1052,8 @@
       ph.style.color    = 'transparent';
       ph.style.filter   = 'none';
     } else {
-      const H={
-        emoji:   '❤️',
-        outline: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 403.326 403.326" style="width:1em;height:1em;fill:currentColor;display:block;"><path d="M368.158,53.06c-22.715-22.714-52.915-35.224-85.038-35.224c-30.464,0-59.197,11.25-81.458,31.786C154.547,6.202,80.881,7.348,35.167,53.061c-46.89,46.89-46.89,123.185,0,170.075L194.592,382.56c1.876,1.875,4.419,2.929,7.071,2.929s5.195-1.054,7.071-2.929l159.424-159.424C415.048,176.246,415.048,99.951,368.158,53.06z M354.016,208.994L201.663,361.347L49.31,208.993c-18.938-18.937-29.366-44.114-29.366-70.895c0.001-26.781,10.43-51.959,29.367-70.896c19.546-19.546,45.221-29.319,70.896-29.319c24.097,0,48.194,8.61,67.225,25.829l-28.962,28.962c-3.905,3.905-3.905,10.237,0,14.142c1.953,1.953,4.512,2.929,7.071,2.929s5.118-0.976,7.071-2.929l39.614-39.615c18.937-18.937,44.114-29.366,70.895-29.366c26.781,0,51.959,10.429,70.896,29.366C393.108,106.295,393.108,169.902,354.016,208.994z"/><path d="M312.596,54.129c-9.7-3.561-19.901-5.366-30.32-5.366c-5.522,0-10,4.477-10,10s4.478,10,10,10c8.06,0,15.942,1.393,23.43,4.141c1.137,0.417,2.3,0.615,3.444,0.615c4.074,0,7.903-2.51,9.389-6.557C320.442,61.777,317.781,56.032,312.596,54.129z"/><path d="M349.446,79.908c-3.569-4.214-9.881-4.736-14.094-1.166c-4.214,3.57-4.736,9.88-1.166,14.094c10.376,12.247,16.09,27.847,16.09,43.927c0,5.523,4.478,10,10,10s10-4.477,10-10C370.276,115.955,362.878,95.764,349.446,79.908z"/><path d="M185.299,298.843c-3.906-3.905-10.236-3.905-14.143,0c-3.905,3.905-3.905,10.237,0,14.143l13.998,13.998c1.953,1.953,4.512,2.929,7.071,2.929s5.118-0.976,7.071-2.929c3.905-3.905,3.905-10.237,0-14.143L185.299,298.843z"/><path d="M109.547,223.091c-3.906-3.905-10.236-3.905-14.143,0c-3.905,3.905-3.905,10.237,0,14.143l52.751,52.751c1.953,1.953,4.512,2.929,7.071,2.929s5.118-0.976,7.071-2.929c3.905-3.905,3.905-10.237,0-14.143L109.547,223.091z"/></svg>`,
-        filled:  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" style="width:1em;height:1em;fill:currentColor;display:block;"><path d="M467.204,67.921C412.786,20.394,329.86,25.984,282.31,80.365l-26.311,29.66l-26.311-29.66C182.138,25.984,99.212,20.396,44.795,67.921c-54.437,47.543-60.045,130.51-12.503,184.946l185.641,206.535c9.692,10.783,23.568,16.968,38.067,16.968c14.499,0,28.375-6.185,38.067-16.968L479.546,253.05l0.161-0.182C527.251,198.431,521.641,115.464,467.204,67.921z"/></svg>`,
-      };
-      ph.innerHTML = H[c.heartStyle] || '❤️';
+      const shape = window.HEART_SHAPES && window.HEART_SHAPES[c.heartStyle];
+      ph.innerHTML = (c.heartStyle === 'emoji' || !shape) ? '❤️' : shape.svg;
       ph.style.fontSize = c.heartSize+'px';
       ph.style.color    = activeColor;
       // Don't set inline filter when glow-animation is active — animation owns the filter
@@ -1243,6 +1240,21 @@
 
   // Sind Zonen an, ersetzt die Zonenfarbe die Herzfarbe. Das gehört dorthin, wo man die
   // Farbe einstellt, und nicht erst ins Overlay.
+  // Die Formen kommen aus assets/hearts, also baut sich die Liste selbst auf.
+  // Emoji und der Punkt sind Sonderfälle ohne SVG und bleiben Anfang und Ende.
+  function fillHeartStyles(){
+    const sel = $('heartStyle'), shapes = window.HEART_SHAPES || {};
+    const minimal = sel.querySelector('option[value="minimal"]');
+    Object.entries(shapes)
+      .sort((a, b) => a[1].label.localeCompare(b[1].label))
+      .forEach(([id, shape]) => {
+        const o = document.createElement('option');
+        o.value = id;
+        o.textContent = shape.label;
+        sel.insertBefore(o, minimal);
+      });
+  }
+
   function syncZoneColorHint(){
     const h = $('heartColorZoneHint');
     if (h) h.hidden = !cb('zonesEnabled');
@@ -1873,6 +1885,8 @@
     // 1) Load settings first — version + UI must appear immediately
     let saved = {};
     try { saved = await window.electronAPI.loadSettings(); } catch(e) { console.error('loadSettings:', e); }
+
+    fillHeartStyles();          // vor applyConfigToForm, damit der gespeicherte Stil wählbar ist
 
     applyLang(saved.lang || 'en');
     $('tlVersion').textContent = 'v' + (saved.version || '?');
