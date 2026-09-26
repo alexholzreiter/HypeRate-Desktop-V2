@@ -72,6 +72,8 @@
 
     .field{display:flex;flex-direction:column;gap:5px;}
     label{font-size:11px;font-weight:500;color:var(--text-dim);letter-spacing:.04em;text-transform:uppercase;}
+    /* an empty checkbox is drawn white by the OS otherwise, which glares in a dark card */
+    input[type=checkbox]{color-scheme:dark;accent-color:var(--accent);}
     input[type=text],input[type=password]{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-family:'Space Mono',monospace;font-size:13px;outline:none;transition:border-color .2s,box-shadow .2s;width:100%;}
     input[type=text]:focus,input[type=password]:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
     input[type=color]{-webkit-appearance:none;width:36px;height:34px;border:1px solid var(--border);border-radius:7px;cursor:pointer;background:none;padding:2px;}
