@@ -57,6 +57,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   sessionsList:       ()        => ipcRenderer.invoke('sessions-list'),
   sessionsDelete:     ()        => ipcRenderer.invoke('sessions-delete'),
+  sessionsCard:       (startedAt) => ipcRenderer.invoke('sessions-card', startedAt),
   sessionsSetOptions: (opts)    => ipcRenderer.send('sessions-set-options', opts),
   onSessionsChanged:  (cb)      => ipcRenderer.on('sessions-changed', (_, d) => cb(d)),
 

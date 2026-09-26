@@ -10,6 +10,7 @@ const wow     = require('./games/wow');
 const lol     = require('./games/lol');
 const mqtt    = require('./mqtt');
 const sessions = require('./sessions');
+const sessionCard = require('./session-card');
 const systemFonts = require('./system-fonts');
 
 // ── OSC ──────────────────────────────────────────────────────────────────────
@@ -580,6 +581,58 @@ sessions.setOptions(sessionOptions());
 
 ipcMain.handle('sessions-list',   () => sessions.list());
 ipcMain.handle('sessions-delete', () => { sessions.deleteAll(); return true; });
+// Rendering the card needs the icon and the headline font as siblings of the html file,
+// because a file:// page may not reach across directories for a font. They are copied into
+// userData once and reused.
+function cardAssets() {
+  const dir = path.join(app.getPath('userData'), 'card');
+  fs.mkdirSync(dir, { recursive: true });
+  const kopien = [
+    ['icon.png', path.join(__dirname, '..', 'assets', 'icon.png')],
+    ['Alegreya.ttf', path.join(__dirname, 'windows', 'overlay', 'wow', 'Alegreya-Variable.ttf')],
+  ];
+  for (const [name, von] of kopien) {
+    const nach = path.join(dir, name);
+    if (!fs.existsSync(nach)) fs.copyFileSync(von, nach);
+  }
+  return dir;
+}
+
+ipcMain.handle('sessions-card', async (_, startedAt) => {
+  const session = sessions.read(startedAt);
+  if (!session) return null;
+
+  const dir = cardAssets();
+  const seite = path.join(dir, 'card.html');
+  fs.writeFileSync(seite, sessionCard.build(session, loadStore().lang || 'en',
+    { icon: 'icon.png', alegreya: 'Alegreya.ttf' }));
+
+  // Halbe Fenstergröße bei doppelter Pixeldichte ergibt genau 1920x1080
+  const win = new BrowserWindow({
+    width: sessionCard.W / 2, height: sessionCard.H / 2, useContentSize: true, show: false,
+    webPreferences: { nodeIntegration: false, contextIsolation: true },
+  });
+  try {
+    await win.loadFile(seite);
+    win.webContents.setZoomFactor(0.5);
+    await new Promise(r => setTimeout(r, 1500));               // Schriften und Layout
+    const img = await win.webContents.capturePage();
+    // Ortszeit im Dateinamen, sonst passt er nicht zu den Uhrzeiten auf dem Bild
+    const d = new Date(startedAt);
+    const zwei = (n) => String(n).padStart(2, '0');
+    const name = `HypeRate-${d.getFullYear()}-${zwei(d.getMonth() + 1)}-${zwei(d.getDate())}-${zwei(d.getHours())}-${zwei(d.getMinutes())}.png`;
+    const ziel = path.join(app.getPath('pictures'), name);
+    fs.writeFileSync(ziel, img.resize({ width: sessionCard.W, height: sessionCard.H }).toPNG());
+    shell.showItemInFolder(ziel);
+    return ziel;
+  } catch (err) {
+    console.error('[session card]', err.message);
+    return null;
+  } finally {
+    if (!win.isDestroyed()) win.destroy();
+  }
+});
+
 ipcMain.on('sessions-set-options', (_, data = {}) => {
   const store = loadStore(); Object.assign(store, data); saveStore(store);
   sessions.setOptions(sessionOptions(store));
