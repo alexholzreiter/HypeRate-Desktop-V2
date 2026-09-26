@@ -476,6 +476,9 @@ function applyOverlaySize(width, height) {
   overlayClampedX = Math.round(Math.max(wa.x, Math.min(overlayTrackedX, wa.x + wa.width  - w)));
   overlayClampedY = Math.round(Math.max(wa.y, Math.min(overlayTrackedY, wa.y + wa.height - h)));
   overlayWindow.setBounds({ x: overlayClampedX, y: overlayClampedY, width: w, height: h });
+  // The overlay waits for this before it animates a card open: growing a transparent window
+  // can leave stale pixels behind, and those would be the other game's widget.
+  sendToOverlay('overlay-resized', { width: w, height: h });
 }
 
 ipcMain.on('resize-overlay', (_, { width, height }) => {

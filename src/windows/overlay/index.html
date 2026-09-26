@@ -563,7 +563,24 @@
 
   function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
 
+  // A card may only slide open once the window has the size it needs. Otherwise the window grows
+  // while the card is already animating, and the freshly exposed area can still hold the previous
+  // theme's pixels for a frame or two. Falls back to a timeout if main stays quiet.
+  let resizeWaiters = [];
+  function afterResize(fn, fallbackMs = 220) {
+    let done = false;
+    const run = () => { if (done) return; done = true; requestAnimationFrame(() => requestAnimationFrame(fn)); };
+    resizeWaiters.push(run);
+    later(run, fallbackMs);
+  }
+  window.electronAPI.onOverlayResized(() => {
+    const waiters = resizeWaiters;
+    resizeWaiters = [];
+    waiters.forEach(fn => fn());
+  });
+
   function reset() {
+    resizeWaiters = [];
     timers.forEach(clearTimeout);
     clearTimeout(hoverTimer);
     timers = []; queue = []; busy = false; hoverOpen = false;
@@ -726,14 +743,14 @@
     lastCard = card;
     fill(card);
     reportSize();                               // grow the window first, then animate open
-    later(fitKicker, 80 + ANIM_MS);             // measure once fully open
-    later(() => {
+    afterResize(() => {
       theme.root.classList.add('open');
       theme.el.classList.remove('flash');
       void theme.el.offsetWidth;
       theme.el.classList.add('flash');
       if (theme.styles[card.style].burst) particleBurst(); else theme.particles.replaceChildren();
-    }, 80);
+      later(fitKicker, ANIM_MS + 40);           // measure once fully open
+    });
     later(close, SHOW_MS);
   }
 
@@ -756,8 +773,10 @@
     showTheme(THEMES[lastCard.game]);
     fill(lastCard);
     reportSize();
-    later(() => theme.root.classList.add('open'), 80);
-    later(fitKicker, 80 + ANIM_MS);
+    afterResize(() => {
+      theme.root.classList.add('open');
+      later(fitKicker, ANIM_MS + 40);
+    });
   }
 
   function hoverClose() {
