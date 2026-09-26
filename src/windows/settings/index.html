@@ -284,23 +284,6 @@
     <!-- Scrollable: everything below -->
     <div class="panel-left-scroll">
 
-    <div class="hotkey-badge">
-      <span>⌨️ <span data-i18n="hotkey_label">Toggle overlay:</span></span>
-      <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>
-    </div>
-
-    <div class="card">
-      <div class="cb">
-        <div class="trow">
-          <span class="tl" data-i18n="startup">Launch at startup</span>
-          <label class="tog">
-            <input type="checkbox" id="autostartToggle" onchange="window.electronAPI.setAutostart(this.checked)" />
-            <span class="ts"></span>
-          </label>
-        </div>
-      </div>
-    </div>
-
     <!-- ── BLE Card ── -->
     <div class="card collapsible">
       <div class="ch" onclick="toggleCard(this)"><span>📡</span> <span data-i18n="ble_heading">Bluetooth Direct</span><span class="dot ch-dot" id="bleHeadDot" hidden></span><svg class="ch-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5l3 3 3-3"/></svg></div>
@@ -579,6 +562,23 @@
       <div class="ch"><span>📰</span> <span data-i18n="news">News</span></div>
       <div id="newsBody" style="display:flex;flex-direction:column;">
         <div class="news-empty" data-i18n="news_loading">Loading…</div>
+      </div>
+    </div>
+
+    <div class="hotkey-badge">
+      <span>⌨️ <span data-i18n="hotkey_label">Toggle overlay:</span></span>
+      <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>
+    </div>
+
+    <div class="card">
+      <div class="cb">
+        <div class="trow">
+          <span class="tl" data-i18n="startup">Launch at startup</span>
+          <label class="tog">
+            <input type="checkbox" id="autostartToggle" onchange="window.electronAPI.setAutostart(this.checked)" />
+            <span class="ts"></span>
+          </label>
+        </div>
       </div>
     </div>
 
