@@ -332,8 +332,10 @@
     } else {
       // Shapes come from assets/hearts via tools/build-hearts.js, so the overlay and the
       // settings preview always draw the same thing.
-      const shape = window.HEART_SHAPES && window.HEART_SHAPES[c.heartStyle];
-      heart.innerHTML      = (c.heartStyle === 'emoji' || !shape) ? '❤️' : shape.svg;
+      // 'emoji' existed before the shapes came from files and may still be saved somewhere
+      const shapes = window.HEART_SHAPES || {};
+      const shape = shapes[c.heartStyle] || shapes.filled;
+      heart.innerHTML      = shape ? shape.svg : '';
       heart.style.fontSize = c.heartSize + 'px';
       heart.style.color    = c.heartColor;
     }
@@ -848,7 +850,7 @@
   });
 
   applyConfig({
-    heartAnim:'pulse', heartStyle:'emoji', heartColor:'#2563eb', heartSize:48, heartGlow:true,
+    heartAnim:'pulse', heartStyle:'filled', heartColor:'#2563eb', heartSize:48, heartGlow:true,
     fontStyle:'mono', bpmColor:'#ffffff', labelColor:'#aaaacc', bpmSize:40, numAnim:'flip',
     textGlow:true, bgStyle:'dark-pill', bgColor:'#000000', bgOpacity:70,
     layoutStyle:'horizontal', borderRadius:16, showLabel:true, showBorder:false,

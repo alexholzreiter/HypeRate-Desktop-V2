@@ -1083,8 +1083,9 @@
       ph.style.color    = 'transparent';
       ph.style.filter   = 'none';
     } else {
-      const shape = window.HEART_SHAPES && window.HEART_SHAPES[c.heartStyle];
-      ph.innerHTML = (c.heartStyle === 'emoji' || !shape) ? '❤️' : shape.svg;
+      const shapes = window.HEART_SHAPES || {};
+      const shape = shapes[c.heartStyle] || shapes.filled;
+      ph.innerHTML = shape ? shape.svg : '';
       ph.style.fontSize = c.heartSize+'px';
       ph.style.color    = activeColor;
       // Don't set inline filter when glow-animation is active — animation owns the filter
@@ -1280,7 +1281,6 @@
   function fillHeartStyles(){
     const sel = $('heartStyle'), grid = $('heartStyleGrid'), shapes = window.HEART_SHAPES || {};
     const eintraege = [
-      ['emoji',   { label: 'Emoji',       html: '❤️' }],
       ...Object.entries(shapes)
         .sort((a, b) => a[1].label.localeCompare(b[1].label))
         .map(([id, shape]) => [id, { label: shape.label, html: shape.svg }]),
@@ -1309,6 +1309,9 @@
 
   // Knopf und Markierung an den aktuellen Wert angleichen
   function syncHeartPicker(){
+    // 'emoji' gab es, bevor die Formen aus Dateien kamen. Wer ihn gespeichert hat,
+    // landet auf der neuen Voreinstellung, statt auf einem leeren Knopf.
+    if (!HEART_ENTRIES[v('heartStyle')]) $('heartStyle').value = 'filled';
     const id = v('heartStyle'), e = HEART_ENTRIES[id];
     if (!e) return;
     $('heartStyleCur').innerHTML = e.html;
