@@ -26,6 +26,7 @@ Get the latest release from the [GitHub Releases](https://github.com/alexholzrei
 ## Features
 
 - **Live BPM Overlay** — floating, always-on-top widget that stays above every app, game, or browser
+- **Two ways to get your heart rate** — through the HypeRate cloud, or straight from a Bluetooth chest strap
 - **Native drag & drop** — reposition the overlay anywhere on your screen; position is saved across restarts
 - **Fully customizable** — heart animation, style, color, size, glow, font, layout, background
 - **Heart Rate Zones** — color-coded zone indicators with configurable thresholds
@@ -35,6 +36,7 @@ Get the latest release from the [GitHub Releases](https://github.com/alexholzrei
 - **Update checker** — notifies you when a new release is available
 - **Multi-language** — English & German UI
 - **FTUE** — guided first-run setup
+- **Integrations** — Discord, VRChat (OSC), World of Warcraft, League of Legends and Home Assistant — see [Integrations](#integrations)
 
 ### Overlay customization options
 
@@ -50,6 +52,78 @@ Get the latest release from the [GitHub Releases](https://github.com/alexholzrei
 | Layout | Horizontal · Vertical · Compact |
 | Border radius | 0 – 50 px |
 | Zones | On/Off · custom colors |
+
+---
+
+## Integrations
+
+Every integration is optional and lives in its own card in the settings.
+
+| Integration | What it does | Setup |
+|---|---|---|
+| **Discord Rich Presence** | Shows your live BPM and zone on your Discord profile | Switch it on |
+| **VRChat / OSC** | Sends BPM to `/avatar/parameters/<name>` plus `onesHR`, `tensHR`, `hundredsHR`, and optionally to the chatbox | Set host and port (default `127.0.0.1:9000`) |
+| **World of Warcraft** | Reads your combat log and shows cards after a fight: Boss Defeated, Close Call, You Died, Most Intense Enemy, plus session insights | Pick your WoW folder and enable advanced combat logging — [full guide](https://blog.hyperate.io/post/world-of-warcraft-heart-rate-overlay/) |
+| **League of Legends** | Deaths, close calls, multikills, First Blood, objectives, steals, Ace and the match result | Nothing. Riot's Live Client Data API is there while a match runs |
+| **Home Assistant** | Publishes heart rate, zone and game moments over MQTT | See below |
+
+Each game's cards can be switched on and off individually. Cards you switch off still count towards your session statistics.
+
+### Home Assistant (MQTT)
+
+The app publishes to any MQTT broker and announces itself through [MQTT discovery](https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery), so **nothing has to be configured on the Home Assistant side**. A device called *HypeRate Desktop* appears on its own with these entities:
+
+| Entity | Type | Value |
+|---|---|---|
+| `sensor.hyperate_desktop_heart_rate` | sensor, `bpm`, measurement | Your live heart rate, at most one message per second |
+| `sensor.hyperate_desktop_heart_rate_zone` | sensor | The zone name, with `zone_color` and `source` as attributes |
+| `event.hyperate_desktop_game_event` | event | Every WoW and League moment. Optional |
+
+Topics, with the base topic from the settings (`hyperate` by default):
+
+```
+hyperate/desktop/state          {"bpm":142,"zone":"High","zone_color":"#ef4444","source":"bluetooth"}
+hyperate/desktop/event          {"event_type":"death","game":"wow","title":"You Died","detail":"vs. Grimspire Warlord","bpm":161}
+hyperate/desktop/availability   online | offline   (retained, with a last will)
+```
+
+Event types you can trigger on: `death` · `close_call` · `closest_call` · `boss_defeated` · `intense_enemy` · `nemesis` · `kill_streak` · `peak_heart_rate` · `kill` · `multikill` · `pentakill` · `first_blood` · `objective` · `objective_stolen` · `ace` · `victory` · `defeat`
+
+The broker password is encrypted with the operating system's keychain (Electron `safeStorage`) and is never written to `settings.json` in the clear.
+
+#### Connecting to your broker
+
+**With the official Mosquitto broker add-on** — the usual case. It authenticates against Home Assistant's own user accounts and does not allow anonymous connections, so you need a user:
+
+1. In Home Assistant: **Settings → People → Users → Add user**, for example `hyperate`. It does not need administrator rights
+2. In the app: the **IP address of your Home Assistant machine**, port `1883`, that user and its password
+
+Use the IP address, not `core-mosquitto` — that name only resolves inside Home Assistant's own network, not from your gaming PC.
+
+**With your own Mosquitto**, two things commonly trip people up:
+
+- Mosquitto 2.x refuses anonymous connections out of the box. Create a user with `mosquitto_passwd -c /mosquitto/config/passwd hyperate` and point `password_file` at it
+- If your setup uses the **dynamic security plugin**, the `admin` user that `mosquitto_ctrl dynsec init` creates may only use the `$CONTROL/dynamic-security/#` topics. It connects fine and then silently publishes nothing. Create a **role** with four *allow* ACLs on topic `#` — `publishClientSend`, `publishClientReceive`, `subscribePattern`, `unsubscribePattern` — and a **client** carrying that role. Use `subscribePattern`, not `subscribeLiteral`: `#` is a wildcard, and Home Assistant subscribes with wildcards. Mosquitto only ever evaluates ACLs through roles, never directly on a client
+
+Whichever broker you use, the app and Home Assistant can share one account or use one each.
+
+#### An automation to start with
+
+The zone colour travels along as an attribute, so one automation covers every zone instead of one per colour:
+
+```yaml
+alias: Heart rate colours the light
+triggers:
+  - trigger: state
+    entity_id: sensor.hyperate_desktop_heart_rate_zone
+actions:
+  - action: light.turn_on
+    target: { entity_id: light.office }
+    data:
+      rgb_color: >-
+        {% set c = state_attr('sensor.hyperate_desktop_heart_rate_zone', 'zone_color') or '#ffffff' %}
+        [{{ c[1:3]|int(base=16) }}, {{ c[3:5]|int(base=16) }}, {{ c[5:7]|int(base=16) }}]
+```
 
 ---
 
@@ -78,9 +152,16 @@ HypeRate-Desktop-V2/
 ├── src/
 │   ├── main.js                  # Electron main process
 │   ├── preload.js               # Secure IPC bridge (contextBridge)
+│   ├── ble.js                   # Bluetooth heart rate straps
+│   ├── discord.js               # Discord Rich Presence
+│   ├── mqtt.js                  # Home Assistant / MQTT output
+│   ├── moments.js               # Heart rate statistics for a game moment
+│   ├── games/
+│   │   ├── wow/                 # Combat log parser, fight tracker, session insights
+│   │   └── lol/                 # Riot Live Client Data API, match tracker
 │   └── windows/
 │       ├── settings/index.html  # Settings & customization UI
-│       ├── overlay/index.html   # Floating BPM overlay
+│       ├── overlay/index.html   # Floating BPM overlay + game cards
 │       └── ftue/index.html      # First-run setup wizard
 ├── assets/                      # App icons (icns, ico, png)
 ├── landing/                     # Marketing landing page
