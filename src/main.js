@@ -450,7 +450,7 @@ ipcMain.on('ws-connect', (_, id) => {
   if (bleConnected) ble.disconnect();
   wsConnect(id);
 });
-ipcMain.on('ws-disconnect', () => wsDisconnect());
+ipcMain.on('ws-disconnect', () => { wsDisconnect(); sessions.close(); });
 
 ipcMain.on('launch-overlay', (_, config) => {
   if (!overlayWindow) createOverlayWindow();
@@ -710,7 +710,7 @@ ipcMain.on('ble-connect', (_, { id, name }) => {
   if (ws) wsDisconnect();
   ble.connect(id, name);
 });
-ipcMain.on('ble-disconnect',        ()              => ble.disconnect());
+ipcMain.on('ble-disconnect',        ()              => { ble.disconnect(); sessions.close(); });
 ipcMain.on('ble-set-auto-reconnect',(_, enabled)   => ble.setAutoReconnect(enabled));
 
 // ── Discord ──────────────────────────────────────────────────────────────────

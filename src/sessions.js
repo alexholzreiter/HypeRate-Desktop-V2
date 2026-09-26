@@ -88,6 +88,7 @@ function check(now = Date.now()) {
   if (current.dirty && current.lastAt - current.startedAt >= options.minLengthMs) {
     writeFile(current);
     current.dirty = false;
+    onChange?.('saved');
   }
 }
 
@@ -117,23 +118,37 @@ function read(startedAt) {
   try { return JSON.parse(fs.readFileSync(file(startedAt), 'utf8')); } catch { return null; }
 }
 
+function summary(startedAt, endedAt, game, bpm, events, live = false) {
+  const werte = bpm.filter(b => b != null);
+  if (!werte.length) return null;
+  return {
+    startedAt, endedAt, game, live,
+    minutes: Math.round((endedAt - startedAt) / 60000),
+    avg: Math.round(werte.reduce((a, b) => a + b, 0) / werte.length),
+    peak: Math.max(...werte),
+    events,
+  };
+}
+
 // Summaries for the settings list, newest first. Never loads a whole session into the answer.
+// The running one is in here too: without it the list stays empty for minutes while recording,
+// which reads as "nothing is happening".
 function list() {
-  return files().map(f => {
-    const s = read(Number(path.basename(f, '.json')));
-    if (!s) return null;
-    const werte = s.bpm.filter(b => b != null);
-    if (!werte.length) return null;
-    return {
-      startedAt: s.startedAt,
-      endedAt: s.endedAt,
-      game: s.game,
-      minutes: Math.round((s.endedAt - s.startedAt) / 60000),
-      avg: Math.round(werte.reduce((a, b) => a + b, 0) / werte.length),
-      peak: Math.max(...werte),
-      events: s.events.length,
-    };
-  }).filter(Boolean).sort((a, b) => b.startedAt - a.startedAt);
+  const aus = files()
+    .map(f => read(Number(path.basename(f, '.json'))))
+    .filter(Boolean)
+    .map(s => summary(s.startedAt, s.endedAt, s.game, s.bpm, s.events.length))
+    .filter(Boolean);
+
+  if (current) {
+    const laufend = summary(current.startedAt, current.lastAt, dominantGame(current.events),
+      current.bpm, current.events.length, true);
+    if (laufend) {
+      const i = aus.findIndex(s => s.startedAt === laufend.startedAt);
+      if (i >= 0) aus[i] = laufend; else aus.push(laufend);      // die frischere Fassung gewinnt
+    }
+  }
+  return aus.sort((a, b) => b.startedAt - a.startedAt);
 }
 
 function prune(now = Date.now()) {

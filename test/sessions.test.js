@@ -70,6 +70,22 @@ const liste = sessions.list();
 check('the list has the one real session', liste.length === 1 && liste[0].startedAt === T, JSON.stringify(liste));
 check('the summary counts correctly', liste[0].peak === 140 && liste[0].avg > 0 && liste[0].events === 2, JSON.stringify(liste[0]));
 
+// ── a running session is visible right away, not only once it ends ──
+const T5 = T + 500 * MIN;
+sessions.recordBpm(101, T5);
+sessions.recordBpm(133, T5 + 30000);
+const laufend = sessions.list().find(x => x.startedAt === T5);
+check('the running session is already in the list', !!laufend, JSON.stringify(sessions.list()));
+check('and it is marked as running', laufend?.live === true && laufend.peak === 133, JSON.stringify(laufend));
+check('it is not on disk yet', !fs.existsSync(path.join(dir, `${T5}.json`)));
+
+// ── closing on purpose does not wait for the silence ──
+sessions.recordBpm(120, T5 + 4 * MIN);
+sessions.close();
+check('an explicit close ends it at once', sessions.current === null && fs.existsSync(path.join(dir, `${T5}.json`)));
+check('and it is no longer marked as running', sessions.list().find(x => x.startedAt === T5)?.live !== true);
+fs.unlinkSync(path.join(dir, `${T5}.json`));
+
 // ── switching off closes what is running ──
 const T3 = T + 200 * MIN;
 sessions.recordBpm(105, T3);
