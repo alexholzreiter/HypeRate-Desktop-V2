@@ -38,8 +38,12 @@
     .panel-left-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
     .panel-left-scroll::-webkit-scrollbar-track{background:transparent;}
     .panel-right{flex:1;display:flex;flex-direction:column;gap:12px;padding:13px 13px 13px 10px;overflow-y:auto;min-width:0;}
-    .panel-right::-webkit-scrollbar{width:3px;}
-    .panel-right::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+    /* Ohne das quetscht die Flex-Spalte ihre Karten zusammen, statt zu scrollen, und das
+       overflow:hidden der Karte schneidet den eigenen Inhalt ab. Links steht das schon. */
+    .panel-right > *{flex-shrink:0;}
+    .panel-right::-webkit-scrollbar{width:4px;}
+    .panel-right::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+    .panel-right::-webkit-scrollbar-track{background:transparent;}
 
     .status-bar{display:flex;align-items:center;gap:10px;padding:9px 13px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);}
     .dot{width:8px;height:8px;border-radius:50%;background:var(--text-dim);flex-shrink:0;transition:all .3s;}
@@ -82,6 +86,24 @@
     select{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;width:100%;cursor:pointer;}
     select:focus{border-color:var(--accent);}
     .crow{display:flex;align-items:center;gap:9px;}
+    /* Herzstil-Auswahl: aufklappbares Raster statt Textliste. Die SVGs sind 1em groß,
+       ihre Größe kommt also über font-size, nicht über width. */
+    .hpick{position:relative;}
+    .hpick-btn{display:flex;align-items:center;gap:10px;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 11px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;text-align:left;}
+    .hpick-btn:hover{border-color:var(--accent);}
+    .hpick-cur{width:24px;font-size:20px;color:var(--accent);flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+    .hpick-name{flex:1;}
+    .hpick-chev{width:12px;height:12px;color:var(--text-dim);flex-shrink:0;transition:transform .18s;}
+    .hpick.open .hpick-chev{transform:rotate(180deg);}
+    .hpick-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:6px;padding:8px;max-height:360px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:10px;}
+    .hpick-grid[hidden]{display:none;}   /* sonst schlägt display:grid die Browser-Regel für [hidden] */
+    .hpick-grid::-webkit-scrollbar{width:4px;}
+    .hpick-grid::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+    .hpick-item{display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 2px 7px;border:1px solid transparent;border-radius:8px;background:none;color:var(--text-dim);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:9px;line-height:1.25;text-align:center;}
+    .hpick-item .g{height:30px;font-size:26px;color:var(--text);display:flex;align-items:center;justify-content:center;}
+    .hpick-item:hover{background:var(--surface);color:var(--text);}
+    .hpick-item[aria-selected="true"]{border-color:var(--accent);background:var(--surface2);color:var(--text);}
+    .hpick-item[aria-selected="true"] .g{color:var(--accent);}
     .chex{flex:1;font-family:'Space Mono',monospace;}
     .cardchk{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--text-dim);cursor:pointer;user-select:none;padding:1px 0;}
     .cardchk input{width:13px;height:13px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;}
@@ -604,7 +626,15 @@
           <select id="heartAnim" onchange="live()"><option value="pulse">Pulse (classic)</option><option value="beat">Beat (double)</option><option value="bounce">Bounce</option><option value="shake">Shake</option><option value="glow">Glow</option><option value="none">None</option></select>
         </div>
         <div class="field"><label data-i18n="heart_style">Heart Style</label>
-          <select id="heartStyle" onchange="live()"><option value="emoji">❤️ Emoji</option><option value="minimal">· Minimal dot</option></select>
+          <select id="heartStyle" onchange="live()" hidden></select>
+          <div class="hpick" id="heartPicker">
+            <button type="button" class="hpick-btn" id="heartStyleBtn" onclick="toggleHeartPicker()" aria-expanded="false">
+              <span class="hpick-cur" id="heartStyleCur"></span>
+              <span class="hpick-name" id="heartStyleName"></span>
+              <svg class="hpick-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5l3 3 3-3"/></svg>
+            </button>
+            <div class="hpick-grid" id="heartStyleGrid" hidden></div>
+          </div>
         </div>
         <div class="field"><label data-i18n="color">Color</label>
           <div class="crow"><input type="color" id="heartColor" value="#2563eb" onchange="syncHex('heartColor','heartColorHex');live()" /><input type="text" id="heartColorHex" value="#2563eb" class="chex" oninput="syncPicker('heartColor','heartColorHex')" /></div>
@@ -988,6 +1018,7 @@
     sv('bgOpacity','bgOpacityV','%'); sv('borderRadius','borderRadiusV','px'); sv('wowScale','wowScaleV','%'); sv('lolScale','lolScaleV','%');
     if(c.zonesEnabled!==undefined){$('zonesEnabled').checked=c.zonesEnabled;onZonesToggle(false);}
     syncZoneColorHint();
+    syncHeartPicker();
     if(c.zonesAffectFont!==undefined&&$('zonesAffectFont'))$('zonesAffectFont').checked=c.zonesAffectFont;
     if(c.zones&&c.zones.length) renderZones(c.zones);
   }
@@ -1240,20 +1271,82 @@
 
   // Sind Zonen an, ersetzt die Zonenfarbe die Herzfarbe. Das gehört dorthin, wo man die
   // Farbe einstellt, und nicht erst ins Overlay.
-  // Die Formen kommen aus assets/hearts, also baut sich die Liste selbst auf.
-  // Emoji und der Punkt sind Sonderfälle ohne SVG und bleiben Anfang und Ende.
+  // Die Formen kommen aus assets/hearts. Sichtbar ist ein Raster mit Vorschaubildern,
+  // das <select> dahinter bleibt versteckt als Wertspeicher, damit getConfig und
+  // applyConfigToForm unverändert weiterarbeiten.
+  // Emoji und der Punkt sind Sonderfälle ohne SVG und stehen am Anfang und am Ende.
+  let HEART_ENTRIES = {};
+
   function fillHeartStyles(){
-    const sel = $('heartStyle'), shapes = window.HEART_SHAPES || {};
-    const minimal = sel.querySelector('option[value="minimal"]');
-    Object.entries(shapes)
-      .sort((a, b) => a[1].label.localeCompare(b[1].label))
-      .forEach(([id, shape]) => {
-        const o = document.createElement('option');
-        o.value = id;
-        o.textContent = shape.label;
-        sel.insertBefore(o, minimal);
-      });
+    const sel = $('heartStyle'), grid = $('heartStyleGrid'), shapes = window.HEART_SHAPES || {};
+    const eintraege = [
+      ['emoji',   { label: 'Emoji',       html: '❤️' }],
+      ...Object.entries(shapes)
+        .sort((a, b) => a[1].label.localeCompare(b[1].label))
+        .map(([id, shape]) => [id, { label: shape.label, html: shape.svg }]),
+      ['minimal', { label: 'Minimal dot', html: '<span style="display:block;width:.6em;height:.6em;border-radius:50%;background:currentColor"></span>' }],
+    ];
+
+    sel.replaceChildren();
+    grid.replaceChildren();
+    for (const [id, e] of eintraege) {
+      const o = document.createElement('option');
+      o.value = id; o.textContent = e.label;
+      sel.appendChild(o);
+
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'hpick-item';
+      b.dataset.id = id;
+      b.title = e.label;
+      b.innerHTML = '<span class="g">' + e.html + '</span><span>' + e.label + '</span>';
+      b.addEventListener('click', () => pickHeartStyle(id));
+      grid.appendChild(b);
+    }
+    HEART_ENTRIES = Object.fromEntries(eintraege);
+    syncHeartPicker();
   }
+
+  // Knopf und Markierung an den aktuellen Wert angleichen
+  function syncHeartPicker(){
+    const id = v('heartStyle'), e = HEART_ENTRIES[id];
+    if (!e) return;
+    $('heartStyleCur').innerHTML = e.html;
+    $('heartStyleName').textContent = e.label;
+    for (const b of $('heartStyleGrid').children) {
+      b.setAttribute('aria-selected', String(b.dataset.id === id));
+    }
+  }
+
+  function pickHeartStyle(id){
+    $('heartStyle').value = id;
+    syncHeartPicker();
+    closeHeartPicker();
+    live();
+  }
+
+  function toggleHeartPicker(){
+    $('heartStyleGrid').hidden ? openHeartPicker() : closeHeartPicker();
+  }
+
+  function openHeartPicker(){
+    $('heartStyleGrid').hidden = false;
+    $('heartPicker').classList.add('open');
+    $('heartStyleBtn').setAttribute('aria-expanded', 'true');
+    const gewaehlt = $('heartStyleGrid').querySelector('[aria-selected="true"]');
+    if (gewaehlt) gewaehlt.scrollIntoView({ block: 'nearest' });
+  }
+
+  function closeHeartPicker(){
+    $('heartStyleGrid').hidden = true;
+    $('heartPicker').classList.remove('open');
+    $('heartStyleBtn').setAttribute('aria-expanded', 'false');
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!$('heartPicker').contains(e.target)) closeHeartPicker();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeHeartPicker(); });
 
   function syncZoneColorHint(){
     const h = $('heartColorZoneHint');
