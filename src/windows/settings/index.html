@@ -565,9 +565,9 @@
       </div>
     </div>
 
-    <div class="hotkey-badge">
+    <div class="hotkey-badge" id="hotkeyBadge">
       <span>⌨️ <span data-i18n="hotkey_label">Toggle overlay:</span></span>
-      <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>
+      <span id="hotkeyKeys"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd></span>
     </div>
 
     <div class="card">
@@ -807,6 +807,7 @@
       lol_preview_all:'All cards (one after another)', lol_preview_hint:'League look active — use the preview buttons in the League of Legends card.',
       lol_in_game:'In game — {champion}',
       lol_info_html:'Shows your heart rate at pentakills, close calls, deaths and objectives in League of Legends. <br><strong>Nothing to set up:</strong> the game itself provides the data while a match is running — no addon, nothing is changed in the game.<br><a href="#" onclick="window.electronAPI.openExternal(LOL_GUIDE_URL);return false;" style="color:var(--accent3);text-decoration:none;">Read the guide ↗</a>',
+      hotkey_taken:'blocked by another app',
       wow_info_html:'Shows your heart rate at boss kills, close calls and deaths in WoW, plus session highlights like your most intense enemy. <br><strong>Important:</strong> enable <strong>Advanced Combat Logging</strong> once in the WoW settings and type <code style="color:var(--accent3);font-size:10.5px;">/combatlog</code> after every login.<br><a href="#" onclick="window.electronAPI.openExternal(WOW_GUIDE_URL);return false;" style="color:var(--accent3);text-decoration:none;">How to set it up ↗</a>',
     },
     de: {
@@ -880,6 +881,7 @@
       lol_preview_all:'Alle Karten (nacheinander)', lol_preview_hint:'League-Look aktiv — Vorschau über die Buttons in der League-of-Legends-Karte.',
       lol_in_game:'Im Spiel — {champion}',
       lol_info_html:'Zeigt deinen Puls bei Pentakills, knappen Kämpfen, Toden und Zielen in League of Legends. <br><strong>Nichts einzurichten:</strong> Das Spiel liefert die Daten selbst, solange eine Partie läuft — kein Addon, am Spiel wird nichts verändert.<br><a href="#" onclick="window.electronAPI.openExternal(LOL_GUIDE_URL);return false;" style="color:var(--accent3);text-decoration:none;">Anleitung ↗</a>',
+      hotkey_taken:'von einem anderen Programm belegt',
       wow_info_html:'Zeigt deinen Puls bei Boss-Kills, knappen Kämpfen und Toden in WoW, dazu Session-Highlights wie deinen intensivsten Gegner. <br><strong>Wichtig:</strong> Aktiviere einmalig <strong>Advanced Combat Logging</strong> in den WoW-Einstellungen und gib nach jedem Login <code style="color:var(--accent3);font-size:10.5px;">/combatlog</code> ein.<br><a href="#" onclick="window.electronAPI.openExternal(WOW_GUIDE_URL);return false;" style="color:var(--accent3);text-decoration:none;">Anleitung ↗</a>',
     },
   };
@@ -1854,6 +1856,14 @@
     applyLang(saved.lang || 'en');
     $('tlVersion').textContent = 'v' + (saved.version || '?');
     if (saved.scaleFactor && saved.scaleFactor > 1.5) document.documentElement.style.fontSize = '15px';
+    if (saved.hotkey) {
+      // macOS hört auf Cmd, nicht auf Ctrl – die Tasten kommen deshalb aus dem Hauptprozess
+      $('hotkeyKeys').innerHTML = saved.hotkey.keys.map(k => `<kbd>${k}</kbd>`).join('+');
+      if (!saved.hotkey.registered) {
+        $('hotkeyKeys').innerHTML += ` <span style="color:var(--danger,#e2504a);" data-i18n="hotkey_taken">blocked</span>`;
+        $('hotkeyBadge').title = t('hotkey_taken');
+      }
+    }
     if (saved.hrId) $('hrId').value = saved.hrId;
     if (saved.config) applyConfigToForm(saved.config);
     applyOscSettings(saved);

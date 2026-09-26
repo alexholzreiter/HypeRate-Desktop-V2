@@ -368,9 +368,12 @@ function broadcastBpm(bpm, source) {
   if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle(` ${bpm}`);
 }
 
-// ── Hotkey: Ctrl+Shift+H toggles overlay visibility ──
+// ── Hotkey: toggles overlay visibility. CommandOrControl is Cmd on macOS, Ctrl elsewhere ──
+const HOTKEY = 'CommandOrControl+Shift+H';
+let hotkeyRegistered = false;
+
 function registerHotkey() {
-  globalShortcut.register('CommandOrControl+Shift+H', () => {
+  hotkeyRegistered = globalShortcut.register(HOTKEY, () => {
     if (!overlayWindow) return;
     if (overlayWindow.isVisible()) {
       overlayWindow.hide();
@@ -378,6 +381,17 @@ function registerHotkey() {
       overlayWindow.show();
     }
   });
+  // Another app may already own the combination; say so instead of failing quietly
+  if (!hotkeyRegistered) console.warn(`[hotkey] ${HOTKEY} is taken by another app`);
+  return hotkeyRegistered;
+}
+
+// What the settings panel should print on the keys
+function hotkeyInfo() {
+  return {
+    keys: [process.platform === 'darwin' ? '⌘' : 'Ctrl', 'Shift', 'H'],
+    registered: hotkeyRegistered,
+  };
 }
 
 // ── App ready ──
@@ -500,7 +514,7 @@ ipcMain.on('resize-overlay', (_, { width, height }) => {
 });
 
 
-ipcMain.handle('load-settings', () => ({ ...loadStore(), version: VERSION, scaleFactor: scaleFactor() }));
+ipcMain.handle('load-settings', () => ({ ...loadStore(), version: VERSION, scaleFactor: scaleFactor(), hotkey: hotkeyInfo() }));
 
 // OSC test — sends a dummy BPM of 72 to verify the connection
 ipcMain.handle('test-osc', (_, { host, port, param, chatbox, chatboxFormat }) => {
