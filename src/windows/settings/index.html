@@ -88,6 +88,15 @@
     .crow{display:flex;align-items:center;gap:9px;}
     /* Herzstil-Auswahl: aufklappbares Raster statt Textliste. Die SVGs sind 1em groß,
        ihre Größe kommt also über font-size, nicht über width. */
+    .sesslist{display:flex;flex-direction:column;gap:4px;max-height:168px;overflow-y:auto;}
+    .sesslist::-webkit-scrollbar{width:4px;}
+    .sesslist::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+    .sess{display:flex;align-items:center;gap:9px;padding:7px 9px;background:var(--surface);border:1px solid var(--border);border-radius:7px;font-size:11px;}
+    .sess .when{flex:1;color:var(--text);}
+    .sess .num{font-family:'Space Mono',monospace;color:var(--text-dim);}
+    .sess .num b{color:var(--text);font-weight:400;}
+    .sess .game{font-size:13px;}
+    .sessempty{font-size:11px;color:var(--text-dim);padding:4px 2px;}
     .hpick{position:relative;}
     .hpick-btn{display:flex;align-items:center;gap:10px;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 11px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;text-align:left;}
     .hpick-btn:hover{border-color:var(--accent);}
@@ -581,6 +590,39 @@
       </div>
     </div>
 
+    <!-- ── Sessions Card ── -->
+    <div class="card collapsible">
+      <div class="ch" onclick="toggleCard(this)"><span class="ch-emoji">📈</span> <span data-i18n="sessions_heading">Sessions</span><span class="dot ch-dot" id="sessionsHeadDot" hidden></span><svg class="ch-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5l3 3 3-3"/></svg></div>
+      <div class="cb" style="gap:10px;">
+        <div class="trow">
+          <span class="tl" data-i18n="sessions_toggle">Record sessions</span>
+          <label class="tog"><input type="checkbox" id="sessionsEnabled" onchange="sessionsToggle()" /><span class="ts"></span></label>
+        </div>
+        <div id="sessionsBody" style="display:none;flex-direction:column;gap:9px;">
+          <div class="field">
+            <label data-i18n="sessions_end">Session ends after</label>
+            <div class="srow"><input type="range" id="sessionsEndAfterMin" min="2" max="30" value="5" oninput="sv('sessionsEndAfterMin','sessionsEndAfterMinV',' min')" onchange="saveSessions()" /><span class="sv" id="sessionsEndAfterMinV">5 min</span></div>
+          </div>
+          <div class="field">
+            <label data-i18n="sessions_min">Discard anything shorter than</label>
+            <div class="srow"><input type="range" id="sessionsMinLengthMin" min="1" max="15" value="3" oninput="sv('sessionsMinLengthMin','sessionsMinLengthMinV',' min')" onchange="saveSessions()" /><span class="sv" id="sessionsMinLengthMinV">3 min</span></div>
+          </div>
+          <div class="field">
+            <label data-i18n="sessions_keep">Keep sessions for</label>
+            <div class="srow"><input type="range" id="sessionsKeepDays" min="7" max="365" value="90" oninput="sv('sessionsKeepDays','sessionsKeepDaysV',' d')" onchange="saveSessions()" /><span class="sv" id="sessionsKeepDaysV">90 d</span></div>
+          </div>
+          <div class="field">
+            <label data-i18n="sessions_recent">Recent sessions</label>
+            <div id="sessionList" class="sesslist"></div>
+          </div>
+          <button class="btn bs" onclick="deleteSessions()" style="font-size:11px;padding:6px 4px;" data-i18n="sessions_delete">Delete all sessions</button>
+          <div style="font-size:11px;color:var(--text-dim);line-height:1.6;background:var(--surface);border-radius:7px;padding:8px 10px;" data-i18n-html="sessions_info_html">
+            Records your heart rate while it is coming in.
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="card" id="newsCard">
       <div class="ch"><span>📰</span> <span data-i18n="news">News</span></div>
       <div id="newsBody" style="display:flex;flex-direction:column;">
@@ -785,6 +827,12 @@
       show_label:'Show BPM label', show_border:'Show border',
       zones_enable:'Enable zone colors', zones_font:'Affect font color',
       color_zone_hint:'Heart rate zones are on, so the zone colour replaces this one as soon as a heart rate arrives. <a href="#" onclick="tab(\'zones\');return false;" style="color:var(--accent3);text-decoration:none;">Open zones ↗</a>',
+      sessions_heading:'Sessions', sessions_toggle:'Record sessions', sessions_end:'Session ends after',
+      sessions_min:'Discard anything shorter than', sessions_keep:'Keep sessions for',
+      sessions_recent:'Recent sessions', sessions_none:'Nothing recorded yet',
+      sessions_delete:'🗑 Delete all sessions', sessions_today:'Today',
+      sessions_confirm:'Delete every recorded session? This cannot be undone.', locale:'en-GB',
+      sessions_info_html:'Records your heart rate for as long as it is coming in, plus the game moments that happen. Stored on this computer only, and removed once the retention above runs out.',
       preview:'Preview', hotkey_label:'Toggle overlay:',
       startup:'Launch at startup', news:'News',
       show_overlay:'Show Overlay', hide_overlay:'Close Overlay', feedback:'Feedback',
@@ -860,6 +908,12 @@
       show_label:'BPM-Label anzeigen', show_border:'Rahmen anzeigen',
       zones_enable:'Zonenfarben aktivieren', zones_font:'Schriftfarbe beeinflussen',
       color_zone_hint:'Zonen sind an, deshalb ersetzt die Zonenfarbe diese Farbe, sobald ein Puls ankommt. <a href="#" onclick="tab(\'zones\');return false;" style="color:var(--accent3);text-decoration:none;">Zonen öffnen ↗</a>',
+      sessions_heading:'Sitzungen', sessions_toggle:'Sitzungen aufzeichnen', sessions_end:'Sitzung endet nach',
+      sessions_min:'Kürzere verwerfen als', sessions_keep:'Sitzungen behalten',
+      sessions_recent:'Letzte Sitzungen', sessions_none:'Noch nichts aufgezeichnet',
+      sessions_delete:'🗑 Alle Sitzungen löschen', sessions_today:'Heute',
+      sessions_confirm:'Wirklich alle aufgezeichneten Sitzungen löschen? Das lässt sich nicht rückgängig machen.', locale:'de-DE',
+      sessions_info_html:'Zeichnet deinen Puls auf, solange einer ankommt, dazu die Spielmomente. Bleibt auf diesem Rechner und wird nach der oben eingestellten Zeit gelöscht.',
       preview:'Vorschau', hotkey_label:'Overlay ein/aus:',
       startup:'Mit Computer starten', news:'Neuigkeiten',
       show_overlay:'Overlay anzeigen', hide_overlay:'Overlay schließen', feedback:'Feedback',
@@ -1272,6 +1326,56 @@
 
   // Sind Zonen an, ersetzt die Zonenfarbe die Herzfarbe. Das gehört dorthin, wo man die
   // Farbe einstellt, und nicht erst ins Overlay.
+  // ── Sessions ──────────────────────────────────────────────────────────────
+  const SPIEL_ZEICHEN = { wow: '⚔️', lol: '🐉' };
+
+  function sessionsToggle(doLive = true){
+    const an = cb('sessionsEnabled');
+    $('sessionsBody').style.display = an ? 'flex' : 'none';
+    syncHeadDot('sessionsHeadDot', an ? 'connected' : '', an);
+    if (doLive) { saveSessions(); renderSessions(); }
+  }
+
+  function saveSessions(){
+    window.electronAPI.sessionsSetOptions({
+      sessionsEnabled: cb('sessionsEnabled'),
+      sessionsEndAfterMin:  +v('sessionsEndAfterMin'),
+      sessionsMinLengthMin: +v('sessionsMinLengthMin'),
+      sessionsKeepDays:     +v('sessionsKeepDays'),
+    });
+  }
+
+  async function renderSessions(){
+    const box = $('sessionList');
+    if (!box) return;
+    const liste = await window.electronAPI.sessionsList().catch(() => []);
+    if (!liste.length) {
+      box.innerHTML = `<div class="sessempty">${t('sessions_none')}</div>`;
+      return;
+    }
+    const heute = new Date().toDateString();
+    box.innerHTML = liste.slice(0, 20).map(s => {
+      const d = new Date(s.startedAt);
+      const wann = d.toDateString() === heute
+        ? t('sessions_today') + ' ' + d.toLocaleTimeString(t('locale'), { hour: '2-digit', minute: '2-digit' })
+        : d.toLocaleDateString(t('locale'), { day: 'numeric', month: 'short' });
+      const dauer = s.minutes >= 60 ? `${Math.floor(s.minutes / 60)}h ${String(s.minutes % 60).padStart(2, '0')}` : `${s.minutes} min`;
+      return `<div class="sess"><span class="game">${SPIEL_ZEICHEN[s.game] || '·'}</span>` +
+             `<span class="when">${wann}</span>` +
+             `<span class="num">${dauer}</span>` +
+             `<span class="num">⌀<b>${s.avg}</b></span>` +
+             `<span class="num">▲<b>${s.peak}</b></span></div>`;
+    }).join('');
+  }
+
+  async function deleteSessions(){
+    if (!confirm(t('sessions_confirm'))) return;
+    await window.electronAPI.sessionsDelete();
+    renderSessions();
+  }
+
+  window.electronAPI.onSessionsChanged(() => renderSessions());
+
   // Die Formen kommen aus assets/hearts. Sichtbar ist ein Raster mit Vorschaubildern,
   // das <select> dahinter bleibt versteckt als Wertspeicher, damit getConfig und
   // applyConfigToForm unverändert weiterarbeiten.
@@ -1987,6 +2091,14 @@
     applyLang(saved.lang || 'en');
     $('tlVersion').textContent = 'v' + (saved.version || '?');
     if (saved.scaleFactor && saved.scaleFactor > 1.5) document.documentElement.style.fontSize = '15px';
+    for (const id of ['sessionsEndAfterMin', 'sessionsMinLengthMin', 'sessionsKeepDays']) {
+      if (saved[id]) $(id).value = saved[id];
+      sv(id, id + 'V', id === 'sessionsKeepDays' ? ' d' : ' min');   // auch ohne gespeicherten Wert
+    }
+    if (saved.sessionsEnabled) $('sessionsEnabled').checked = true;
+    sessionsToggle(false);
+    renderSessions();
+
     if (saved.hotkey) {
       // macOS hört auf Cmd, nicht auf Ctrl – die Tasten kommen deshalb aus dem Hauptprozess
       $('hotkeyKeys').innerHTML = saved.hotkey.keys.map(k => `<kbd>${k}</kbd>`).join('+');

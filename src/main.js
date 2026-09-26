@@ -9,6 +9,7 @@ const moments = require('./moments');
 const wow     = require('./games/wow');
 const lol     = require('./games/lol');
 const mqtt    = require('./mqtt');
+const sessions = require('./sessions');
 const systemFonts = require('./system-fonts');
 
 // ── OSC ──────────────────────────────────────────────────────────────────────
@@ -353,6 +354,7 @@ function sendToOverlay(ch, d)  { if (alive(overlayWindow))  overlayWindow.webCon
 function emitGameMoment(moment) {
   sendToOverlay('game-moment', moment);
   mqtt.publishMoment(moment);
+  sessions.recordMoment(moment);
 }
 
 // Every BPM sample (cloud or BLE) goes through here
@@ -362,6 +364,7 @@ function broadcastBpm(bpm, source) {
   sendHeartRateOsc(bpm);
   discordBpmUpdate(bpm);
   mqtt.publishBpm(bpm, source, zoneForBpm(bpm) || {});
+  sessions.recordBpm(bpm);
   moments.recordBpm(bpm);
   if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle(` ${bpm}`);
 }
@@ -436,7 +439,7 @@ app.whenReady().then(() => {
   }
 });
 
-app.on('before-quit', () => { app.isQuitting = true; });
+app.on('before-quit', () => { app.isQuitting = true; sessions.stop(); });   // die letzte halbe Minute soll nicht verloren gehen
 app.on('will-quit', () => globalShortcut.unregisterAll());
 // App lives in tray — never auto-quit when windows are closed
 app.on('window-all-closed', () => {});
@@ -555,6 +558,31 @@ ipcMain.handle('test-osc', (_, { host, port, param, chatbox, chatboxFormat }) =>
 ipcMain.on('save-settings', (_, data) => {
   const store = loadStore(); Object.assign(store, data); saveStore(store);
   if (data.lang && tray) tray.setContextMenu(buildMenu());
+  if (data.config?.zones) sessions.setOptions({ zones: data.config.zones });
+});
+
+// ── Sessions ─────────────────────────────────────────────────────────────────
+function sessionOptions(store = loadStore()) {
+  return {
+    enabled: !!store.sessionsEnabled,
+    endAfterMs:  (Number(store.sessionsEndAfterMin)  || 5)  * 60000,
+    minLengthMs: (Number(store.sessionsMinLengthMin) || 3)  * 60000,
+    keepDays:     Number(store.sessionsKeepDays)     || 90,
+    zones: store.config?.zones || [],
+  };
+}
+
+sessions.init({
+  dir: path.join(app.getPath('userData'), 'sessions'),
+  onChange: (was) => sendToSettings('sessions-changed', { was }),
+});
+sessions.setOptions(sessionOptions());
+
+ipcMain.handle('sessions-list',   () => sessions.list());
+ipcMain.handle('sessions-delete', () => { sessions.deleteAll(); return true; });
+ipcMain.on('sessions-set-options', (_, data = {}) => {
+  const store = loadStore(); Object.assign(store, data); saveStore(store);
+  sessions.setOptions(sessionOptions(store));
 });
 
 ipcMain.handle('get-autostart', () => app.getLoginItemSettings().openAtLogin);

@@ -58,4 +58,36 @@ function build(result) {
   };
 }
 
-module.exports = { recordBpm, build, heartRateStats, bpmAt, averageBpm };
+// Which style a moment has, and the type name every output uses for it.
+// The MQTT entity and the session recorder must agree here, so it lives in one place.
+const EVENT_TYPES = {
+  boss: 'boss_defeated', close: 'close_call', death: 'death',
+  intense: 'intense_enemy', peak: 'peak_heart_rate', closest: 'closest_call',
+  nemesis: 'nemesis', streak: 'kill_streak',
+  penta: 'pentakill', multikill: 'multikill', kill: 'kill', firstblood: 'first_blood',
+  objective: 'objective', steal: 'objective_stolen', ace: 'ace', win: 'victory', lose: 'defeat',
+};
+
+// A WoW fight result arrives without a card; the overlay titles it from the type, so do we.
+const RESULT_TITLES = { close: 'Close Call', boss: 'Boss Defeated', death: 'You Died' };
+
+// moment: a game result from build(), or { game, card } for ready-made cards.
+// Returns null for anything no output knows how to name.
+function describe(moment) {
+  if (!moment) return null;
+  const card = moment.card || null;
+  const style = card?.style || moment.type;
+  const type = EVENT_TYPES[style];
+  if (!type) return null;
+  const vs = moment.killer || moment.by;
+  return {
+    style,                                     // 'boss', 'penta', … as the overlay knows it
+    type,                                      // 'boss_defeated', 'pentakill', … for outputs
+    game: moment.game || card?.game || 'wow',
+    title: card?.title || RESULT_TITLES[style] || null,
+    detail: card?.kicker || moment.name || (vs?.name ? `vs. ${vs.name}` : null),
+    bpm: moment.peakBpm ?? null,
+  };
+}
+
+module.exports = { recordBpm, build, heartRateStats, bpmAt, averageBpm, describe, EVENT_TYPES };

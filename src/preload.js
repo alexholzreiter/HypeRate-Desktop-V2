@@ -55,6 +55,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   wowTest:            (type)    => ipcRenderer.send('wow-test', type),
   onWowStatus:        (cb)      => ipcRenderer.on('wow-status',  (_, d) => cb(d)),
 
+  sessionsList:       ()        => ipcRenderer.invoke('sessions-list'),
+  sessionsDelete:     ()        => ipcRenderer.invoke('sessions-delete'),
+  sessionsSetOptions: (opts)    => ipcRenderer.send('sessions-set-options', opts),
+  onSessionsChanged:  (cb)      => ipcRenderer.on('sessions-changed', (_, d) => cb(d)),
+
   mqttEnable:         (opts)    => ipcRenderer.send('mqtt-enable', opts),
   mqttDisable:        ()        => ipcRenderer.send('mqtt-disable'),
   mqttSetOptions:     (opts)    => ipcRenderer.send('mqtt-set-options', opts),

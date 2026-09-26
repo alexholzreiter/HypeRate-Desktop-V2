@@ -3,18 +3,13 @@
 // configured on the Home Assistant side.
 
 const mqtt = require('mqtt');
+const moments = require('./moments');
 
 const STATE_THROTTLE_MS = 1000;   // BLE can deliver several samples per second; one is plenty
 const RECONNECT_MS      = 5000;
 
-// Which game moments become events, and the type Home Assistant sees
-const EVENT_TYPES = {
-  boss: 'boss_defeated', close: 'close_call', death: 'death',
-  intense: 'intense_enemy', peak: 'peak_heart_rate', closest: 'closest_call',
-  nemesis: 'nemesis', streak: 'kill_streak',
-  penta: 'pentakill', multikill: 'multikill', kill: 'kill', firstblood: 'first_blood',
-  objective: 'objective', steal: 'objective_stolen', ace: 'ace', win: 'victory', lose: 'defeat',
-};
+// Which game moments become events, and the type Home Assistant sees: moments.EVENT_TYPES
+const EVENT_TYPES = moments.EVENT_TYPES;
 
 let onStatus = null;
 let client = null, options = null;
@@ -188,23 +183,12 @@ function flushState() {
   client.publish(topics().state, JSON.stringify(lastState));
 }
 
-// A WoW fight result has no card; the overlay titles it from the type and we do the same
-const RESULT_TITLES = { close: 'Close Call', boss: 'Boss Defeated', death: 'You Died' };
-
-// moment: a game result from moments.build(), or { game, card } for ready-made cards
 function publishMoment(moment) {
-  if (!options?.events || !client?.connected || !moment) return;
-  const card = moment.card || null;
-  const style = card?.style || moment.type;
-  const type = EVENT_TYPES[style];
-  if (!type) return;
-  const vs = moment.killer || moment.by;
+  if (!options?.events || !client?.connected) return;
+  const m = moments.describe(moment);
+  if (!m) return;
   const payload = {
-    event_type: type,
-    game: moment.game || card?.game || 'wow',
-    title: card?.title || RESULT_TITLES[style] || null,
-    detail: card?.kicker || moment.name || (vs?.name ? `vs. ${vs.name}` : null),
-    bpm: moment.peakBpm ?? null,
+    event_type: m.type, game: m.game, title: m.title, detail: m.detail, bpm: m.bpm,
     at: new Date().toISOString(),
   };
   // an attribute that is empty is noise in Home Assistant
