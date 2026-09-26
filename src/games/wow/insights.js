@@ -33,7 +33,7 @@ function ago(ms) {
 
 // load() → { [character]: [{ startedAt, endedAt, peakBpm, kills, deaths }] }, save(data)
 // closeCallPct: the user's CLOSE CALL threshold — Closest Call only counts fights at or below it
-function createInsights({ load, save, now = () => Date.now(), closeCallPct = 10 } = {}) {
+function createInsights({ load, save, now = () => Date.now(), closeCallPct = 10, cards = {} } = {}) {
   let stored = {};
   try { stored = load?.() || {}; } catch {}
   let session = null;
@@ -215,6 +215,7 @@ function createInsights({ load, save, now = () => Date.now(), closeCallPct = 10 
     const last = lastCardId ? CARD_ORDER.indexOf(lastCardId) : -1;
     for (let i = 1; i <= CARD_ORDER.length; i++) {
       const id = CARD_ORDER[(last + i) % CARD_ORDER.length];
+      if (cards[id] === false) continue;                      // switched off in the settings
       if (id === lastCardId && t - shown[id].at < SAME_CARD_GAP_MS) continue;
       const built = builders[id](t, shown[id]);
       if (!built?.news) continue;
@@ -232,6 +233,7 @@ function createInsights({ load, save, now = () => Date.now(), closeCallPct = 10 
   return {
     touch, addFight, addKill, addDeath, nextCard, noteCardShown,
     setCloseCallPct(pct) { closeCallPct = pct; },
+    setCards(next = {}) { cards = { ...cards, ...next }; },
     flush: () => persist(true),
     get session() { return session; },
   };

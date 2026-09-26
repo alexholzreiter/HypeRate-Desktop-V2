@@ -21,7 +21,7 @@ const LIVE_MAX_AGE_MS = 20 * 1000;        // older results/blocks are too late t
 
 let onStatus = null, onResult = null, onInsight = null, diagPath = null;
 let insights = createInsights();
-let options  = null;  // { path, closeCallPct }
+let options  = null;  // { path, closeCallPct, cards }
 let timer    = null;
 let tracker  = null;
 let current  = null;  // { file, offset, partial: Buffer, mtimeMs }
@@ -123,13 +123,14 @@ function diag(msg) {
 // ── Start / stop ─────────────────────────────────────────────────────────────
 function start(opts) {
   stop();
-  options = { path: opts.path || defaultPath(), closeCallPct: Number(opts.closeCallPct) || 10 };
+  options = { path: opts.path || defaultPath(), closeCallPct: Number(opts.closeCallPct) || 10, cards: { ...(opts.cards || {}) } };
   diagLines = unparsedLogged = blocksLogged = 0;
   if (diagPath) { try { fs.writeFileSync(diagPath, ''); } catch {} }
   diag(`start platform=${process.platform} path="${options.path}" closeCall=${options.closeCallPct}%`);
 
   info = {};
   insights.setCloseCallPct(options.closeCallPct);
+  insights.setCards(options.cards);
   tracker = createTracker({
     closeCallPct: options.closeCallPct,
     onResult: handleResult,
@@ -170,6 +171,7 @@ function setOptions(opts) {
     options.closeCallPct = Number(opts.closeCallPct) || 10;
     tracker?.setCloseCallPct(options.closeCallPct);
     insights.setCloseCallPct(options.closeCallPct);
+  insights.setCards(options.cards);
   }
 }
 
@@ -275,6 +277,10 @@ function handleResult(r) {
   const age = Date.now() - r.endedAt;
   if (age > LIVE_MAX_AGE_MS) {
     diag(`result arrived ${Math.round(age / 1000)}s late — stats only: ${JSON.stringify(r)}`);
+    return;
+  }
+  if (options?.cards?.[r.type] === false) {
+    diag(`result hidden by settings (${r.type})`);
     return;
   }
   diag(`result live: ${JSON.stringify(r)}`);

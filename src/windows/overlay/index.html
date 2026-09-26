@@ -104,6 +104,7 @@
     }
   </style>
   <link rel="stylesheet" href="wow/wow.css" />
+  <link rel="stylesheet" href="lol/lol.css" />
 </head>
 <body>
 
@@ -172,6 +173,59 @@
   </section>
 </div>
 
+<!-- League of Legends theme (hextech look; heart graphic is shared with the WoW theme) -->
+<div id="lolRoot" class="lol-root" hidden>
+  <div class="lol-drag"></div>
+  <section class="lol" id="lol">
+    <div class="lol-plate"></div>
+    <div class="lol-inner-line"></div>
+    <svg class="lol-graph" viewBox="0 0 1000 150" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="lolGraphFill" x1="0" y1="0" x2="0" y2="1"><stop offset=".25" stop-color="#0ac8b9" stop-opacity=".45"/><stop offset=".7" stop-color="#0a6f7e" stop-opacity=".18"/><stop offset="1" stop-color="#05202c" stop-opacity="0"/></linearGradient>
+        <filter id="lolGraphGlow" x="-10%" y="-80%" width="120%" height="260%"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <path class="lol-graph-area" id="lolGraphArea" fill="url(#lolGraphFill)" d="M0 105 L1000 105 L1000 150 L0 150 Z"/>
+      <polyline class="lol-graph-glow" id="lolGraphGlowLine" points="0,105 1000,105"/>
+      <polyline class="lol-graph-line" id="lolGraphLine" points="0,105 1000,105"/>
+    </svg>
+    <div class="lol-fx" aria-hidden="true">
+      <div class="lol-scan"></div>
+      <div class="lol-motes" id="lolMotes"></div>
+    </div>
+
+    <div class="lol-orb">
+      <img class="lol-heart" src="wow/heart.svg" alt="" />
+      <span class="lol-flare"></span>
+      <span class="lol-orb-ring"></span>
+      <i class="lol-gem top"></i><i class="lol-gem bottom"></i>
+    </div>
+
+    <div class="lol-bpm">
+      <div class="lol-bpm-number" id="lolBpm">--</div>
+      <div class="lol-bpm-label">BPM</div>
+    </div>
+    <div class="lol-divider"></div>
+
+    <div class="lol-detail">
+      <div class="lol-event-frame"><div class="lol-event-icon" id="lolEventIcon"></div></div>
+      <div class="lol-copy">
+        <div class="lol-headline">
+          <div class="lol-event-title" id="lolEventTitle"></div>
+          <div class="lol-event-type"><span class="lol-kicker-clip"><span class="lol-kicker-text" id="lolEventType"></span></span></div>
+        </div>
+        <div class="lol-stats" id="lolStats">
+          <div class="lol-stat"><span class="lol-stat-icon"></span><span class="lol-stat-copy"><span class="lol-stat-value"></span><span class="lol-stat-label"></span></span></div>
+          <div class="lol-stat"><span class="lol-stat-icon"></span><span class="lol-stat-copy"><span class="lol-stat-value"></span><span class="lol-stat-label"></span></span></div>
+          <div class="lol-stat"><span class="lol-stat-icon"></span><span class="lol-stat-copy"><span class="lol-stat-value"></span><span class="lol-stat-label"></span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lol-flash"></div>
+    <div class="lol-particles" id="lolParticles"></div>
+  </section>
+</div>
+
 <script>
   const widget   = document.getElementById('widget');
   const heart    = document.getElementById('heart');
@@ -192,17 +246,19 @@
     window.electronAPI.setIgnoreMouseEvents(val);
   }
 
-  window.addEventListener('mousemove', e => {
+  // Where the pointer is decides two things: whether the window swallows clicks (so the widget
+  // can be dragged) and whether a card is replayed. Positions come from real mouse events when
+  // the app is active, and from the main process's cursor watch when it is not (over a game).
+  function pointerAt(x, y) {
     if (isLinux) return;
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    const overWidget = !!el && (widget.contains(el) || wowRoot.contains(el));
+    const el = x == null ? null : document.elementFromPoint(x, y);
+    const overWidget = !!el && (widget.contains(el) || Object.values(THEMES).some(t => t.root.contains(el)));
     setIgnore(!overWidget);
-    setWowHover(!!el && wowRoot.contains(el));
-  });
-  window.addEventListener('mouseleave', () => {
-    if (!isLinux) setIgnore(true);
-    setWowHover(false);
-  });
+    setHover(!!el && !!theme && theme.root.contains(el));
+  }
+
+  window.addEventListener('mousemove', e => pointerAt(e.clientX, e.clientY));
+  window.addEventListener('mouseleave', () => pointerAt(null, null));
 
   const FONTS = {
     mono:    "'Space Mono',monospace",
@@ -363,22 +419,20 @@
     }
     // Apply zone color if zones are enabled
     if (cfg) applyZoneColor(bpm, cfg);
-    wowUpdateBpm(bpm);
+    gameUpdateBpm(bpm);
   }
 
-  // ── World of Warcraft theme ──
-  const wowRoot       = document.getElementById('wowRoot');
-  const wowEl         = document.getElementById('wow');
-  const wowBpm        = document.getElementById('wowBpm');
-  const wowParticles  = document.getElementById('wowParticles');
-  const wowStatEls    = [...document.querySelectorAll('#wowStats .wow-stat')];
-
-  const WOW_W = 500, WOW_OPEN_W = 1540, WOW_H = 190;   // design size, scaled by --wow-scale
-  const WOW_SHOW_MS = 7000, WOW_ANIM_MS = 760, WOW_GAP_MS = 350;
-  const WOW_GRAPH_POINTS = 40;
+  // ── Game themes: World of Warcraft and League of Legends ───────────────────
+  // Both use the same card engine — 500×190 design grid (open: 1540), the same queue,
+  // hover replay and BPM graph. Only their DOM and styling differ.
+  const CARD_W = 500, CARD_OPEN_W = 1540, CARD_H = 190;   // design size, scaled per theme
+  const SHOW_MS = 7000, ANIM_MS = 760, GAP_MS = 350;
+  const HOVER_OPEN_MS = 350, HOVER_CLOSE_MS = 600;
+  const GRAPH_POINTS = 40;
+  const GLOW_PAD = 48;   // room around the widget so glow animations are never clipped
 
   const svg = (vb, body) => `<svg viewBox="${vb}" fill="currentColor" aria-hidden="true">${body}</svg>`;
-  const WOW_ICONS = {
+  const ICONS = {
     crown:  svg('0 0 64 64', '<path d="M8 47 4 17l15 12L32 8l13 21 15-12-4 30z"/><path d="M9 51h46v7H9z"/>'),
     skull:  svg('0 0 64 64', '<path d="M32 5C18 5 8 15 8 29c0 8 4 14 10 18v8a3 3 0 0 0 3 3h22a3 3 0 0 0 3-3v-8c6-4 10-10 10-18C56 15 46 5 32 5z"/><circle cx="22.5" cy="30" r="6.5" fill="#07090b"/><circle cx="41.5" cy="30" r="6.5" fill="#07090b"/><path d="M32 38l-4.5 7.5h9z" fill="#07090b"/><path d="M26 50v8M32 50v8M38 50v8" stroke="#07090b" stroke-width="2.5"/>'),
     shield: svg('0 0 64 64', '<path d="M32 4l24 9v17c0 16-10 27-24 32C18 57 8 46 8 30V13z"/><path d="M35 13l-7 15 9 4-7 17" fill="none" stroke="#07090b" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>'),
@@ -390,8 +444,14 @@
     pulse:  svg('0 0 64 64', '<path d="M32 58S5 42 5 22A14 14 0 0 1 32 15a14 14 0 0 1 27 7c0 20-27 36-27 36z"/><path d="M9 33h13l4-9 6 17 5-11h18" fill="none" stroke="#07090b" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/>'),
     swords: svg('0 0 64 64', '<path d="M11 8l30 30M53 8L23 38" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><path d="M35 46l11-11M18 35l11 11M44 44l9 9M20 44l-9 9" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><circle cx="55" cy="55" r="4"/><circle cx="9" cy="55" r="4"/>'),
     bolt:   svg('0 0 64 64', '<path d="M38 3 11 37h18l-5 24 29-36H35z"/>'),
+    // League objectives
+    dragon: svg('0 0 64 64', '<path d="M4 20l14 4 6-12 8 10 8-10 6 12 14-4-8 14 6 8-16 3-10 13-10-13-16-3 6-8z"/><circle cx="26" cy="28" r="3" fill="#020b14"/><circle cx="38" cy="28" r="3" fill="#020b14"/>'),
+    herald: svg('0 0 64 64', '<path d="M32 16c15 0 26 16 26 16S47 48 32 48 6 32 6 32s11-16 26-16z"/><circle cx="32" cy="32" r="9" fill="#020b14"/><circle cx="32" cy="32" r="4"/>'),
+    baron:  svg('0 0 64 64', '<path d="M6 22h52l-7 26a6 6 0 0 1-6 5H19a6 6 0 0 1-6-5z"/><path d="M20 27l4 9 5-9 4 10 5-10 4 9 4-9" fill="none" stroke="#020b14" stroke-width="4" stroke-linejoin="round"/><path d="M12 10l8 8M52 10l-8 8" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>'),
+    tower:  svg('0 0 64 64', '<path d="M20 58h24V28H20z"/><path d="M14 28h36l-7-9H21z"/><path d="M21 19V7h6v5h6V7h6v5h6v12" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>'),
   };
-  // Card styles: live fight results + session insights
+
+  // Card styles per theme: accent colour, event text colour, frame icon, particle burst
   const WOW_STYLES = {
     close:   { accent:'#e0a542', rgb:'224,165,66',  event:'#ffe0a0', rarity:'#ffd100', icon:'shield', burst:true },
     boss:    { accent:'#ef8b3e', rgb:'239,139,62',  event:'#ffd09b', rarity:'#ff8000', icon:'crown',  burst:true },
@@ -402,120 +462,201 @@
     nemesis: { accent:'#d0443e', rgb:'208,68,62',   event:'#ffaba6', rarity:'#9d1a14', icon:'swords', burst:false },
     streak:  { accent:'#62d26f', rgb:'98,210,111',  event:'#c9f5ce', rarity:'#1eff00', icon:'bolt',   burst:true },
   };
+  const LOL_STYLES = {
+    penta:      { accent:'#f0b232', rgb:'240,178,50',  event:'#ffe9b0', icon:'crown',  burst:true },
+    multikill:  { accent:'#c8aa6e', rgb:'200,170,110', event:'#f6e8c8', icon:'swords', burst:true },
+    kill:       { accent:'#0ac8b9', rgb:'10,200,185',  event:'#d8fbf6', icon:'swords', burst:false },
+    close:      { accent:'#e8a33d', rgb:'232,163,61',  event:'#ffe2b4', icon:'shield', burst:false },
+    death:      { accent:'#c6443e', rgb:'198,68,62',   event:'#ffb8b4', icon:'skull',  burst:false },
+    firstblood: { accent:'#d64d4d', rgb:'214,77,77',   event:'#ffcdcd', icon:'drop',   burst:true },
+    objective:  { accent:'#0ac8b9', rgb:'10,200,185',  event:'#d8fbf6', icon:'dragon', burst:true },
+    steal:      { accent:'#9b6bff', rgb:'155,107,255', event:'#e6dbff', icon:'bolt',   burst:true },
+    ace:        { accent:'#4da3ff', rgb:'77,163,255',  event:'#d6e9ff', icon:'bolt',   burst:true },
+    win:        { accent:'#2fbf71', rgb:'47,191,113',  event:'#ccf5df', icon:'crown',  burst:true },
+    lose:       { accent:'#8a93a8', rgb:'138,147,168', event:'#dfe4ee', icon:'skull',  burst:false },
+  };
   const WOW_RESULT_TITLES = { close:'Close Call', boss:'Boss Defeated', death:'You Died' };
 
-  let theme = 'default', wowScale = .5;
-  let wowQueue = [], wowBusy = false, wowTimers = [];
-  let wowLastCard = null, wowHovering = false, wowHoverOpen = false, wowHoverTimer = null;
-  const WOW_HOVER_OPEN_MS = 350, WOW_HOVER_CLOSE_MS = 600;
-  const wowHistory = [];
+  function makeTheme(name, ids, styles) {
+    const el = document.getElementById(ids.el);
+    return {
+      name, styles, el, scale: .5,
+      root:      document.getElementById(ids.root),
+      bpm:       document.getElementById(ids.bpm),
+      particles: document.getElementById(ids.particles),
+      fx:        document.getElementById(ids.fx),
+      fxClass:   ids.fxClass,
+      icon:      document.getElementById(ids.icon),
+      title:     document.getElementById(ids.title),
+      kicker:    document.getElementById(ids.kicker),
+      clip:      el.querySelector(ids.clip),
+      stats:     [...el.querySelectorAll(ids.stat)],
+      graph: {
+        area: document.getElementById(ids.area),
+        line: document.getElementById(ids.line),
+        glow: document.getElementById(ids.glow),
+      },
+      scaleVar: ids.scaleVar, bodyClass: ids.bodyClass,
+    };
+  }
+
+  const THEMES = {
+    wow: makeTheme('wow', {
+      root:'wowRoot', el:'wow', bpm:'wowBpm', particles:'wowParticles', fx:'wowSparks', fxClass:'wow-spark',
+      icon:'wowEventIcon', title:'wowEventTitle', kicker:'wowEventType', clip:'.wow-kicker-clip', stat:'.wow-stat',
+      area:'wowGraphArea', line:'wowGraphLine', glow:'wowGraphGlowLine', scaleVar:'--wow-scale', bodyClass:'theme-wow',
+    }, WOW_STYLES),
+    lol: makeTheme('lol', {
+      root:'lolRoot', el:'lol', bpm:'lolBpm', particles:'lolParticles', fx:'lolMotes', fxClass:'lol-mote',
+      icon:'lolEventIcon', title:'lolEventTitle', kicker:'lolEventType', clip:'.lol-kicker-clip', stat:'.lol-stat',
+      area:'lolGraphArea', line:'lolGraphLine', glow:'lolGraphGlowLine', scaleVar:'--lol-scale', bodyClass:'theme-lol',
+    }, LOL_STYLES),
+  };
+
+  let theme = null;              // active theme, or null for the plain widget
+  let enabledThemes = [];        // games switched on in the settings
+  let queue = [], busy = false, timers = [];
+  let lastCard = null, hovering = false, hoverOpen = false, hoverTimer = null;
+  let dragging = false;          // set while the user drags the widget across the desktop
+  let lastBpmAt = 0;
+  const graphHistory = [];       // shared BPM history, drawn in whichever theme is visible
 
   function applyTheme(c) {
-    wowScale = Math.max(.3, Math.min(.8, (Number(c.wowScale) || 50) / 100));
-    wowRoot.style.setProperty('--wow-scale', wowScale);
-    const next = c.theme === 'wow' ? 'wow' : 'default';
+    const pct = (v, d) => Math.max(.3, Math.min(.8, (Number(v) || d) / 100));
+    THEMES.wow.scale = pct(c.wowScale, 50);
+    THEMES.lol.scale = pct(c.lolScale, 50);
+    for (const t of Object.values(THEMES)) t.root.style.setProperty(t.scaleVar, t.scale);
+
+    // gameThemes lists the enabled games; older configs only knew theme: 'wow'
+    enabledThemes = (Array.isArray(c.gameThemes) ? c.gameThemes : (c.theme === 'wow' ? ['wow'] : []))
+      .filter(n => THEMES[n]);
+    const keep = theme && enabledThemes.includes(theme.name);
+    setTheme(keep ? theme : (enabledThemes.length ? THEMES[enabledThemes[0]] : null));
+    reportSize();
+  }
+
+  // Hard switch (settings changed): drop anything queued and show the new look
+  function setTheme(next) {
     if (next === theme) return;
+    reset();
+    showTheme(next);
+    reportSize();
+  }
+
+  // Soft switch (a card from the other game arrived): keep queue and timers
+  function showTheme(next) {
+    if (next === theme) return;
+    theme?.root.classList.remove('open');
     theme = next;
-    document.body.classList.toggle('theme-wow', theme === 'wow');
-    widget.hidden  = theme === 'wow';
-    wowRoot.hidden = theme !== 'wow';
-    if (theme !== 'wow') wowReset();
+    for (const t of Object.values(THEMES)) {
+      const on = t === theme;
+      t.root.hidden = !on;
+      document.body.classList.toggle(t.bodyClass, on);
+    }
+    widget.hidden = !!theme;
+    if (theme) {
+      theme.bpm.textContent = currentBpm ?? '--';
+      if (currentBpm) theme.el.style.setProperty('--pulse-speed', Math.max(.3, 60 / currentBpm).toFixed(2) + 's');
+      drawGraph(theme);
+    }
   }
 
-  function wowLater(fn, ms) { wowTimers.push(setTimeout(fn, ms)); }
+  function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
 
-  function wowReset() {
-    wowTimers.forEach(clearTimeout);
-    clearTimeout(wowHoverTimer);
-    wowTimers = []; wowQueue = []; wowBusy = false; wowHoverOpen = false;
-    wowRoot.classList.remove('open');
-    wowEl.classList.remove('flash');
-    wowBpm.style.color = '';
+  function reset() {
+    timers.forEach(clearTimeout);
+    clearTimeout(hoverTimer);
+    timers = []; queue = []; busy = false; hoverOpen = false;
+    for (const t of Object.values(THEMES)) {
+      t.root.classList.remove('open');
+      t.el.classList.remove('flash');
+      t.bpm.style.color = '';
+    }
   }
 
-  function wowUpdateBpm(bpm) {
-    wowBpm.textContent = bpm;
-    wowEl.style.setProperty('--pulse-speed', Math.max(.3, 60 / bpm).toFixed(2) + 's');
-    wowHistory.push(bpm);
-    if (wowHistory.length > WOW_GRAPH_POINTS) wowHistory.shift();
-    wowLastBpmAt = Date.now();
-    wowDrawGraph();
+  function gameUpdateBpm(bpm) {
+    lastBpmAt = Date.now();
+    graphHistory.push(bpm);
+    if (graphHistory.length > GRAPH_POINTS) graphHistory.shift();
+    if (!theme) return;
+    theme.bpm.textContent = bpm;
+    theme.el.style.setProperty('--pulse-speed', Math.max(.3, 60 / bpm).toFixed(2) + 's');
+    drawGraph(theme);
   }
 
-  // Sparks rise from the bar at high heart rate: none below SPARK_FROM, full rate at SPARK_FULL
+  // Sparks (WoW) / energy motes (LoL) rise from the bar at high heart rate
   const SPARK_FROM = 110, SPARK_FULL = 150, SPARK_MAX = 40;
-  const wowSparks = document.getElementById('wowSparks');
-  let wowLastBpmAt = 0;
 
-  function wowSpawnSpark() {
+  function spawnFx() {
     const s = document.createElement('i');
     const size = 3 + Math.random() * 4;
-    s.className = 'wow-spark';
+    s.className = theme.fxClass;
     s.style.width = s.style.height = `${size}px`;
     s.style.left = `${18 + Math.random() * 64}%`;
     s.style.setProperty('--dx', `${(Math.random() - .5) * 40}px`);
     s.style.setProperty('--rise', `${50 + Math.random() * 70}px`);
     s.style.animationDuration = `${1.1 + Math.random() * 1.1}s`;
     s.addEventListener('animationend', () => s.remove(), { once: true });
-    wowSparks.append(s);
+    theme.fx.append(s);
   }
 
   setInterval(() => {
-    if (theme !== 'wow' || Date.now() - wowLastBpmAt > 10000) return; // no live data → no sparks
-    const intensity = Math.max(0, Math.min(1, (wowHistory.at(-1) - SPARK_FROM) / (SPARK_FULL - SPARK_FROM)));
-    if (!intensity || wowSparks.childElementCount >= SPARK_MAX) return;
-    if (Math.random() < intensity * .8) wowSpawnSpark();
-    if (Math.random() < intensity * .3) wowSpawnSpark();
+    if (!theme || Date.now() - lastBpmAt > 10000) return;   // no live data → no sparks
+    const intensity = Math.max(0, Math.min(1, (graphHistory.at(-1) - SPARK_FROM) / (SPARK_FULL - SPARK_FROM)));
+    if (!intensity || theme.fx.childElementCount >= SPARK_MAX) return;
+    if (Math.random() < intensity * .8) spawnFx();
+    if (Math.random() < intensity * .3) spawnFx();
   }, 200);
 
   // Newest sample at the right edge; until the history is full, the oldest value is
   // repeated to the left so the filled area always spans the whole frame.
-  function wowDrawGraph() {
-    if (!wowHistory.length) return;
-    const series = [...Array(WOW_GRAPH_POINTS - wowHistory.length).fill(wowHistory[0]), ...wowHistory];
-    const lo = Math.min(...wowHistory), hi = Math.max(...wowHistory);
+  function drawGraph(t) {
+    if (!graphHistory.length) return;
+    const series = [...Array(GRAPH_POINTS - graphHistory.length).fill(graphHistory[0]), ...graphHistory];
+    const lo = Math.min(...graphHistory), hi = Math.max(...graphHistory);
     const span = Math.max(hi - lo + 6, 12);          // small variations stay visible, noise isn't exaggerated
     const min = (lo + hi) / 2 - span / 2;
-    const step = 1000 / (WOW_GRAPH_POINTS - 1);
+    const step = 1000 / (GRAPH_POINTS - 1);
     const pts = series.map((b, i) => [
       Math.round(i * step),
       Math.round(128 - ((b - min) / span) * 84),     // y 44…128 of 150
     ]);
     const line = pts.map(p => p.join(',')).join(' ');
-    document.getElementById('wowGraphLine').setAttribute('points', line);
-    document.getElementById('wowGraphGlowLine').setAttribute('points', line);
-    document.getElementById('wowGraphArea').setAttribute('d',
+    t.graph.line.setAttribute('points', line);
+    t.graph.glow.setAttribute('points', line);
+    t.graph.area.setAttribute('d',
       `M${pts[0][0]} ${pts[0][1]} L${pts.map(p => p.join(' ')).join(' L')} L${pts.at(-1)[0]} 150 L${pts[0][0]} 150 Z`);
   }
 
-  function wowDuration(ms) {
+  function duration(ms) {
     const s = Math.round(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
     const p2 = n => String(n).padStart(2, '0');
     return h ? `${h}:${p2(m)}:${p2(sec)}` : `${m}:${p2(sec)}`;
   }
 
-  function wowParticleBurst() {
-    wowParticles.replaceChildren();
+  function particleBurst() {
+    theme.particles.replaceChildren();
     for (let i = 0; i < 24; i++) {
       const p = document.createElement('i');
       const angle = Math.random() * Math.PI * 2, distance = 55 + Math.random() * 190;
-      p.className = 'wow-particle';
+      p.className = theme.name === 'lol' ? 'lol-particle' : 'wow-particle';
       p.style.setProperty('--x', `${Math.cos(angle) * distance}px`);
       p.style.setProperty('--y', `${Math.sin(angle) * distance * .42}px`);
       p.style.setProperty('--r', `${Math.random() * 280}deg`);
       p.style.animationDelay = `${Math.random() * .14}s`;
-      wowParticles.append(p);
+      theme.particles.append(p);
     }
   }
 
-  // Card: { style, kicker, title, stats: [{ icon, value, label }] } — insights arrive ready-made,
-  // live fight results (from moments.build) are turned into one here
-  function wowCardFor(m) {
-    if (m?.card) return m.card;
+  // Card: { game, style, kicker, title, stats: [{ icon, value, label }] } — insights and the
+  // League module send them ready-made, WoW fight results are turned into one here.
+  function cardFor(m) {
+    if (m?.card) return { game: m.game || m.card.game || 'wow', ...m.card };
     if (!WOW_RESULT_TITLES[m?.type]) return null;
     const none = '–';
     const vs = m.killer || m.by;
     return {
+      game: 'wow',
       style: m.type,
       kicker: m.name || (vs ? `vs. ${vs.name}` : 'Post-fight result'),
       title: WOW_RESULT_TITLES[m.type],
@@ -524,35 +665,34 @@
         m.type === 'death'
           ? { icon: 'arrow', value: m.hrIncrease != null ? `${m.hrIncrease >= 0 ? '+' : ''}${m.hrIncrease} BPM` : none, label: 'HR Increase' }
           : { icon: 'drop',  value: m.lowestHealthPct != null ? `${m.lowestHealthPct}%` : none, label: 'Lowest Health' },
-        { icon: 'clock', value: wowDuration(m.durationMs || 0), label: 'Fight Duration' },
+        { icon: 'clock', value: duration(m.durationMs || 0), label: 'Fight Duration' },
       ],
     };
   }
 
-  function wowFill(card) {
-    const def = WOW_STYLES[card.style];
-    wowEl.style.setProperty('--accent', def.accent);
-    wowEl.style.setProperty('--accent-rgb', def.rgb);
-    wowEl.style.setProperty('--event', def.event);
-    wowEl.style.setProperty('--rarity', def.rarity);
-    document.getElementById('wowEventIcon').innerHTML = WOW_ICONS[def.icon];
-    document.getElementById('wowEventType').textContent  = card.kicker || '';
-    document.querySelector('.wow-kicker-clip').classList.remove('scroll');
-    document.getElementById('wowEventTitle').textContent = card.title;
-    wowStatEls.forEach((el, i) => {
+  function fill(card) {
+    const def = theme.styles[card.style];
+    theme.el.style.setProperty('--accent', def.accent);
+    theme.el.style.setProperty('--accent-rgb', def.rgb);
+    theme.el.style.setProperty('--event', def.event);
+    if (def.rarity) theme.el.style.setProperty('--rarity', def.rarity);
+    theme.icon.innerHTML = ICONS[card.icon] || ICONS[def.icon] || '';
+    theme.kicker.textContent = card.kicker || '';
+    theme.clip.classList.remove('scroll');
+    theme.title.textContent = card.title;
+    theme.stats.forEach((el, i) => {
       const st = card.stats[i] || { icon: '', value: '', label: '' };
-      el.querySelector('.wow-stat-icon').innerHTML    = WOW_ICONS[st.icon] || '';
-      el.querySelector('.wow-stat-value').textContent = st.value;
-      el.querySelector('.wow-stat-label').textContent = st.label;
+      el.querySelector('.wow-stat-icon, .lol-stat-icon').innerHTML    = ICONS[st.icon] || '';
+      el.querySelector('.wow-stat-value, .lol-stat-value').textContent = st.value;
+      el.querySelector('.wow-stat-label, .lol-stat-label').textContent = st.label;
     });
-    wowBpm.style.color = def.accent;
+    theme.bpm.style.color = def.accent;
   }
 
-  // Kicker names too long for the line scroll back and forth instead of being cut off.
+  // Kickers too long for the line scroll back and forth instead of being cut off.
   // Layout widths (offsetWidth/clientWidth) ignore the widget's scale transform.
-  function wowFitKicker() {
-    const clip = document.querySelector('.wow-kicker-clip');
-    const text = document.getElementById('wowEventType');
+  function fitKicker() {
+    const clip = theme.clip, text = theme.kicker;
     clip.classList.remove('scroll');
     const travel = text.offsetWidth - clip.clientWidth;
     if (travel <= 2) return;
@@ -564,89 +704,100 @@
 
   // Cards are queued so a death followed by a boss kill shows both, one after another
   function showMoment(m) {
-    const card = theme === 'wow' ? wowCardFor(m) : null;
-    if (!card || !WOW_STYLES[card.style]) return;
-    wowQueue.push(card);
-    if (wowHoverOpen) { clearTimeout(wowHoverTimer); wowHoverClose(); } // a hover replay makes room right away
-    else if (!wowBusy) wowNext();
+    const card = cardFor(m);
+    const target = card && THEMES[card.game];
+    if (!target || !enabledThemes.includes(card.game) || !target.styles[card.style]) return;
+    queue.push(card);
+    if (hoverOpen) { clearTimeout(hoverTimer); hoverClose(); }  // a hover replay makes room right away
+    else if (!busy) next();
   }
 
-  function wowNext() {
-    const m = wowQueue.shift();
-    if (!m) {
-      wowBusy = false;
-      document.querySelector('.wow-kicker-clip').classList.remove('scroll'); // no marquee while collapsed
+  function next() {
+    const card = queue.shift();
+    if (!card) {
+      busy = false;
+      theme?.clip.classList.remove('scroll');   // no marquee while collapsed
       reportSize();
-      if (wowHovering) wowHoverTimer = setTimeout(wowHoverReplay, WOW_HOVER_OPEN_MS); // pointer came back while closing
+      if (hovering) hoverTimer = setTimeout(hoverReplay, HOVER_OPEN_MS); // pointer came back while closing
       return;
     }
-    wowBusy = true;
-    wowLastCard = m;
-    wowFill(m);
-    reportSize(); // grow the window first, then animate open
-    wowLater(wowFitKicker, 80 + WOW_ANIM_MS); // measure once fully open
-    wowLater(() => {
-      wowRoot.classList.add('open');
-      wowEl.classList.remove('flash');
-      void wowEl.offsetWidth;
-      wowEl.classList.add('flash');
-      if (WOW_STYLES[m.style].burst) wowParticleBurst(); else wowParticles.replaceChildren();
+    showTheme(THEMES[card.game]);               // a card always brings its own game's look
+    busy = true;
+    lastCard = card;
+    fill(card);
+    reportSize();                               // grow the window first, then animate open
+    later(fitKicker, 80 + ANIM_MS);             // measure once fully open
+    later(() => {
+      theme.root.classList.add('open');
+      theme.el.classList.remove('flash');
+      void theme.el.offsetWidth;
+      theme.el.classList.add('flash');
+      if (theme.styles[card.style].burst) particleBurst(); else theme.particles.replaceChildren();
     }, 80);
-    wowLater(wowClose, WOW_SHOW_MS);
+    later(close, SHOW_MS);
   }
 
-  function wowClose() {
-    if (wowHovering && !wowQueue.length) { wowHoverOpen = true; return; } // stays open while hovered
-    wowRoot.classList.remove('open');
-    wowEl.classList.remove('flash');
-    wowLater(() => {
-      wowBpm.style.color = '';
-      if (wowQueue.length) wowLater(wowNext, WOW_GAP_MS);
-      else wowNext(); // empty queue → shrink window back
-    }, WOW_ANIM_MS);
+  function close() {
+    if (hovering && !queue.length) { hoverOpen = true; return; }   // stays open while hovered
+    theme.root.classList.remove('open');
+    theme.el.classList.remove('flash');
+    later(() => {
+      theme.bpm.style.color = '';
+      if (queue.length) later(next, GAP_MS);
+      else next(); // empty queue → shrink window back
+    }, ANIM_MS);
   }
 
   // Hover: the compact widget replays the last card (no flash/particles), an open card stays open
   // while hovered, and both close shortly after the pointer leaves. New cards always take priority.
-  function wowHoverReplay() {
-    if (wowBusy || !wowHovering || !wowLastCard) return;
-    wowBusy = wowHoverOpen = true;
-    wowFill(wowLastCard);
+  function hoverReplay() {
+    if (dragging || busy || !hovering || !lastCard || !THEMES[lastCard.game]) return;
+    busy = hoverOpen = true;
+    showTheme(THEMES[lastCard.game]);
+    fill(lastCard);
     reportSize();
-    wowLater(() => wowRoot.classList.add('open'), 80);
-    wowLater(wowFitKicker, 80 + WOW_ANIM_MS);
+    later(() => theme.root.classList.add('open'), 80);
+    later(fitKicker, 80 + ANIM_MS);
   }
 
-  function wowHoverClose() {
-    if (!wowHoverOpen) return;
-    wowHoverOpen = false;
-    wowRoot.classList.remove('open');
-    wowLater(() => { wowBpm.style.color = ''; wowNext(); }, WOW_ANIM_MS);
+  function hoverClose() {
+    if (!hoverOpen) return;
+    hoverOpen = false;
+    theme.root.classList.remove('open');
+    later(() => { theme.bpm.style.color = ''; next(); }, ANIM_MS);
   }
 
-  function setWowHover(over) {
-    if (over === wowHovering) return;
-    wowHovering = over;
-    clearTimeout(wowHoverTimer);
-    if (theme !== 'wow') return;
-    if (over) { if (!wowBusy) wowHoverTimer = setTimeout(wowHoverReplay, WOW_HOVER_OPEN_MS); }
-    else if (wowHoverOpen) wowHoverTimer = setTimeout(wowHoverClose, WOW_HOVER_CLOSE_MS);
+  function setHover(over) {
+    if (over === hovering) return;
+    hovering = over;
+    clearTimeout(hoverTimer);
+    if (!theme || dragging) return;
+    if (over) { if (!busy) hoverTimer = setTimeout(hoverReplay, HOVER_OPEN_MS); }
+    else if (hoverOpen) hoverTimer = setTimeout(hoverClose, HOVER_CLOSE_MS);
   }
+
+  // Dragging the widget and resizing its window fight each other, so while the user drags
+  // nothing is replayed and no new size is reported (main defers its own resizes too).
+  window.electronAPI.onOverlayCursor((p) => pointerAt(p ? p.x : null, p ? p.y : null));
+
+  window.electronAPI.onOverlayDragging((on) => {
+    dragging = on;
+    if (on) { clearTimeout(hoverTimer); if (hoverOpen) hoverClose(); }
+    else { reportSize(); if (hovering && !busy) hoverTimer = setTimeout(hoverReplay, HOVER_OPEN_MS); }
+  });
   if (isLinux) { // no click-through forwarding on Linux, plain DOM hover works
-    wowRoot.addEventListener('mouseenter', () => setWowHover(true));
-    wowRoot.addEventListener('mouseleave', () => setWowHover(false));
+    for (const t of Object.values(THEMES)) {
+      t.root.addEventListener('mouseenter', () => setHover(true));
+      t.root.addEventListener('mouseleave', () => setHover(false));
+    }
   }
-
-  // Extra space around the widget so drop-shadow / glow animations (up to ~28px
-  // spread radius) are never clipped by the window boundary.
-  const GLOW_PAD = 48;
 
   function reportSize() {
     requestAnimationFrame(() => {
-      if (theme === 'wow') {
+      if (theme) {
         window.electronAPI.resizeOverlay({
-          width:  Math.ceil((wowBusy ? WOW_OPEN_W : WOW_W) * wowScale) + GLOW_PAD * 2,
-          height: Math.ceil(WOW_H * wowScale) + GLOW_PAD * 2,
+          width:  Math.ceil((busy ? CARD_OPEN_W : CARD_W) * theme.scale) + GLOW_PAD * 2,
+          height: Math.ceil(CARD_H * theme.scale) + GLOW_PAD * 2,
         });
         return;
       }

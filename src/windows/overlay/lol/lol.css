@@ -1,0 +1,237 @@
+/* League of Legends overlay theme — hextech look: angular gold plate, deep blue glass,
+   teal energy. Same 500×190 design grid as the WoW theme (open: 1540) so the overlay
+   window sizing is shared; scaled via --lol-scale. No Riot artwork is used. */
+
+@font-face{font-family:'Cinzel';src:url('Cinzel-Variable.ttf') format('truetype');font-weight:400 900;font-display:swap}
+
+body.theme-lol{justify-content:flex-start;padding-left:48px} /* GLOW_PAD — widget grows to the right */
+
+.lol-root{
+  --lol-scale:.5;
+  position:relative;flex-shrink:0;
+  width:calc(500px * var(--lol-scale));
+  height:calc(190px * var(--lol-scale));
+  transition:width .72s cubic-bezier(.16,1,.3,1);
+}
+.lol-root.open{width:calc(1540px * var(--lol-scale))}
+.lol-drag{position:absolute;inset:0;z-index:30;-webkit-app-region:drag;cursor:grab}
+
+.lol{
+  --accent:#0ac8b9;--accent-rgb:10,200,185;--event:#f0e6d2;--gold:#c8aa6e;--pulse-speed:.82s;
+  position:absolute;left:0;top:0;
+  width:500px;height:190px;
+  transform:scale(var(--lol-scale));transform-origin:0 0;
+  isolation:isolate;
+  filter:drop-shadow(0 18px 24px rgba(0,0,0,.8));
+  transition:width .72s cubic-bezier(.16,1,.3,1);
+  font-family:'Cinzel',Georgia,serif;color:#f0e6d2;
+  user-select:none;
+}
+.lol-root.open .lol{width:1540px}
+
+/* ── Plate: gold outline with chamfered corners, dark glass inside ── */
+.lol-plate{
+  position:absolute;inset:22px 0 22px 96px;
+  background:linear-gradient(180deg,#c8aa6e,#785a28 40%,#c89b3c 62%,#463714);
+  clip-path:polygon(0 18px,18px 0,calc(100% - 26px) 0,100% 26px,100% calc(100% - 18px),calc(100% - 18px) 100%,26px 100%,0 calc(100% - 26px));
+  filter:drop-shadow(0 0 10px rgba(var(--accent-rgb),.18));
+}
+.lol-plate::before{
+  content:"";position:absolute;inset:2px;
+  background:
+    radial-gradient(ellipse 60% 120% at 6% 50%,rgba(var(--accent-rgb),.16),transparent 70%),
+    linear-gradient(180deg,#0a1c2e 0%,#07131f 55%,#050d16 100%);
+  clip-path:polygon(0 17px,17px 0,calc(100% - 25px) 0,100% 25px,100% calc(100% - 17px),calc(100% - 17px) 100%,25px 100%,0 calc(100% - 25px));
+}
+/* hex mesh, barely there */
+.lol-plate::after{
+  content:"";position:absolute;inset:2px;opacity:.16;pointer-events:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='31'><path d='M9 0.5 27 0.5 36 15.5 27 30.5 9 30.5 0 15.5Z' fill='none' stroke='%230ac8b9' stroke-width='1'/></svg>");
+  clip-path:polygon(0 17px,17px 0,calc(100% - 25px) 0,100% 25px,100% calc(100% - 17px),calc(100% - 17px) 100%,25px 100%,0 calc(100% - 25px));
+}
+.lol-inner-line{
+  position:absolute;inset:30px 8px 30px 104px;z-index:2;pointer-events:none;
+  border-top:1px solid rgba(200,170,110,.35);border-bottom:1px solid rgba(200,170,110,.22);
+  box-shadow:inset 0 1px rgba(var(--accent-rgb),.10),inset 0 -1px rgba(0,0,0,.6);
+}
+
+/* ── Live BPM graph ── */
+.lol-graph{
+  position:absolute;left:98px;top:24px;z-index:2;
+  width:calc(100% - 98px);height:142px;overflow:hidden;opacity:.7;pointer-events:none;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 10%,#000 92%,transparent 100%);
+  mask-image:linear-gradient(90deg,transparent 0,#000 10%,#000 92%,transparent 100%);
+}
+.lol-graph-area{opacity:.85}
+.lol-graph-glow,.lol-graph-line{fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}
+.lol-graph-glow{stroke:#0ac8b9;stroke-width:7;opacity:.18;filter:url(#lolGraphGlow)}
+.lol-graph-line{stroke:#5fe3d6;stroke-width:1.5;opacity:.6;stroke-dasharray:90 10;animation:lolGraphFlow 7s linear infinite}
+@keyframes lolGraphFlow{to{stroke-dashoffset:-200}}
+
+/* ── Energy sweep + motes ── */
+.lol-fx{position:absolute;left:98px;right:2px;top:24px;bottom:24px;z-index:3;overflow:hidden;pointer-events:none}
+.lol-scan{position:absolute;inset:0;will-change:transform;animation:lolScan 6.5s ease-in-out infinite}
+.lol-scan::before{
+  content:"";position:absolute;top:-10%;bottom:-10%;right:0;width:130px;
+  background:linear-gradient(90deg,rgba(10,200,185,0),rgba(10,200,185,.10) 40%,rgba(190,245,240,.22) 50%,rgba(10,200,185,.10) 60%,rgba(10,200,185,0));
+  transform:skewX(-18deg);
+}
+@keyframes lolScan{0%{transform:translateX(calc(-100% + 100px))}58%,100%{transform:translateX(180px)}}
+.lol-motes{position:absolute;inset:0}
+.lol-mote{
+  position:absolute;bottom:-4px;border-radius:50%;
+  background:radial-gradient(circle,#dffcf8 0 30%,#0ac8b9 60%,rgba(10,200,185,0) 100%);
+  box-shadow:0 0 9px 2px rgba(10,200,185,.7);
+  animation:lolMote 1.8s ease-out forwards;
+}
+@keyframes lolMote{
+  0%{transform:translate(0,0) scale(.5);opacity:0}
+  18%{opacity:1}
+  100%{transform:translate(var(--dx),calc(var(--rise) * -1)) scale(1);opacity:0}
+}
+
+/* ── Hex orb with the heart ── */
+.lol-orb{position:absolute;left:0;top:8px;width:174px;height:174px;z-index:11;display:grid;place-items:center}
+.lol-orb::before,.lol-orb::after{content:"";position:absolute;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.lol-orb::before{
+  inset:0;background:linear-gradient(160deg,#f0d9a0,#785a28 42%,#c89b3c 63%,#3b2d11);
+  filter:drop-shadow(0 8px 14px rgba(0,0,0,.75));
+}
+.lol-orb::after{
+  inset:8px;
+  background:radial-gradient(circle at 50% 40%,#123044 0%,#071726 55%,#010a13 100%);
+  box-shadow:inset 0 0 26px #000;
+}
+.lol-orb-ring{
+  position:absolute;inset:18px;z-index:1;pointer-events:none;
+  border:1px solid rgba(200,170,110,.55);
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+  box-shadow:inset 0 0 18px rgba(var(--accent-rgb),.22);
+}
+.lol-heart{
+  width:96px;height:96px;display:block;object-fit:contain;position:relative;z-index:2;
+  filter:drop-shadow(0 4px 0 #5c0908) drop-shadow(0 0 12px #ff3b32) drop-shadow(0 0 22px rgba(255,45,37,.6));
+  animation:lolHeartBeat var(--pulse-speed) infinite;
+}
+.lol-flare{
+  position:absolute;inset:26px;z-index:2;border-radius:50%;pointer-events:none;
+  box-shadow:0 0 30px rgba(255,44,39,.42),inset 0 0 20px rgba(255,44,39,.26);
+  animation:lolFlare var(--pulse-speed) infinite;
+}
+/* little gems at the orb's tips */
+.lol-gem{position:absolute;z-index:3;width:14px;height:14px;background:linear-gradient(140deg,#f6e4b0,#c8aa6e 45%,#5b4417);transform:rotate(45deg);box-shadow:0 0 8px rgba(200,170,110,.5),inset 0 0 0 1px #2a2110}
+.lol-gem.top{left:80px;top:-7px}
+.lol-gem.bottom{left:80px;bottom:-7px}
+@keyframes lolHeartBeat{
+  0%,43%,100%{transform:scale(.94);filter:saturate(1.02) brightness(.82)}
+  10%{transform:scale(1.05);filter:saturate(1.26) brightness(1.15)}
+  22%{transform:scale(.97)}
+  31%{transform:scale(1.015)}
+}
+@keyframes lolFlare{
+  0%,46%,100%{transform:scale(.82);opacity:.2}
+  12%{transform:scale(1.16);opacity:.85}
+  33%{transform:scale(1.02);opacity:.45}
+}
+
+/* ── BPM ── */
+.lol-bpm{
+  position:absolute;left:176px;top:28px;width:250px;height:134px;z-index:8;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+}
+.lol-bpm-number{
+  font:700 64px/.9 'Cinzel',Georgia,serif;letter-spacing:-.02em;
+  color:#f0e6d2;text-shadow:0 3px 0 #000,0 0 18px rgba(var(--accent-rgb),.45);
+  transition:color .25s,text-shadow .25s;
+}
+.lol-bpm-label{margin-top:14px;color:#a09b8c;font:600 22px/.9 'Cinzel',Georgia,serif;letter-spacing:.22em;text-shadow:0 2px 0 #000}
+.lol-divider{
+  position:absolute;left:452px;top:44px;bottom:44px;width:1px;z-index:8;
+  background:linear-gradient(transparent,rgba(200,170,110,.65) 22%,rgba(var(--accent-rgb),.5) 50%,rgba(200,170,110,.65) 78%,transparent);
+}
+
+/* ── Card ── */
+.lol-detail{
+  position:absolute;left:492px;right:44px;top:24px;bottom:24px;z-index:8;
+  display:grid;grid-template-columns:104px minmax(0,1fr);align-items:center;gap:26px;
+  opacity:0;transform:translateX(-28px);pointer-events:none;
+  transition:opacity .24s .15s,transform .56s cubic-bezier(.16,1,.3,1) .06s;
+}
+.lol-root.open .lol-detail{opacity:1;transform:none}
+
+.lol-event-frame{
+  width:88px;height:88px;margin-left:8px;position:relative;transform:rotate(45deg);
+  background:linear-gradient(135deg,#f0d9a0,#5b4417 48%,#c8aa6e);
+  box-shadow:0 0 0 1px #010a13,0 0 14px rgba(var(--accent-rgb),.3);
+}
+.lol-event-frame::after{
+  content:"";position:absolute;inset:-5px;border:1px solid var(--accent);opacity:.5;
+  box-shadow:0 0 10px var(--accent);pointer-events:none;
+}
+.lol-event-icon{
+  position:absolute;inset:3px;display:grid;place-items:center;transform:rotate(-45deg);
+  background:radial-gradient(circle at 50% 42%,rgba(var(--accent-rgb),.32),#020b14 74%);
+  color:var(--accent);
+}
+.lol-event-icon svg{width:54px;height:54px;filter:drop-shadow(0 2px 0 #000) drop-shadow(0 0 8px rgba(var(--accent-rgb),.75))}
+
+/* Title and kicker share one line, stats sit underneath — same rhythm as the WoW card */
+.lol-copy{min-width:0;align-self:start;margin-top:14px}
+.lol-headline{display:flex;align-items:center;gap:18px;min-width:0}
+.lol-event-title{
+  flex-shrink:0;max-width:64%;
+  font:700 38px/1 'Cinzel',Georgia,serif;letter-spacing:.055em;text-transform:uppercase;
+  color:var(--event);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  text-shadow:0 2px 2px #000,0 0 16px rgba(var(--accent-rgb),.35);
+}
+.lol-event-type{
+  flex:1;min-width:0;padding-top:6px;display:flex;align-items:center;gap:10px;
+  color:#a09b8c;font-size:19px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+}
+.lol-event-type::before{content:"";flex-shrink:0;width:22px;height:1px;background:var(--accent);box-shadow:0 0 6px var(--accent)}
+.lol-kicker-clip{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap}
+.lol-kicker-text{display:inline-block;white-space:nowrap}
+.lol-kicker-clip.scroll .lol-kicker-text{animation:lolMarquee var(--marquee-duration,6s) ease-in-out infinite}
+@keyframes lolMarquee{0%,15%{transform:translateX(0)}50%,65%{transform:translateX(var(--marquee-shift))}100%{transform:translateX(0)}}
+
+.lol-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px}
+.lol-stat{
+  min-width:0;min-height:62px;padding:10px 14px 4px;
+  display:grid;grid-template-columns:42px minmax(0,1fr);align-items:center;gap:10px;
+  border-top:2px solid var(--accent);
+  background:linear-gradient(180deg,rgba(var(--accent-rgb),.16),rgba(3,12,20,.34) 78%);
+  box-shadow:inset 0 1px rgba(255,255,255,.06);
+}
+.lol-stat-icon{display:grid;place-items:center;color:var(--accent)}
+.lol-stat-icon svg{width:30px;height:30px;filter:drop-shadow(0 0 6px rgba(var(--accent-rgb),.6))}
+.lol-stat-copy{min-width:0;display:flex;flex-direction:column;line-height:1}
+.lol-stat-value{overflow:hidden;color:#f0e6d2;font-size:31px;font-weight:700;line-height:1;white-space:nowrap;text-overflow:ellipsis;text-shadow:0 2px 1px #000}
+.lol-stat-label{margin-top:6px;overflow:hidden;color:#a09b8c;font-size:17px;font-weight:600;letter-spacing:.09em;line-height:1;text-transform:uppercase;white-space:nowrap;text-overflow:ellipsis}
+
+/* ── Effects ── */
+/* The glow has to follow the chamfered plate, so it is drawn as a drop-shadow of the
+   clipped plate itself; the tint uses the same clip path. A plain box-shadow would
+   square off the corners. */
+.lol-flash{
+  /* z-index 4: above plate and graph, but behind the orb, the BPM block and the card text */
+  position:absolute;inset:22px 0 22px 96px;z-index:4;pointer-events:none;opacity:0;
+  background:
+    radial-gradient(ellipse 50% 130% at 16% 50%,rgba(var(--accent-rgb),.42),transparent 72%),
+    linear-gradient(90deg,rgba(var(--accent-rgb),.22),transparent 55%);
+  clip-path:polygon(0 18px,18px 0,calc(100% - 26px) 0,100% 26px,100% calc(100% - 18px),calc(100% - 18px) 100%,26px 100%,0 calc(100% - 26px));
+}
+.lol.flash .lol-flash{animation:lolFlashTint .9s ease}
+.lol.flash .lol-plate{animation:lolFlashGlow .9s ease}
+.lol.flash .lol-orb{animation:lolFlashOrb .9s ease}
+@keyframes lolFlashTint{0%{opacity:0}28%{opacity:1}100%{opacity:0}}
+@keyframes lolFlashGlow{
+  0%,100%{filter:drop-shadow(0 0 10px rgba(var(--accent-rgb),.18))}
+  28%{filter:drop-shadow(0 0 4px rgba(var(--accent-rgb),.9)) drop-shadow(0 0 26px rgba(var(--accent-rgb),.75))}
+}
+@keyframes lolFlashOrb{
+  0%,100%{filter:none}
+  28%{filter:drop-shadow(0 0 18px rgba(var(--accent-rgb),.8))}
+}
+.lol-particles{position:absolute;inset:-36px;z-index:18;pointer-events:none;overflow:visible}
+.lol-particle{position:absolute;left:62%;top:50%;width:5px;height:5px;background:var(--accent);box-shadow:0 0 9px 2px var(--accent);transform:rotate(45deg);animation:lolFly 1s ease-out forwards}
+@keyframes lolFly{to{transform:translate(var(--x),var(--y)) rotate(var(--r)) scale(.12);opacity:0}}

@@ -29,6 +29,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onConfigUpdate:    (cb) => ipcRenderer.on('config-update',    (_, d) => cb(d)),
   onHeartRateUpdate: (cb) => ipcRenderer.on('heart-rate-update',(_, d) => cb(d)),
   onScaleFactor:     (cb) => ipcRenderer.on('scale-factor',     (_, d) => cb(d)),
+  onOverlayDragging: (cb) => ipcRenderer.on('overlay-dragging', (_, d) => cb(d)),
+  onOverlayCursor:   (cb) => ipcRenderer.on('overlay-cursor',   (_, d) => cb(d)),
 
   discordEnable:      ()     => ipcRenderer.send('discord-enable'),
   discordDisable:     ()     => ipcRenderer.send('discord-disable'),
@@ -50,5 +52,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   wowShowDiagnostics: ()        => ipcRenderer.send('wow-show-diagnostics'),
   wowTest:            (type)    => ipcRenderer.send('wow-test', type),
   onWowStatus:        (cb)      => ipcRenderer.on('wow-status',  (_, d) => cb(d)),
+
+  lolEnable:          (opts)    => ipcRenderer.send('lol-enable', opts),
+  lolDisable:         ()        => ipcRenderer.send('lol-disable'),
+  lolSetOptions:      (opts)    => ipcRenderer.send('lol-set-options', opts),
+  lolTest:            (style)   => ipcRenderer.send('lol-test', style),
+  onLolStatus:        (cb)      => ipcRenderer.on('lol-status',  (_, d) => cb(d)),
   onGameMoment:       (cb)      => ipcRenderer.on('game-moment', (_, d) => cb(d)),
 });

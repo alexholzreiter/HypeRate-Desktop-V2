@@ -7,6 +7,7 @@ const ble     = require('./ble');
 const discord = require('./discord');
 const moments = require('./moments');
 const wow     = require('./games/wow');
+const lol     = require('./games/lol');
 const systemFonts = require('./system-fonts');
 
 // ── OSC ──────────────────────────────────────────────────────────────────────
@@ -122,6 +123,8 @@ let overlayTrackedW = 300; // current window size, kept in sync with widget size
 let overlayTrackedH = 160;
 let overlayClampedX = null; // last position set by resize-overlay (may differ from tracked near screen edges)
 let overlayClampedY = null;
+let overlayDragging = false, overlayDragTimer = null, overlayPendingSize = null;
+let overlayCursorTimer = null, overlayCursorInside = false;
 let showBpmInTray   = loadStore().showBpmInTray !== false; // default true
 
 // ── DPI helper ──
@@ -258,14 +261,21 @@ function createOverlayWindow() {
   overlayWindow.on('move', () => {
     if (!overlayWindow) return;
     const [x, y] = overlayWindow.getPosition();
-    if (x === overlayClampedX && y === overlayClampedY) return;
+    if (x === overlayClampedX && y === overlayClampedY) return;  // our own resize, not the user
     overlayTrackedX = x; overlayTrackedY = y;
+    noteOverlayDrag();
   });
   overlayWindow.on('moved', () => {
     const store = loadStore(); store.overlayX = overlayTrackedX; store.overlayY = overlayTrackedY; saveStore(store);
   });
 
-  overlayWindow.on('closed', () => { overlayWindow = null; });
+  overlayWindow.on('closed', () => {
+    overlayWindow = null;
+    clearInterval(overlayCursorTimer);
+    overlayCursorTimer = null;
+    overlayCursorInside = false;
+  });
+  watchOverlayCursor();
 
   // Send scale factor so overlay can adjust sizes
   overlayWindow.webContents.on('did-finish-load', () => {
@@ -417,7 +427,45 @@ ipcMain.handle('get-overlay-position', () => {
   return { x, y };
 });
 
-ipcMain.on('resize-overlay', (_, { width, height }) => {
+// setIgnoreMouseEvents(…, { forward: true }) only delivers mouse moves while the app is active,
+// so an overlay sitting on top of a game never hears the pointer. Poll the cursor instead and
+// hand its position to the renderer, which decides whether the widget is under it.
+const OVERLAY_CURSOR_MS = 100;
+
+function watchOverlayCursor() {
+  if (process.platform === 'linux') return;   // no click-through there, plain DOM hover works
+  clearInterval(overlayCursorTimer);
+  overlayCursorInside = false;
+  overlayCursorTimer = setInterval(() => {
+    if (!overlayWindow || overlayWindow.isDestroyed() || !overlayWindow.isVisible()) return;
+    const b = overlayWindow.getBounds();
+    const p = screen.getCursorScreenPoint();
+    const inside = p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height;
+    if (!inside && !overlayCursorInside) return;
+    overlayCursorInside = inside;
+    sendToOverlay('overlay-cursor', inside ? { x: p.x - b.x, y: p.y - b.y } : null);
+  }, OVERLAY_CURSOR_MS);
+}
+
+// While the user drags the widget, setBounds() would abort the native drag (macOS), so the
+// window is left alone until the drag is over — a card that grows meanwhile is applied after.
+const OVERLAY_DRAG_IDLE_MS = 450;
+
+function noteOverlayDrag() {
+  if (!overlayDragging) { overlayDragging = true; sendToOverlay('overlay-dragging', true); }
+  clearTimeout(overlayDragTimer);
+  overlayDragTimer = setTimeout(() => {
+    overlayDragging = false;
+    sendToOverlay('overlay-dragging', false);
+    if (overlayPendingSize) {
+      const { width, height } = overlayPendingSize;
+      overlayPendingSize = null;
+      applyOverlaySize(width, height);
+    }
+  }, OVERLAY_DRAG_IDLE_MS);
+}
+
+function applyOverlaySize(width, height) {
   if (!overlayWindow) return;
   const wa = workArea();
   const w = Math.round(Math.max(40, Math.min(Number(width)  || 300, wa.width)));
@@ -428,6 +476,12 @@ ipcMain.on('resize-overlay', (_, { width, height }) => {
   overlayClampedX = Math.round(Math.max(wa.x, Math.min(overlayTrackedX, wa.x + wa.width  - w)));
   overlayClampedY = Math.round(Math.max(wa.y, Math.min(overlayTrackedY, wa.y + wa.height - h)));
   overlayWindow.setBounds({ x: overlayClampedX, y: overlayClampedY, width: w, height: h });
+}
+
+ipcMain.on('resize-overlay', (_, { width, height }) => {
+  if (!overlayWindow) return;
+  if (overlayDragging) { overlayPendingSize = { width, height }; return; }
+  applyOverlaySize(width, height);
 });
 
 
@@ -566,6 +620,18 @@ ipcMain.on('wow-show-diagnostics', () => {
   if (fs.existsSync(WOW_DIAGNOSTICS)) shell.showItemInFolder(WOW_DIAGNOSTICS);
   else shell.openPath(app.getPath('userData'));
 });
+
+// ── Game integrations: League of Legends ────────────────────────────────────
+// No setup needed: Riot's Live Client Data API is there while a match runs.
+lol.init({
+  onStatus: (state, extra = {}) => sendToSettings('lol-status', { state, ...extra }),
+  onCard:   (card) => sendToOverlay('game-moment', { game: 'lol', card }),
+});
+
+ipcMain.on('lol-enable',      (_, opts) => lol.start(opts || {}));
+ipcMain.on('lol-disable',     ()        => lol.stop());
+ipcMain.on('lol-set-options', (_, opts) => lol.setOptions(opts || {}));
+ipcMain.on('lol-test',        (_, style) => sendToOverlay('game-moment', { game: 'lol', card: lol.demoCard(style) }));
 
 // Preview a result card; uses real BPM history when there is some
 const WOW_TEST_RESULTS = {

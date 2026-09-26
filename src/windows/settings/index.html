@@ -81,6 +81,9 @@
     select:focus{border-color:var(--accent);}
     .crow{display:flex;align-items:center;gap:9px;}
     .chex{flex:1;font-family:'Space Mono',monospace;}
+    .cardchk{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--text-dim);cursor:pointer;user-select:none;padding:1px 0;}
+    .cardchk input{width:13px;height:13px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;}
+    .cardchk:hover{color:var(--text);}
     .srow{display:flex;align-items:center;gap:9px;}
     .srow input{flex:1;}
     .sv{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);min-width:34px;text-align:right;}
@@ -438,6 +441,19 @@
             </div>
           </div>
           <div class="field">
+            <label data-i18n="wow_cards">Show these cards</label>
+            <div id="wowCards" style="display:flex;flex-direction:column;gap:3px;">
+              <label class="cardchk"><input type="checkbox" id="wowCardBoss"    checked onchange="saveWow()" /><span data-i18n="wow_card_boss">Boss Defeated</span></label>
+              <label class="cardchk"><input type="checkbox" id="wowCardClose"   checked onchange="saveWow()" /><span data-i18n="wow_card_close">Close Call</span></label>
+              <label class="cardchk"><input type="checkbox" id="wowCardDeath"   checked onchange="saveWow()" /><span data-i18n="wow_card_death">You Died</span></label>
+              <label class="cardchk"><input type="checkbox" id="wowCardIntense" checked onchange="saveWow()" /><span data-i18n="wow_card_intense">Most Intense Enemy</span></label>
+              <label class="cardchk"><input type="checkbox" id="wowCardPeak"    checked onchange="saveWow()" /><span data-i18n="wow_card_peak">Peak Heart Rate</span></label>
+              <label class="cardchk"><input type="checkbox" id="wowCardClosest" checked onchange="saveWow()" /><span data-i18n="wow_card_closest">Closest Call</span></label>
+              <label class="cardchk"><input type="checkbox" id="wowCardNemesis" checked onchange="saveWow()" /><span data-i18n="wow_card_nemesis">Nemesis</span></label>
+              <label class="cardchk"><input type="checkbox" id="wowCardStreak"  checked onchange="saveWow()" /><span data-i18n="wow_card_streak">Kill Streak</span></label>
+            </div>
+          </div>
+          <div class="field">
             <label data-i18n="wow_close_call">Close call at health ≤</label>
             <div class="srow"><input type="range" id="wowCloseCallPct" min="5" max="30" value="10" oninput="sv('wowCloseCallPct','wowCloseCallPctV','%')" onchange="saveWow()" /><span class="sv" id="wowCloseCallPctV">10%</span></div>
           </div>
@@ -458,6 +474,57 @@
             Shows your heart rate at boss kills, close calls and deaths in WoW.
           </div>
           <a href="#" onclick="window.electronAPI.wowShowDiagnostics();return false;" style="font-size:11px;color:var(--accent3);text-decoration:none;" data-i18n="wow_diagnostics">Show diagnostics file</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── League of Legends Card ── -->
+    <div class="card collapsible">
+      <div class="ch" onclick="toggleCard(this)"><span class="ch-emoji">🐉</span> <span data-i18n="lol_heading">League of Legends</span><span class="dot ch-dot" id="lolHeadDot" hidden></span><svg class="ch-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5l3 3 3-3"/></svg></div>
+      <div class="cb" style="gap:10px;">
+        <div class="trow">
+          <span class="tl" data-i18n="lol_toggle">Match events in overlay</span>
+          <label class="tog"><input type="checkbox" id="lolEnabled" onchange="lolToggle()" /><span class="ts"></span></label>
+        </div>
+        <div id="lolBody" style="display:none;flex-direction:column;gap:9px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="dot" id="lolDot"></span>
+            <span style="font-size:12px;color:var(--text-dim);" id="lolStatusText">Off</span>
+          </div>
+          <div class="field">
+            <label data-i18n="lol_cards">Show these cards</label>
+            <div id="lolCards" style="display:flex;flex-direction:column;gap:3px;">
+              <label class="cardchk"><input type="checkbox" id="lolCardDeaths"     checked onchange="saveLol()" /><span data-i18n="lol_card_deaths">Deaths</span></label>
+              <label class="cardchk"><input type="checkbox" id="lolCardCloseCalls" checked onchange="saveLol()" /><span data-i18n="lol_card_close">Close calls</span></label>
+              <label class="cardchk"><input type="checkbox" id="lolCardMultikills" checked onchange="saveLol()" /><span data-i18n="lol_card_multi">Multikills</span></label>
+              <label class="cardchk"><input type="checkbox" id="lolCardKills"             onchange="saveLol()" /><span data-i18n="lol_card_kills">Single kills</span></label>
+              <label class="cardchk"><input type="checkbox" id="lolCardFirstBlood" checked onchange="saveLol()" /><span data-i18n="lol_card_firstblood">First blood</span></label>
+              <label class="cardchk"><input type="checkbox" id="lolCardObjectives" checked onchange="saveLol()" /><span data-i18n="lol_card_objectives">Objectives</span></label>
+              <label class="cardchk"><input type="checkbox" id="lolCardSteals"     checked onchange="saveLol()" /><span data-i18n="lol_card_steals">Steals</span></label>
+              <label class="cardchk"><input type="checkbox" id="lolCardAce"        checked onchange="saveLol()" /><span data-i18n="lol_card_ace">Ace</span></label>
+              <label class="cardchk"><input type="checkbox" id="lolCardMatchResult" checked onchange="saveLol()" /><span data-i18n="lol_card_result">Match result</span></label>
+            </div>
+          </div>
+          <div class="field">
+            <label data-i18n="lol_close_call">Close call at health ≤</label>
+            <div class="srow"><input type="range" id="lolCloseCallPct" min="5" max="30" value="10" oninput="sv('lolCloseCallPct','lolCloseCallPctV','%')" onchange="saveLol()" /><span class="sv" id="lolCloseCallPctV">10%</span></div>
+          </div>
+          <div class="field">
+            <label data-i18n="lol_size">Widget size</label>
+            <div class="srow"><input type="range" id="lolScale" min="30" max="80" value="50" oninput="sv('lolScale','lolScaleV','%');live()" /><span class="sv" id="lolScaleV">50%</span></div>
+          </div>
+          <div class="field">
+            <label data-i18n="lol_preview">Preview</label>
+            <div style="display:flex;gap:5px;">
+              <button class="btn bs" onclick="lolTest('penta')" style="flex:1;font-size:11px;padding:6px 4px;">Pentakill</button>
+              <button class="btn bs" onclick="lolTest('close')" style="flex:1;font-size:11px;padding:6px 4px;">Close Call</button>
+              <button class="btn bs" onclick="lolTest('death')" style="flex:1;font-size:11px;padding:6px 4px;">You Died</button>
+            </div>
+            <button class="btn bs" onclick="lolTest()" style="font-size:11px;padding:6px 4px;margin-top:5px;" data-i18n="lol_preview_all">All cards (one after another)</button>
+          </div>
+          <div style="font-size:11px;color:var(--text-dim);line-height:1.6;background:var(--surface);border-radius:7px;padding:8px 10px;" data-i18n-html="lol_info_html">
+            Shows your heart rate at pentakills, close calls, deaths and objectives.
+          </div>
         </div>
       </div>
     </div>
@@ -603,6 +670,7 @@
         <canvas id="bpmGraph"></canvas>
       </div>
       <div class="hint" id="wowPreviewHint" data-i18n="wow_preview_hint" hidden>WoW look active — use the preview buttons in the World of Warcraft card.</div>
+      <div class="hint" id="lolPreviewHint" data-i18n="lol_preview_hint" hidden>League look active — use the preview buttons in the League of Legends card.</div>
     </div>
   </div>
 
@@ -672,6 +740,18 @@
       wow_preview_hint:'WoW look active — use the preview buttons in the World of Warcraft card.',
       wow_advanced_off_html:'<strong>Advanced Combat Logging is off</strong> — without health values there is no CLOSE CALL. Enable it in WoW: <code style="font-size:10.5px;">/console advancedCombatLogging 1</code>',
       wow_preview_insight:'Session insight (cycles through all)',
+      wow_cards:'Show these cards', wow_card_boss:'Boss Defeated', wow_card_close:'Close Call', wow_card_death:'You Died',
+      wow_card_intense:'Most Intense Enemy', wow_card_peak:'Peak Heart Rate', wow_card_closest:'Closest Call',
+      wow_card_nemesis:'Nemesis', wow_card_streak:'Kill Streak',
+      lol_heading:'League of Legends', lol_toggle:'Match events in overlay',
+      lol_idle:'Off', lol_waiting:'Waiting for a match…', lol_active:'Reading live match', lol_error:'Connection problem',
+      lol_cards:'Show these cards', lol_card_deaths:'Deaths', lol_card_close:'Close calls', lol_card_multi:'Multikills',
+      lol_card_kills:'Single kills', lol_card_firstblood:'First blood', lol_card_objectives:'Objectives',
+      lol_card_steals:'Stolen objectives', lol_card_ace:'Ace', lol_card_result:'Match result',
+      lol_close_call:'Close call at health ≤', lol_size:'Widget size', lol_preview:'Preview',
+      lol_preview_all:'All cards (one after another)', lol_preview_hint:'League look active — use the preview buttons in the League of Legends card.',
+      lol_in_game:'In game — {champion}',
+      lol_info_html:'Shows your heart rate at pentakills, close calls, deaths and objectives in League of Legends. <br><strong>Nothing to set up:</strong> the game itself provides the data while a match is running — no addon, nothing is changed in the game.',
       wow_info_html:'Shows your heart rate at boss kills, close calls and deaths in WoW, plus session highlights like your most intense enemy. <br><strong>Important:</strong> enable <strong>Advanced Combat Logging</strong> once in the WoW settings and type <code style="color:var(--accent3);font-size:10.5px;">/combatlog</code> after every login.<br><a href="#" onclick="window.electronAPI.openExternal(WOW_GUIDE_URL);return false;" style="color:var(--accent3);text-decoration:none;">How to set it up ↗</a>',
     },
     de: {
@@ -726,6 +806,18 @@
       wow_preview_hint:'WoW-Look aktiv — Vorschau über die Buttons in der World-of-Warcraft-Karte.',
       wow_advanced_off_html:'<strong>Advanced Combat Logging ist aus</strong> — ohne Gesundheitswerte gibt es kein CLOSE CALL. In WoW aktivieren: <code style="font-size:10.5px;">/console advancedCombatLogging 1</code>',
       wow_preview_insight:'Session-Auswertung (alle nacheinander)',
+      wow_cards:'Diese Karten anzeigen', wow_card_boss:'Boss besiegt', wow_card_close:'Knapper Kampf', wow_card_death:'Tod',
+      wow_card_intense:'Intensivster Gegner', wow_card_peak:'Höchstpuls', wow_card_closest:'Knappster Kampf',
+      wow_card_nemesis:'Nemesis', wow_card_streak:'Kill Streak',
+      lol_heading:'League of Legends', lol_toggle:'Spiel-Ereignisse im Overlay',
+      lol_idle:'Aus', lol_waiting:'Warte auf ein Spiel…', lol_active:'Liest laufendes Spiel mit', lol_error:'Verbindungsproblem',
+      lol_cards:'Diese Karten anzeigen', lol_card_deaths:'Tode', lol_card_close:'Knappe Kämpfe', lol_card_multi:'Multikills',
+      lol_card_kills:'Einzelne Kills', lol_card_firstblood:'First Blood', lol_card_objectives:'Ziele (Drache, Baron)',
+      lol_card_steals:'Geklaute Ziele', lol_card_ace:'Ace', lol_card_result:'Spielergebnis',
+      lol_close_call:'Close Call bei Gesundheit ≤', lol_size:'Widget-Größe', lol_preview:'Vorschau',
+      lol_preview_all:'Alle Karten (nacheinander)', lol_preview_hint:'League-Look aktiv — Vorschau über die Buttons in der League-of-Legends-Karte.',
+      lol_in_game:'Im Spiel — {champion}',
+      lol_info_html:'Zeigt deinen Puls bei Pentakills, knappen Kämpfen, Toden und Zielen in League of Legends. <br><strong>Nichts einzurichten:</strong> Das Spiel liefert die Daten selbst, solange eine Partie läuft — kein Addon, am Spiel wird nichts verändert.',
       wow_info_html:'Zeigt deinen Puls bei Boss-Kills, knappen Kämpfen und Toden in WoW, dazu Session-Highlights wie deinen intensivsten Gegner. <br><strong>Wichtig:</strong> Aktiviere einmalig <strong>Advanced Combat Logging</strong> in den WoW-Einstellungen und gib nach jedem Login <code style="color:var(--accent3);font-size:10.5px;">/combatlog</code> ein.<br><a href="#" onclick="window.electronAPI.openExternal(WOW_GUIDE_URL);return false;" style="color:var(--accent3);text-decoration:none;">Anleitung ↗</a>',
     },
   };
@@ -806,14 +898,15 @@
       zones: getZones(),
       glowColor:v('glowColor'),
       // Game integrations bring their own overlay look
-      theme: cb('wowEnabled') ? 'wow' : 'default',
-      wowScale:+v('wowScale'),
+      theme: cb('wowEnabled') ? 'wow' : 'default',   // kept for older overlay builds
+      gameThemes: [cb('wowEnabled') && 'wow', cb('lolEnabled') && 'lol'].filter(Boolean),
+      wowScale:+v('wowScale'), lolScale:+v('lolScale'),
     };
   }
 
   function applyConfigToForm(c){
     ['heartAnim','heartStyle','heartColor','heartSize','fontStyle','bpmColor','labelColor',
-     'bpmSize','numAnim','bgStyle','bgColor','bgOpacity','layoutStyle','borderRadius','glowColor','wowScale'].forEach(id=>{
+     'bpmSize','numAnim','bgStyle','bgColor','bgOpacity','layoutStyle','borderRadius','glowColor','wowScale','lolScale'].forEach(id=>{
       if($(id)&&c[id]!==undefined) $(id).value=c[id];
     });
     if(c.systemFont&&$('systemFontName')) $('systemFontName').value=c.systemFont;
@@ -823,7 +916,7 @@
     });
     ['heartColor','bpmColor','labelColor','bgColor','glowColor'].forEach(id=>syncHex(id,id+'Hex'));
     sv('heartSize','heartSizeV','px'); sv('bpmSize','bpmSizeV','px');
-    sv('bgOpacity','bgOpacityV','%'); sv('borderRadius','borderRadiusV','px'); sv('wowScale','wowScaleV','%');
+    sv('bgOpacity','bgOpacityV','%'); sv('borderRadius','borderRadiusV','px'); sv('wowScale','wowScaleV','%'); sv('lolScale','lolScaleV','%');
     if(c.zonesEnabled!==undefined){$('zonesEnabled').checked=c.zonesEnabled;onZonesToggle(false);}
     if(c.zonesAffectFont!==undefined&&$('zonesAffectFont'))$('zonesAffectFont').checked=c.zonesAffectFont;
     if(c.zones&&c.zones.length) renderZones(c.zones);
@@ -835,6 +928,7 @@
     if($('glowColorWrap')) $('glowColorWrap').style.display=cb('heartGlow')?'flex':'none';
     if($('systemFontWrap')) $('systemFontWrap').style.display=v('fontStyle')==='system'?'flex':'none';
     $('wowPreviewHint').hidden=!cb('wowEnabled');
+    $('lolPreviewHint').hidden=!cb('lolEnabled');
     if(overlayOpen) window.electronAPI.updateConfig(getConfig());
     clearTimeout(saveTimer);
     saveTimer=setTimeout(()=>window.electronAPI.saveSettings({config:getConfig(),hrId:v('hrId')}),600);
@@ -1424,8 +1518,20 @@
   }
 
   // ── World of Warcraft ──
+  const WOW_CARD_IDS = {
+    boss: 'wowCardBoss', close: 'wowCardClose', death: 'wowCardDeath',
+    intense: 'wowCardIntense', peak: 'wowCardPeak', closest: 'wowCardClosest',
+    nemesis: 'wowCardNemesis', streak: 'wowCardStreak',
+  };
+
+  function wowCardsFromForm() {
+    const cards = {};
+    for (const [key, id] of Object.entries(WOW_CARD_IDS)) cards[key] = cb(id);
+    return cards;
+  }
+
   function wowOptions() {
-    return { path: $('wowPath').value.trim(), closeCallPct: +v('wowCloseCallPct') };
+    return { path: $('wowPath').value.trim(), closeCallPct: +v('wowCloseCallPct'), cards: wowCardsFromForm() };
   }
 
   async function wowToggle() {
@@ -1444,7 +1550,7 @@
   }
 
   function saveWow() {
-    window.electronAPI.saveSettings({ wowPath: $('wowPath').value.trim(), wowCloseCallPct: +v('wowCloseCallPct') });
+    window.electronAPI.saveSettings({ wowPath: $('wowPath').value.trim(), wowCloseCallPct: +v('wowCloseCallPct'), wowCards: wowCardsFromForm() });
     if (cb('wowEnabled')) window.electronAPI.wowSetOptions(wowOptions());
   }
 
@@ -1502,12 +1608,90 @@
 
   function applyWowSettings(s) {
     if (s.wowPath) $('wowPath').value = s.wowPath;
+    if (s.wowCards) for (const [key, id] of Object.entries(WOW_CARD_IDS)) {
+      if (s.wowCards[key] !== undefined) $(id).checked = !!s.wowCards[key];
+    }
     if (s.wowCloseCallPct) { $('wowCloseCallPct').value = s.wowCloseCallPct; sv('wowCloseCallPct','wowCloseCallPctV','%'); }
     if (s.wowEnabled) {
       $('wowEnabled').checked = true;
       $('wowBody').style.display = 'flex';
       renderWowStatus(null);
       window.electronAPI.wowEnable(wowOptions());
+    }
+  }
+
+  // ── League of Legends ──
+  const LOL_CARD_IDS = {
+    deaths: 'lolCardDeaths', closeCalls: 'lolCardCloseCalls', multikills: 'lolCardMultikills',
+    kills: 'lolCardKills', firstBlood: 'lolCardFirstBlood', objectives: 'lolCardObjectives',
+    steals: 'lolCardSteals', ace: 'lolCardAce', matchResult: 'lolCardMatchResult',
+  };
+  let lolCurState = null, lolCurExtra = {};
+
+  function lolCardsFromForm() {
+    const cards = {};
+    for (const [key, id] of Object.entries(LOL_CARD_IDS)) cards[key] = cb(id);
+    return cards;
+  }
+
+  function lolOptions() {
+    return { closeCallPct: +v('lolCloseCallPct'), cards: lolCardsFromForm() };
+  }
+
+  function lolToggle() {
+    const enabled = cb('lolEnabled');
+    $('lolBody').style.display = enabled ? 'flex' : 'none';
+    window.electronAPI.saveSettings({ lolEnabled: enabled });
+    if (enabled) window.electronAPI.lolEnable(lolOptions());
+    else { window.electronAPI.lolDisable(); renderLolStatus(null); }
+    live();
+  }
+
+  function saveLol() {
+    window.electronAPI.saveSettings({ lolCloseCallPct: +v('lolCloseCallPct'), lolCards: lolCardsFromForm() });
+    if (cb('lolEnabled')) window.electronAPI.lolSetOptions(lolOptions());
+  }
+
+  function lolTest(style) {
+    if (overlayOpen) { window.electronAPI.lolTest(style); return; }
+    toggleOverlay(); // overlay needs a moment to load and receive the League theme
+    setTimeout(() => window.electronAPI.lolTest(style), 1200);
+  }
+
+  function renderLolStatus(state, extra = {}) {
+    lolCurState = state; lolCurExtra = extra;
+    const dot = $('lolDot'), text = $('lolStatusText');
+    dot.className = 'dot';
+    text.title = extra.error || '';
+    if (state === 'active') {
+      dot.classList.add('connected');
+      text.textContent = extra.champion ? t('lol_in_game').replace('{champion}', extra.champion) : t('lol_active');
+    } else if (state === 'waiting') {
+      dot.classList.add('connecting');
+      text.textContent = t('lol_waiting');
+    } else if (state === 'error') {
+      dot.classList.add('error');
+      text.textContent = t('lol_error');
+    } else {
+      text.textContent = t('lol_idle');
+    }
+    syncHeadDot('lolHeadDot', dot.classList[1], cb('lolEnabled'));
+  }
+
+  window.electronAPI.onLolStatus(({ state, ...extra }) => {
+    if (cb('lolEnabled')) renderLolStatus(state, extra);
+  });
+
+  function applyLolSettings(s) {
+    if (s.lolCloseCallPct) { $('lolCloseCallPct').value = s.lolCloseCallPct; sv('lolCloseCallPct','lolCloseCallPctV','%'); }
+    if (s.lolCards) for (const [key, id] of Object.entries(LOL_CARD_IDS)) {
+      if (s.lolCards[key] !== undefined) $(id).checked = !!s.lolCards[key];
+    }
+    if (s.lolEnabled) {
+      $('lolEnabled').checked = true;
+      $('lolBody').style.display = 'flex';
+      renderLolStatus(null);
+      window.electronAPI.lolEnable(lolOptions());
     }
   }
 
@@ -1534,6 +1718,7 @@
       window.electronAPI.discordEnable();
     }
     applyWowSettings(saved);
+    applyLolSettings(saved);
     updatePreview(); live();
 
     // 2) Load fonts + autostart in background — not critical for UI
