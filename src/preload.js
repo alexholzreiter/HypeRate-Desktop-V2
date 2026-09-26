@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onOverlayDragging: (cb) => ipcRenderer.on('overlay-dragging', (_, d) => cb(d)),
   onOverlayCursor:   (cb) => ipcRenderer.on('overlay-cursor',   (_, d) => cb(d)),
   onOverlayResized:  (cb) => ipcRenderer.on('overlay-resized',  (_, d) => cb(d)),
+  onOverlayState:    (cb) => ipcRenderer.on('overlay-state',    (_, d) => cb(d)),
 
   discordEnable:      ()     => ipcRenderer.send('discord-enable'),
   discordDisable:     ()     => ipcRenderer.send('discord-disable'),

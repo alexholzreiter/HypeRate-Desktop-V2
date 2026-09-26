@@ -177,13 +177,8 @@ function buildMenu() {
       click: () => { settingsWindow?.show(); settingsWindow?.focus(); },
     },
     {
-      label: overlayWindow?.isVisible() ? tl('overlayHide') : tl('overlayShow'),
-      enabled: !!overlayWindow,
-      click: () => {
-        if (!overlayWindow) return;
-        overlayWindow.isVisible() ? overlayWindow.hide() : overlayWindow.show();
-        tray.setContextMenu(buildMenu());
-      },
+      label: overlayIsOpen() ? tl('overlayHide') : tl('overlayShow'),
+      click: () => toggleOverlay(),
     },
     {
       label: showBpmInTray ? tl('bpmHide') : tl('bpmShow'),
@@ -276,6 +271,7 @@ function createOverlayWindow() {
 
   overlayWindow.on('closed', () => {
     overlayWindow = null;
+    notifyOverlayState();
     clearInterval(overlayCursorTimer);
     overlayCursorTimer = null;
     overlayCursorInside = false;
@@ -348,8 +344,10 @@ function wsDisconnect() {
   discord.clearPresence(); // don't keep (or re-send after a Discord reconnect) a stale BPM
 }
 
-function sendToSettings(ch, d) { if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.webContents.send(ch, d); }
-function sendToOverlay(ch, d)  { if (overlayWindow  && !overlayWindow.isDestroyed())  overlayWindow.webContents.send(ch, d); }
+// During shutdown a window can still exist while its webContents is already gone
+const alive = (w) => !!w && !w.isDestroyed() && !w.webContents.isDestroyed();
+function sendToSettings(ch, d) { if (alive(settingsWindow)) settingsWindow.webContents.send(ch, d); }
+function sendToOverlay(ch, d)  { if (alive(overlayWindow))  overlayWindow.webContents.send(ch, d); }
 
 // Game moments go to the overlay and to every output that wants them (MQTT today)
 function emitGameMoment(moment) {
@@ -368,19 +366,42 @@ function broadcastBpm(bpm, source) {
   if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle(` ${bpm}`);
 }
 
+// ── Showing and hiding the overlay ───────────────────────────────────────────
+// This used to be the settings window's job alone, which left the tray entry and the hotkey
+// dead whenever the overlay was closed. Main can open it by itself: the config it would send
+// is already on disk, saved by the settings window on every change.
+function overlayIsOpen() { return !!overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible(); }
+
+function notifyOverlayState() {
+  if (app.isQuitting) return;
+  sendToSettings('overlay-state', { open: overlayIsOpen() });
+  if (tray) tray.setContextMenu(buildMenu());
+}
+
+function showOverlay() {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.show();
+  } else {
+    createOverlayWindow();
+    const cfg = loadStore().config;
+    if (cfg) setTimeout(() => sendToOverlay('config-update', cfg), 400);
+  }
+  notifyOverlayState();
+}
+
+function hideOverlay() {
+  if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.hide();
+  notifyOverlayState();
+}
+
+function toggleOverlay() { overlayIsOpen() ? hideOverlay() : showOverlay(); }
+
 // ── Hotkey: toggles overlay visibility. CommandOrControl is Cmd on macOS, Ctrl elsewhere ──
 const HOTKEY = 'CommandOrControl+Shift+H';
 let hotkeyRegistered = false;
 
 function registerHotkey() {
-  hotkeyRegistered = globalShortcut.register(HOTKEY, () => {
-    if (!overlayWindow) return;
-    if (overlayWindow.isVisible()) {
-      overlayWindow.hide();
-    } else {
-      overlayWindow.show();
-    }
-  });
+  hotkeyRegistered = globalShortcut.register(HOTKEY, toggleOverlay);
   // Another app may already own the combination; say so instead of failing quietly
   if (!hotkeyRegistered) console.warn(`[hotkey] ${HOTKEY} is taken by another app`);
   return hotkeyRegistered;
@@ -415,6 +436,7 @@ app.whenReady().then(() => {
   }
 });
 
+app.on('before-quit', () => { app.isQuitting = true; });
 app.on('will-quit', () => globalShortcut.unregisterAll());
 // App lives in tray — never auto-quit when windows are closed
 app.on('window-all-closed', () => {});
@@ -429,8 +451,9 @@ ipcMain.on('ws-disconnect', () => wsDisconnect());
 ipcMain.on('launch-overlay', (_, config) => {
   if (!overlayWindow) createOverlayWindow();
   setTimeout(() => { if (overlayWindow) overlayWindow.webContents.send('config-update', config); }, 400);
+  notifyOverlayState();
 });
-ipcMain.on('close-overlay',     ()       => { if (overlayWindow) { overlayWindow.close(); overlayWindow=null; } });
+ipcMain.on('close-overlay',     ()       => { if (overlayWindow) { overlayWindow.close(); overlayWindow=null; notifyOverlayState(); } });
 ipcMain.on('update-config',     (_, cfg) => { if (overlayWindow) overlayWindow.webContents.send('config-update', cfg); });
 ipcMain.on('minimize-settings', () => { if (settingsWindow) settingsWindow.minimize(); });
 ipcMain.on('close-settings',    () => { if (settingsWindow) settingsWindow.hide(); });

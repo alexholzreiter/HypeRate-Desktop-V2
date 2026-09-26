@@ -126,6 +126,7 @@
     .update-badge{display:none;align-items:center;gap:4px;padding:2px 8px;background:var(--accent);color:#fff;border-radius:20px;font-size:9px;font-weight:700;font-family:'Space Mono',monospace;cursor:pointer;margin-left:6px;border:none;transition:background .2s;-webkit-app-region:no-drag;}
     .update-badge:hover{background:var(--accent-dim);}
     .hotkey-badge{display:flex;align-items:center;gap:6px;padding:7px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;color:var(--text-dim);}
+    .hotkey-badge #hotkeyKeys{white-space:nowrap;margin-left:auto;}
     .hotkey-badge kbd{display:inline-block;padding:2px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text);}
     .bottom{padding:11px 14px;border-top:1px solid var(--border);display:flex;gap:9px;flex-shrink:0;}
 
@@ -825,7 +826,7 @@
       layout:'Layout', corner_radius:'Eckenradius',
       show_label:'BPM-Label anzeigen', show_border:'Rahmen anzeigen',
       zones_enable:'Zonenfarben aktivieren', zones_font:'Schriftfarbe beeinflussen',
-      preview:'Vorschau', hotkey_label:'Overlay umschalten:',
+      preview:'Vorschau', hotkey_label:'Overlay ein/aus:',
       startup:'Mit Computer starten', news:'Neuigkeiten',
       show_overlay:'Overlay anzeigen', hide_overlay:'Overlay schließen', feedback:'Feedback',
       status_idle:'Nicht verbunden', status_connecting:'Verbinde…',
@@ -1154,6 +1155,14 @@
   }
 
   // ── Overlay ──
+  // Menüleiste und Tastenkürzel öffnen das Overlay ebenfalls; der Hauptprozess sagt Bescheid
+  window.electronAPI.onOverlayState(({ open }) => {
+    overlayOpen = open;
+    $('overlayBtn').innerHTML = open
+      ? '✕ ' + t('hide_overlay')
+      : '🖥️ <span data-i18n="show_overlay">' + t('show_overlay') + '</span>';
+  });
+
   function toggleOverlay(){
     if(!overlayOpen){
       window.electronAPI.launchOverlay(getConfig());
