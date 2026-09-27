@@ -128,6 +128,25 @@ const history = [];              // [topic, payload] in order
   await sleep(700);
   check('broker publishes the last will after a crash', seen.get('hyperate/desktop/availability') === 'offline', seen.get('hyperate/desktop/availability'));
 
+  // ── a broker that turns the password down, and then does not ──
+  // What a wrong broker password looks like from the app's side. The client has to notice the
+  // corrected password and reconnect on its own, without the app being restarted.
+  out.stop();
+  const broker2 = createBroker(PORT + 1, { refuse: true });
+  await broker2.listen();
+  const verlauf = [];
+  out.init({ onStatus: (s) => verlauf.push(s) });
+  out.start({ host: '127.0.0.1', port: PORT + 1, baseTopic: 'hyperate', deviceId: 'desktop', username: 'hyperate', password: 'falsch' });
+  await sleep(900);
+  check('a refused password shows up as an error', verlauf.includes('error'), verlauf.join(' → ') || '(nichts gemeldet)');
+
+  broker2.accept();
+  out.setOptions({ password: 'richtig' });
+  await sleep(1000);
+  check('the corrected password reconnects on its own', verlauf.at(-1) === 'connected', verlauf.join(' → '));
+  check('the broker saw the user name on the accepted connection', broker2.connects.at(-1) === 'hyperate', JSON.stringify(broker2.connects));
+  out.stop(); broker2.close();
+
   out.stop(); broker.close();
   const failed = checks.filter(x => !x).length;
   console.log(`\n${checks.length - failed}/${checks.length} checks passed`);

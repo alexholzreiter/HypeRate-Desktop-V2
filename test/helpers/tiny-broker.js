@@ -5,6 +5,7 @@ const mqttPacket = require('mqtt-packet');
 
 function createBroker(port, opts = {}) {
   const clients = new Set();          // { socket, will, subs: [RegExp] }
+  const connects = [];                // usernames of accepted connections, in order
   const retained = new Map();         // topic → payload
   const listeners = [];               // (topic, payload) => void
 
@@ -36,6 +37,13 @@ function createBroker(port, opts = {}) {
       switch (packet.cmd) {
         case 'connect':
           client.will = packet.will || null;
+          // opts.refuse lets a test reproduce a broker that turns credentials down
+          if (opts.refuse) {
+            socket.write(gen({ cmd: 'connack', returnCode: 5, reasonCode: 135, sessionPresent: false }));
+            socket.end();
+            break;
+          }
+          connects.push(packet.username || '');
           socket.write(gen({ cmd: 'connack', returnCode: 0, reasonCode: 0, sessionPresent: false }));
           break;
         case 'subscribe':
@@ -81,6 +89,9 @@ function createBroker(port, opts = {}) {
     onMessage: (fn) => listeners.push(fn),
     killClients: () => { for (const c of clients) c.socket.destroy(); },   // simulate a crash
     close: () => { for (const c of clients) c.socket.destroy(); server.close(); },
+    accept: () => { opts.refuse = false; },        // ab jetzt Anmeldungen annehmen
+    refuse: () => { opts.refuse = true; },
+    connects,
   };
 }
 
