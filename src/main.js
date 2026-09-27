@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell, dialog, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell, dialog, safeStorage, Notification, powerMonitor } = require('electron');
 const path   = require('path');
 const fs     = require('fs');
 const dgram  = require('dgram');
@@ -167,13 +167,19 @@ function createSettingsWindow() {
 
 // ── Tray / Menu-bar icon ──
 const TRAY_LABELS = {
-  en: { settings:'Open Settings', overlayHide:'Hide Overlay', overlayShow:'Show Overlay', bpmHide:'Hide BPM in menu bar', bpmShow:'Show BPM in menu bar', quit:'Quit' },
-  de: { settings:'Einstellungen öffnen', overlayHide:'Overlay verstecken', overlayShow:'Overlay anzeigen', bpmHide:'BPM in Menüleiste ausblenden', bpmShow:'BPM in Menüleiste anzeigen', quit:'Beenden' },
+  en: { settings:'Open Settings', overlayHide:'Hide Overlay', overlayShow:'Show Overlay', bpmHide:'Hide BPM in menu bar', bpmShow:'Show BPM in menu bar', quit:'Quit',
+        updateMenu:'↑ Update to %s', updateTitle:'HypeRate Desktop %s is out', updateBody:'Click to open the release notes.' },
+  de: { settings:'Einstellungen öffnen', overlayHide:'Overlay verstecken', overlayShow:'Overlay anzeigen', bpmHide:'BPM in Menüleiste ausblenden', bpmShow:'BPM in Menüleiste anzeigen', quit:'Beenden',
+        updateMenu:'↑ Auf %s aktualisieren', updateTitle:'HypeRate Desktop %s ist da', updateBody:'Zum Öffnen der Versionshinweise klicken.' },
 };
 function tl(key) { const lang = loadStore().lang || 'en'; return (TRAY_LABELS[lang] || TRAY_LABELS.en)[key]; }
 
 function buildMenu() {
   return Menu.buildFromTemplate([
+    ...(newRelease ? [
+      { label: tl('updateMenu').replace('%s', newRelease.version), click: () => shell.openExternal(newRelease.url) },
+      { type: 'separator' },
+    ] : []),
     {
       label: tl('settings'),
       click: () => { settingsWindow?.show(); settingsWindow?.focus(); },
@@ -427,6 +433,10 @@ app.whenReady().then(() => {
   createTray();
   registerHotkey();
 
+  setTimeout(() => checkForUpdate(), 8000);            // nicht gleich in den Startvorgang hinein
+  setInterval(() => checkForUpdate(), UPDATE_EVERY_MS);
+  powerMonitor.on('resume', () => checkForUpdate());   // ein Notebook schläft auch mal drei Tage
+
   if (IS_AUTOSTART) {
     // Started via autostart — stay in tray, don't show settings window
   } else if (IS_FIRST_RUN) {
@@ -649,28 +659,65 @@ ipcMain.on('set-autostart', (_, enable) => {
 
 ipcMain.handle('get-system-fonts', () => systemFonts.list());
 
-ipcMain.handle('check-update', () => new Promise((resolve) => {
-  const https = require('https');
-  const req = https.get(
-    'https://api.github.com/repos/alexholzreiter/HypeRate-Desktop-V2/releases/latest',
-    { headers: { 'User-Agent': 'HypeRate-Overlay/' + VERSION } },
-    (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const release = JSON.parse(data);
-          const latest = (release.tag_name || '').replace(/^v/, '');
-          const current = VERSION;
-          const hasUpdate = latest && latest !== current && isNewer(latest, current);
-          resolve({ hasUpdate, latestVersion: latest, downloadUrl: release.html_url || '' });
-        } catch { resolve({ hasUpdate: false }); }
-      });
-    }
-  );
-  req.on('error', () => resolve({ hasUpdate: false }));
-  req.setTimeout(6000, () => { req.destroy(); resolve({ hasUpdate: false }); });
-}));
+// ── Update check ─────────────────────────────────────────────────────────────
+// Checking only at launch missed people who leave the app running for weeks. It now runs on
+// a timer and after the machine wakes up, and it says so where the app actually lives: the
+// tray menu, plus one notification per version. The badge in the settings needs the window
+// to be open, which it usually is not.
+const UPDATE_EVERY_MS = 6 * 60 * 60 * 1000;
+let newRelease = null;                 // { version, url } while something newer is out
+
+function fetchLatestRelease() {
+  return new Promise((resolve) => {
+    const https = require('https');
+    const req = https.get(
+      'https://api.github.com/repos/alexholzreiter/HypeRate-Desktop-V2/releases/latest',
+      { headers: { 'User-Agent': 'HypeRate-Overlay/' + VERSION } },
+      (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const release = JSON.parse(data);
+            const latest = (release.tag_name || '').replace(/^v/, '');
+            const hasUpdate = !!latest && latest !== VERSION && isNewer(latest, VERSION);
+            resolve({ hasUpdate, latestVersion: latest, downloadUrl: release.html_url || '' });
+          } catch { resolve({ hasUpdate: false }); }
+        });
+      }
+    );
+    req.on('error', () => resolve({ hasUpdate: false }));
+    req.setTimeout(6000, () => { req.destroy(); resolve({ hasUpdate: false }); });
+  });
+}
+
+async function checkForUpdate({ notify = true } = {}) {
+  const result = await fetchLatestRelease();
+  if (!result.hasUpdate) return result;
+
+  newRelease = { version: result.latestVersion, url: result.downloadUrl };
+  sendToSettings('update-available', newRelease);
+  if (tray) tray.setContextMenu(buildMenu());
+
+  // One notification per version, ever. The marker has to live in the store: the settings
+  // window asks on its own when it opens, and an in-memory flag would count that as told.
+  const store = loadStore();
+  if (notify && store.updateNotified !== result.latestVersion && Notification.isSupported()) {
+    const n = new Notification({
+      title: tl('updateTitle').replace('%s', result.latestVersion),
+      body: tl('updateBody'),
+    });
+    n.on('click', () => shell.openExternal(newRelease.url));
+    n.show();
+    store.updateNotified = result.latestVersion;
+    saveStore(store);
+  }
+  return result;
+}
+
+ipcMain.handle('check-update', () => (newRelease
+  ? { hasUpdate: true, latestVersion: newRelease.version, downloadUrl: newRelease.url }
+  : checkForUpdate({ notify: false })));
 
 function isNewer(latest, current) {
   const l = latest.split('.').map(Number);

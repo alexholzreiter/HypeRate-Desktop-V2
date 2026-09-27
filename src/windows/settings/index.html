@@ -1577,14 +1577,20 @@
   }
 
   // ── Update Check ──
+  // Der Hauptprozess prüft weiter, auch wenn dieses Fenster zu ist, und meldet sich dann hier.
+  function showUpdate(version, url){
+    const badge=$('updateBadge');
+    badge.textContent=`↑ v${version}`;
+    badge.style.display='flex';
+    badge.onclick=()=>window.electronAPI.openExternal(url);
+  }
+
+  window.electronAPI.onUpdateAvailable?.(({ version, url }) => showUpdate(version, url));
+
   async function checkUpdate(){
     if(!window.electronAPI?.checkUpdate) return;
     const {hasUpdate, latestVersion, downloadUrl} = await window.electronAPI.checkUpdate();
-    if(!hasUpdate) return;
-    const badge=$('updateBadge');
-    badge.textContent=`↑ v${latestVersion}`;
-    badge.style.display='flex';
-    badge.onclick=()=>window.electronAPI.openExternal(downloadUrl);
+    if(hasUpdate) showUpdate(latestVersion, downloadUrl);
   }
 
   // ── News ──

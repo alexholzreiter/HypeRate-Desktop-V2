@@ -60,6 +60,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sessionsCard:       (startedAt) => ipcRenderer.invoke('sessions-card', startedAt),
   sessionsSetOptions: (opts)    => ipcRenderer.send('sessions-set-options', opts),
   onSessionsChanged:  (cb)      => ipcRenderer.on('sessions-changed', (_, d) => cb(d)),
+  onUpdateAvailable:  (cb)      => ipcRenderer.on('update-available', (_, d) => cb(d)),
 
   mqttEnable:         (opts)    => ipcRenderer.send('mqtt-enable', opts),
   mqttDisable:        ()        => ipcRenderer.send('mqtt-disable'),
