@@ -100,7 +100,8 @@
       "icon": "assets/icon.icns",
       "category": "public.app-category.utilities",
       "extendInfo": {
-        "NSBluetoothAlwaysUsageDescription": "HypeRate Desktop needs Bluetooth to connect to heart rate monitors directly."
+        "NSBluetoothAlwaysUsageDescription": "HypeRate Desktop needs Bluetooth to connect to heart rate monitors directly.",
+        "NSLocalNetworkUsageDescription": "HypeRate Desktop needs access to your local network to reach an MQTT broker or Home Assistant running on another device in your home."
       }
     },
     "dmg": {

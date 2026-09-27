@@ -472,6 +472,7 @@
             <input type="password" id="mqttPassword" autocomplete="new-password" onchange="saveMqtt()" style="font-size:11px;padding:6px 9px;" />
             <div class="hint" id="mqttPasswordLost" hidden style="color:var(--warn);" data-i18n="mqtt_password_lost"></div>
           </div>
+          <div class="hint" id="mqttLocalNetwork" hidden style="color:var(--warn);" data-i18n="mqtt_local_network"></div>
           <label class="cardchk"><input type="checkbox" id="mqttTls" onchange="saveMqtt()" /><span data-i18n="mqtt_tls">Encrypted connection (TLS)</span></label>
           <label class="cardchk"><input type="checkbox" id="mqttDiscovery" checked onchange="saveMqtt()" /><span data-i18n="mqtt_discovery">Create entities in Home Assistant automatically</span></label>
           <label class="cardchk"><input type="checkbox" id="mqttEvents" checked onchange="saveMqtt()" /><span data-i18n="mqtt_events">Also send game events</span></label>
@@ -888,6 +889,7 @@
       mqtt_heading:'Home Assistant', mqtt_toggle:'Send heart rate via MQTT',
       mqtt_idle:'Off', mqtt_connecting:'Connecting…', mqtt_connected:'Connected to {host}', mqtt_error:'Connection failed',
       mqtt_password_lost:'Your saved password could not be read on this install. Please enter it once more.',
+      mqtt_local_network:'macOS is blocking the connection to your local network. Allow HypeRate Desktop under System Settings › Privacy & Security › Local Network.',
       mqtt_broker:'Broker address & port', mqtt_user:'User (optional)', mqtt_password:'Password (optional)', mqtt_tls:'Encrypted connection (TLS)',
       mqtt_discovery:'Create entities in Home Assistant automatically', mqtt_events:'Also send game events',
       mqtt_topic:'Base topic', mqtt_test:'🔁 Send test values',
@@ -970,6 +972,7 @@
       mqtt_heading:'Home Assistant', mqtt_toggle:'Puls per MQTT senden',
       mqtt_idle:'Aus', mqtt_connecting:'Verbinde…', mqtt_connected:'Verbunden mit {host}', mqtt_error:'Verbindung fehlgeschlagen',
       mqtt_password_lost:'Das gespeicherte Passwort ist in dieser Installation nicht lesbar. Bitte einmal neu eingeben.',
+      mqtt_local_network:'macOS blockiert die Verbindung ins lokale Netzwerk. Bitte HypeRate Desktop unter Systemeinstellungen › Datenschutz & Sicherheit › Lokales Netzwerk erlauben.',
       mqtt_broker:'Broker-Adresse & Port', mqtt_user:'Benutzer (optional)', mqtt_password:'Passwort (optional)', mqtt_tls:'Verschlüsselte Verbindung (TLS)',
       mqtt_discovery:'Einträge in Home Assistant automatisch anlegen', mqtt_events:'Spiel-Ereignisse mitsenden',
       mqtt_topic:'Basis-Thema', mqtt_test:'🔁 Testwerte senden',
@@ -2028,7 +2031,18 @@
     } else {
       text.textContent = t('mqtt_idle');
     }
+    $('mqttLocalNetwork').hidden = !blockedByLocalNetwork(state, extra);
     syncHeadDot('mqttHeadDot', dot.classList[1], cb('mqttEnabled'));
+  }
+
+  // macOS refuses a connection to the home network with EHOSTUNREACH when the app has no local
+  // network permission, which looks exactly like a broker that is switched off. Only say so for a
+  // private address, so a genuinely unreachable server on the internet is not blamed on macOS.
+  function blockedByLocalNetwork(state, extra = {}) {
+    if (state !== 'error' || !/Macintosh/.test(navigator.userAgent)) return false;
+    if (!['EHOSTUNREACH', 'ENETUNREACH', 'EHOSTDOWN'].includes(extra.error)) return false;
+    const host = String(extra.host || '').split(':')[0];
+    return /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.)/.test(host) || /\.local$/i.test(host);
   }
 
   window.electronAPI.onMqttStatus(({ state, ...extra }) => {
