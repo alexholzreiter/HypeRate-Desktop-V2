@@ -841,11 +841,27 @@ function encryptSecret(plain) {
   try { return safeStorage.isEncryptionAvailable() ? 'enc:' + safeStorage.encryptString(plain).toString('base64') : plain; }
   catch { return plain; }
 }
+// Returns null when something is stored but this machine cannot read it. safeStorage keeps its
+// key in the keychain under the app's name, so a secret written by a differently named build,
+// or on another machine, or before a keychain reset, is simply gone. Swallowing that and
+// returning an empty string made the app connect with no password at all, which looks like a
+// wrong password and leaves the settings showing dots for a secret that is not there.
 function decryptSecret(stored) {
   if (!stored) return '';
   if (!String(stored).startsWith('enc:')) return stored;
   try { return safeStorage.decryptString(Buffer.from(String(stored).slice(4), 'base64')); }
-  catch { return ''; }
+  catch { return null; }
+}
+
+// An unreadable secret is worse than none: it keeps the settings claiming a password is set.
+// This only reports; it deliberately does not rewrite the store. Several handlers load, mutate
+// and save the store independently, so a write from here can be undone by one that read the
+// file a moment earlier. The stale value is harmless once the user types a new one.
+function readableSecret(store) {
+  const plain = decryptSecret(store.mqttPassword);
+  if (plain !== null) return plain;
+  sendToSettings('mqtt-password-lost', {});
+  return '';
 }
 
 function mqttOptions(opts = {}) {
@@ -854,7 +870,7 @@ function mqttOptions(opts = {}) {
     ...opts,
     password: opts.password !== undefined && opts.password !== null
       ? opts.password                                   // freshly typed in the settings
-      : decryptSecret(store.mqttPassword),
+      : readableSecret(store),
     zonesEnabled: !!store.config?.zonesEnabled,
     appVersion: VERSION,
   };
@@ -872,7 +888,13 @@ ipcMain.on('mqtt-set-options', (_, opts = {}) => {
   mqtt.setOptions(mqttOptions(opts.password ? opts : { ...opts, password: undefined }));
 });
 ipcMain.handle('mqtt-test', () => mqtt.test());
-ipcMain.handle('mqtt-has-password', () => !!loadStore().mqttPassword);
+// 'ok' | 'lost' | 'none'. The settings window asks on load, because a message pushed from here
+// can go out before that window is listening.
+ipcMain.handle('mqtt-has-password', () => {
+  const store = loadStore();
+  if (!store.mqttPassword) return 'none';
+  return readableSecret(store) ? 'ok' : 'lost';
+});
 
 ipcMain.on('open-external', (_, url) => shell.openExternal(url));
 

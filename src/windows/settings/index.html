@@ -470,6 +470,7 @@
           <div class="field">
             <label data-i18n="mqtt_password">Password (optional)</label>
             <input type="password" id="mqttPassword" autocomplete="new-password" onchange="saveMqtt()" style="font-size:11px;padding:6px 9px;" />
+            <div class="hint" id="mqttPasswordLost" hidden style="color:var(--warn);" data-i18n="mqtt_password_lost"></div>
           </div>
           <label class="cardchk"><input type="checkbox" id="mqttTls" onchange="saveMqtt()" /><span data-i18n="mqtt_tls">Encrypted connection (TLS)</span></label>
           <label class="cardchk"><input type="checkbox" id="mqttDiscovery" checked onchange="saveMqtt()" /><span data-i18n="mqtt_discovery">Create entities in Home Assistant automatically</span></label>
@@ -886,6 +887,7 @@
       wow_card_nemesis:'Nemesis', wow_card_streak:'Kill Streak',
       mqtt_heading:'Home Assistant', mqtt_toggle:'Send heart rate via MQTT',
       mqtt_idle:'Off', mqtt_connecting:'Connecting…', mqtt_connected:'Connected to {host}', mqtt_error:'Connection failed',
+      mqtt_password_lost:'Your saved password could not be read on this install. Please enter it once more.',
       mqtt_broker:'Broker address & port', mqtt_user:'User (optional)', mqtt_password:'Password (optional)', mqtt_tls:'Encrypted connection (TLS)',
       mqtt_discovery:'Create entities in Home Assistant automatically', mqtt_events:'Also send game events',
       mqtt_topic:'Base topic', mqtt_test:'🔁 Send test values',
@@ -967,6 +969,7 @@
       wow_card_nemesis:'Nemesis', wow_card_streak:'Kill Streak',
       mqtt_heading:'Home Assistant', mqtt_toggle:'Puls per MQTT senden',
       mqtt_idle:'Aus', mqtt_connecting:'Verbinde…', mqtt_connected:'Verbunden mit {host}', mqtt_error:'Verbindung fehlgeschlagen',
+      mqtt_password_lost:'Das gespeicherte Passwort ist in dieser Installation nicht lesbar. Bitte einmal neu eingeben.',
       mqtt_broker:'Broker-Adresse & Port', mqtt_user:'Benutzer (optional)', mqtt_password:'Passwort (optional)', mqtt_tls:'Verschlüsselte Verbindung (TLS)',
       mqtt_discovery:'Einträge in Home Assistant automatisch anlegen', mqtt_events:'Spiel-Ereignisse mitsenden',
       mqtt_topic:'Basis-Thema', mqtt_test:'🔁 Testwerte senden',
@@ -1405,6 +1408,14 @@
   }
 
   window.electronAPI.onSessionsChanged(() => renderSessions());
+
+  // Der Schlüssel im Schlüsselbund hängt am App-Namen. Nach einem Wechsel der Fassung oder
+  // des Rechners ist ein gespeichertes Passwort unlesbar; dann muss man es einmal neu tippen.
+  window.electronAPI.onMqttPasswordLost?.(() => {
+    const feld = $('mqttPassword'), hinweis = $('mqttPasswordLost');
+    if (feld) feld.value = '';
+    if (hinweis) hinweis.hidden = false;
+  });
 
   // Die Formen kommen aus assets/hearts. Sichtbar ist ein Raster mit Vorschaubildern,
   // das <select> dahinter bleibt versteckt als Wertspeicher, damit getConfig und
@@ -2032,7 +2043,9 @@
     if (s.mqttTls) $('mqttTls').checked = true;
     if (s.mqttDiscovery === false) $('mqttDiscovery').checked = false;
     if (s.mqttEvents === false) $('mqttEvents').checked = false;
-    if (await window.electronAPI.mqttHasPassword()) $('mqttPassword').value = MQTT_PLACEHOLDER;
+    const pwStand = await window.electronAPI.mqttHasPassword();
+    if (pwStand === 'ok') $('mqttPassword').value = MQTT_PLACEHOLDER;
+    if (pwStand === 'lost') $('mqttPasswordLost').hidden = false;
     if (s.mqttEnabled) {
       $('mqttEnabled').checked = true;
       $('mqttBody').style.display = 'flex';

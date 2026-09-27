@@ -68,6 +68,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   mqttTest:           ()        => ipcRenderer.invoke('mqtt-test'),
   mqttHasPassword:    ()        => ipcRenderer.invoke('mqtt-has-password'),
   onMqttStatus:       (cb)      => ipcRenderer.on('mqtt-status', (_, d) => cb(d)),
+  onMqttPasswordLost: (cb)      => ipcRenderer.on('mqtt-password-lost', (_, d) => cb(d)),
 
   lolEnable:          (opts)    => ipcRenderer.send('lol-enable', opts),
   lolDisable:         ()        => ipcRenderer.send('lol-disable'),
