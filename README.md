@@ -67,7 +67,7 @@ Every integration is optional and lives in its own card in the settings.
 | **League of Legends** | Deaths, close calls, multikills, First Blood, objectives, steals, Ace and the match result | Nothing. Riot's Live Client Data API is there while a match runs |
 | **Home Assistant** | Publishes heart rate, zone and game moments over MQTT | See below |
 
-Each game's cards can be switched on and off individually. Cards you switch off still count towards your session statistics.
+Each game's cards can be switched on and off individually. A card you switch off is not shown and not recorded: the event is skipped entirely, so it does not reach your session statistics or Home Assistant either.
 
 ### Home Assistant (MQTT)
 
@@ -124,6 +124,37 @@ actions:
         {% set c = state_attr('sensor.hyperate_desktop_heart_rate_zone', 'zone_color') or '#ffffff' %}
         [{{ c[1:3]|int(base=16) }}, {{ c[3:5]|int(base=16) }}, {{ c[5:7]|int(base=16) }}]
 ```
+
+The game moments deserve one more word, because there is a trap in them. Trigger on the **topic**, not on the entity:
+
+```yaml
+alias: Red light when you die
+triggers:
+  - trigger: mqtt
+    topic: hyperate/desktop/event
+conditions:
+  - condition: template
+    value_template: "{{ trigger.payload_json.event_type == 'death' }}"
+actions:
+  - action: light.turn_on
+    target: { entity_id: light.office }
+    data:
+      rgb_color: [255, 0, 0]
+      brightness: 255
+```
+
+Nothing is ever retained on `hyperate/desktop/event`, so this can only fire on a moment that just happened. A state trigger on `event.hyperate_desktop_game_event` can also fire when the entity returns from `unavailable`, which it does every time the app reconnects, and your light would then flash on every start. If you would rather use the entity, guard it:
+
+```yaml
+triggers:
+  - trigger: state
+    entity_id: event.hyperate_desktop_game_event
+    not_from:
+      - unknown
+      - unavailable
+```
+
+One thing that looks alarming and is not: when the app starts, the last moment can reappear in the Home Assistant logbook. That is the entity becoming available again and carrying its restored state, not a new event. The *Events* card keeps showing the real timestamp, and the topic stays silent.
 
 ---
 
