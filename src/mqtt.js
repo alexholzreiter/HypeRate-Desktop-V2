@@ -11,7 +11,7 @@ const RECONNECT_MS      = 5000;
 // Which game moments become events, and the type Home Assistant sees: moments.EVENT_TYPES
 const EVENT_TYPES = moments.EVENT_TYPES;
 
-let onStatus = null;
+let onStatus = null, onDiscovery = null;
 let client = null, options = null;
 let lastStateAt = 0, lastState = null, throttleTimer = null;
 let lastStatusKey = '', lastError = null;
@@ -32,6 +32,7 @@ function topics() {
 
 function init(callbacks = {}) {
   onStatus = callbacks.onStatus;
+  onDiscovery = callbacks.onDiscovery;     // lets the caller remember what was last announced
 }
 
 function start(opts = {}) {
@@ -49,6 +50,7 @@ function start(opts = {}) {
     events: opts.events !== false,
     zonesEnabled: !!opts.zonesEnabled,
     appVersion: opts.appVersion || '',
+    discoverySignature: opts.discoverySignature || '',
   };
   const t = topics();
 
@@ -151,12 +153,22 @@ function publishDiscovery() {
     }]);
   }
 
+  // Discovery messages are retained, so the broker already holds them and Home Assistant gets
+  // them whenever it reconnects. Sending them again on every app start makes Home Assistant
+  // rebuild the entities, and a rebuilt event entity restores its last event and writes it into
+  // the logbook again. From the outside that looks like the game was played once more.
+  const signature = JSON.stringify([entities, options.zonesEnabled, options.events]);
+  if (signature === options.discoverySignature) return;
+
   for (const [component, key, payload] of entities) {
     client.publish(t.discovery(component, key), JSON.stringify(payload), { retain: true });
   }
   // an entity that is switched off should not linger in Home Assistant
   if (!options.zonesEnabled) client.publish(t.discovery('sensor', 'zone'), '', { retain: true });
   if (!options.events)       client.publish(t.discovery('event', 'game_event'), '', { retain: true });
+
+  options.discoverySignature = signature;
+  onDiscovery?.(signature);
 }
 
 // ── Publishing ───────────────────────────────────────────────────────────────

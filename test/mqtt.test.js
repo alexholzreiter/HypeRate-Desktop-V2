@@ -92,6 +92,29 @@ const history = [];              // [topic, payload] in order
   await sleep(150);
   check('test value lands on the state topic', JSON.parse(seen.get('hyperate/desktop/state')).zone === 'Test', seen.get('hyperate/desktop/state'));
 
+  // ── announcing again on every start makes Home Assistant rebuild the entities ──
+  // A rebuilt event entity restores its last event into the logbook, which reads as if the
+  // game had been played once more.
+  let merkte = null;
+  out.init({ onStatus: () => {}, onDiscovery: (sig) => { merkte = sig; } });
+  out.stop();
+  const zaehleDiscovery = () => history.filter(([t]) => t.startsWith('homeassistant/')).length;
+
+  out.start({ host: '127.0.0.1', port: PORT, baseTopic: 'hyperate', deviceId: 'desktop', zonesEnabled: true, events: true, appVersion: '1.0.9' });
+  await sleep(600);
+  const nachErstem = zaehleDiscovery();
+  check('the first start announces the entities', nachErstem > 0 && !!merkte, `${nachErstem} Nachrichten`);
+
+  out.stop();
+  out.start({ host: '127.0.0.1', port: PORT, baseTopic: 'hyperate', deviceId: 'desktop', zonesEnabled: true, events: true, appVersion: '1.0.9', discoverySignature: merkte });
+  await sleep(600);
+  check('an unchanged start announces nothing again', zaehleDiscovery() === nachErstem, `${zaehleDiscovery() - nachErstem} zusätzliche`);
+
+  out.stop();
+  out.start({ host: '127.0.0.1', port: PORT, baseTopic: 'hyperate', deviceId: 'desktop', zonesEnabled: false, events: true, appVersion: '1.0.9', discoverySignature: merkte });
+  await sleep(600);
+  check('a changed setup does announce again', zaehleDiscovery() > nachErstem);
+
   // ── offline on stop ──
   out.stop();
   await sleep(300);

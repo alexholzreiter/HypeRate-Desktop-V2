@@ -873,10 +873,16 @@ function mqttOptions(opts = {}) {
       : readableSecret(store),
     zonesEnabled: !!store.config?.zonesEnabled,
     appVersion: VERSION,
+    discoverySignature: store.mqttDiscoverySignature || '',
   };
 }
 
-mqtt.init({ onStatus: (state, extra = {}) => sendToSettings('mqtt-status', { state, ...extra }) });
+mqtt.init({
+  onStatus: (state, extra = {}) => sendToSettings('mqtt-status', { state, ...extra }),
+  // Remembered across restarts, otherwise every launch re-announces and Home Assistant
+  // rebuilds the entities
+  onDiscovery: (signature) => { const store = loadStore(); store.mqttDiscoverySignature = signature; saveStore(store); },
+});
 
 ipcMain.on('mqtt-enable', (_, opts = {}) => {
   if (opts.password) { const store = loadStore(); store.mqttPassword = encryptSecret(opts.password); saveStore(store); }
