@@ -1,4 +1,6 @@
 const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell, dialog, safeStorage, Notification, powerMonitor } = require('electron');
+
+app.setAppUserModelId('io.hyperate.desktop');
 const path   = require('path');
 const fs     = require('fs');
 const dgram  = require('dgram');
