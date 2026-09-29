@@ -1,5 +1,125 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+
+let linuxBleDevice = null;
+let linuxBleCharacteristic = null;
+let linuxBleAutoReconnect = false;
+let linuxBleManualDisconnect = false;
+let linuxBleReconnectTimer = null;
+let linuxBleRequestPending = false;
+
+function linuxBleStatus(state, extra = {}) {
+  ipcRenderer.send('ble-web-status', { state, ...extra });
+}
+
+function linuxBleParseHeartRate(event) {
+  const data = event.target.value;
+  if (!data || data.byteLength < 2) return;
+  const flags = data.getUint8(0);
+  const bpm = (flags & 0x01)
+    ? data.getUint16(1, true)
+    : data.getUint8(1);
+  if (bpm > 0 && bpm < 300) ipcRenderer.send('ble-web-bpm', bpm);
+}
+
+async function linuxBleConnectDevice(device) {
+  linuxBleManualDisconnect = false;
+  linuxBleStatus('connecting');
+
+  try {
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService('heart_rate');
+    const characteristic = await service.getCharacteristic('heart_rate_measurement');
+
+    linuxBleCharacteristic = characteristic;
+    await characteristic.startNotifications();
+    characteristic.addEventListener('characteristicvaluechanged', linuxBleParseHeartRate);
+
+    linuxBleDevice = device;
+    linuxBleStatus('connected', { name: device.name || 'HR Monitor' });
+  } catch (err) {
+    linuxBleStatus('connect-error', { reason: err?.message || String(err) });
+  }
+}
+
+function linuxBleScheduleReconnect() {
+  if (!linuxBleAutoReconnect || linuxBleManualDisconnect || !linuxBleDevice || linuxBleReconnectTimer) return;
+
+  linuxBleStatus('reconnecting', { name: linuxBleDevice.name || 'HR Monitor' });
+
+  linuxBleReconnectTimer = setTimeout(async () => {
+    linuxBleReconnectTimer = null;
+    if (linuxBleManualDisconnect || !linuxBleAutoReconnect || !linuxBleDevice) return;
+
+    try {
+      await linuxBleConnectDevice(linuxBleDevice);
+    } catch {
+      linuxBleScheduleReconnect();
+    }
+  }, 3000);
+}
+
+async function linuxBleStartScan() {
+  if (linuxBleRequestPending) return;
+
+  if (!navigator.bluetooth) {
+    linuxBleStatus('ble-unavailable', { reason: 'Web Bluetooth is unavailable.' });
+    return;
+  }
+
+  linuxBleRequestPending = true;
+  linuxBleStatus('scanning');
+
+  try {
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: ['heart_rate'] }],
+      optionalServices: ['heart_rate'],
+    });
+
+    linuxBleRequestPending = false;
+
+    device.addEventListener('gattserverdisconnected', () => {
+      if (linuxBleManualDisconnect) {
+        linuxBleStatus('disconnected');
+        return;
+      }
+      linuxBleStatus('disconnected');
+      linuxBleScheduleReconnect();
+    });
+
+    await linuxBleConnectDevice(device);
+  } catch (err) {
+    linuxBleRequestPending = false;
+
+    if (err?.name === 'NotFoundError') {
+      linuxBleStatus('idle');
+      return;
+    }
+
+    linuxBleStatus('scan-error', { reason: err?.message || String(err) });
+  }
+}
+
+async function linuxBleDisconnect() {
+  linuxBleManualDisconnect = true;
+  clearTimeout(linuxBleReconnectTimer);
+  linuxBleReconnectTimer = null;
+
+  if (linuxBleCharacteristic) {
+    try {
+      linuxBleCharacteristic.removeEventListener('characteristicvaluechanged', linuxBleParseHeartRate);
+      await linuxBleCharacteristic.stopNotifications();
+    } catch {}
+    linuxBleCharacteristic = null;
+  }
+
+  if (linuxBleDevice?.gatt?.connected) {
+    try { linuxBleDevice.gatt.disconnect(); } catch {}
+  }
+
+  linuxBleStatus('disconnected');
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   wsConnect:      (id)   => ipcRenderer.send('ws-connect', id),
   wsDisconnect:   ()     => ipcRenderer.send('ws-disconnect'),
@@ -38,11 +158,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   discordDisable:     ()     => ipcRenderer.send('discord-disable'),
   onDiscordStatus:    (cb)   => ipcRenderer.on('discord-status', (_, d) => cb(d)),
 
-  bleScanStart:       ()              => ipcRenderer.send('ble-scan-start'),
-  bleScanStop:        ()              => ipcRenderer.send('ble-scan-stop'),
-  bleConnect:         (id, name)      => ipcRenderer.send('ble-connect', { id, name }),
-  bleDisconnect:      ()              => ipcRenderer.send('ble-disconnect'),
-  bleSetAutoReconnect:(enabled)       => ipcRenderer.send('ble-set-auto-reconnect', enabled),
+  bleScanStart:       ()              => process.platform === 'linux' ? linuxBleStartScan() : ipcRenderer.send('ble-scan-start'),
+  bleScanStop:        ()              => process.platform === 'linux' ? ipcRenderer.send('ble-web-cancel-scan') : ipcRenderer.send('ble-scan-stop'),
+  bleConnect:         (id, name)      => process.platform === 'linux' ? ipcRenderer.send('ble-web-select-device', id) : ipcRenderer.send('ble-connect', { id, name }),
+  bleDisconnect:      ()              => process.platform === 'linux' ? linuxBleDisconnect() : ipcRenderer.send('ble-disconnect'),
+  bleSetAutoReconnect:(enabled)       => {
+    if (process.platform === 'linux') {
+      linuxBleAutoReconnect = !!enabled;
+      if (!linuxBleAutoReconnect) {
+        clearTimeout(linuxBleReconnectTimer);
+        linuxBleReconnectTimer = null;
+      }
+    } else {
+      ipcRenderer.send('ble-set-auto-reconnect', enabled);
+    }
+  },
   onBleDeviceFound:   (cb)            => ipcRenderer.on('ble-device-found', (_, d) => cb(d)),
   onBleStatus:        (cb)            => ipcRenderer.on('ble-status',       (_, d) => cb(d)),
 

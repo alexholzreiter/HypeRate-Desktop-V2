@@ -1,5 +1,9 @@
 const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell, dialog, safeStorage, Notification, powerMonitor } = require('electron');
 
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('enable-experimental-web-platform-features');
+}
+
 app.setAppUserModelId('io.hyperate.desktop');
 const path   = require('path');
 const fs     = require('fs');
@@ -388,6 +392,39 @@ function createSettingsWindow() {
     icon: path.join(__dirname,'../assets/icon.png'),
     title:'HypeRate Desktop',
   });
+  if (process.platform === 'linux') {
+    let selectBluetoothCallback = null;
+
+    settingsWindow.webContents.on('select-bluetooth-device', (event, deviceList, callback) => {
+      event.preventDefault();
+      selectBluetoothCallback = callback;
+
+      for (const device of deviceList) {
+        settingsWindow.webContents.send('ble-device-found', {
+          id: device.deviceId,
+          name: device.deviceName || 'HR Monitor',
+          rssi: null,
+        });
+      }
+    });
+
+    ipcMain.removeAllListeners('ble-web-select-device');
+    ipcMain.on('ble-web-select-device', (_, deviceId) => {
+      if (!selectBluetoothCallback) return;
+      const callback = selectBluetoothCallback;
+      selectBluetoothCallback = null;
+      callback(deviceId || '');
+    });
+
+    ipcMain.removeAllListeners('ble-web-cancel-scan');
+    ipcMain.on('ble-web-cancel-scan', () => {
+      if (!selectBluetoothCallback) return;
+      const callback = selectBluetoothCallback;
+      selectBluetoothCallback = null;
+      callback('');
+    });
+  }
+
   settingsWindow.loadFile(path.join(__dirname,'windows/settings/index.html'));
 
   // Hide to tray instead of quitting when the window is closed
@@ -1009,6 +1046,32 @@ ipcMain.on('ble-connect', (_, { id, name }) => {
 });
 ipcMain.on('ble-disconnect',        ()              => { ble.disconnect(); sessions.close(); });
 ipcMain.on('ble-set-auto-reconnect',(_, enabled)   => ble.setAutoReconnect(enabled));
+
+ipcMain.on('ble-web-status', (_, { state, ...extra }) => {
+  if (process.platform !== 'linux') return;
+
+  sendToSettings('ble-status', { state, ...extra });
+
+  if (state === 'connected') {
+    bleConnected = true;
+    currentConnType = 'ble';
+    if (ws) wsDisconnect();
+  }
+
+  if (state === 'disconnected' || state === 'connect-error' || state === 'idle') {
+    bleConnected = false;
+  }
+
+  if (state === 'disconnected' || state === 'idle') {
+    discord.clearPresence();
+  }
+});
+
+ipcMain.on('ble-web-bpm', (_, bpm) => {
+  if (process.platform !== 'linux') return;
+  const value = Number(bpm);
+  if (value > 0 && value < 300) broadcastBpm(value, 'ble');
+});
 
 // ── Discord ──────────────────────────────────────────────────────────────────
 discord.init({
