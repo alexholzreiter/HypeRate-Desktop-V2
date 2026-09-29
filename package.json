@@ -1,6 +1,6 @@
 {
   "name": "hyperate-overlay",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "productName": "HypeRate Desktop",
   "description": "In-game heart rate overlay powered by HypeRate",
   "author": {
@@ -32,7 +32,7 @@
     "mqtt-packet": "^9.0.2"
   },
   "build": {
-    "appId": "com.yourname.hyperate-overlay",
+    "appId": "io.hyperate.desktop",
     "productName": "HypeRate Desktop",
     "directories": {
       "output": "dist"

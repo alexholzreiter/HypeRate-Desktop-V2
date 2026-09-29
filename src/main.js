@@ -224,7 +224,13 @@ async function pollDesktopPush() {
 function startDesktopPush() {
   if (desktopPushTimer) return;
 
-  pollDesktopPush();
+  registerDesktopPush()
+    .catch((error) => {
+      console.error('[Push] startup registration failed:', error);
+    })
+    .finally(() => {
+      pollDesktopPush();
+    });
 
   desktopPushTimer = setInterval(
     pollDesktopPush,
