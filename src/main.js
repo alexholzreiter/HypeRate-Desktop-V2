@@ -149,6 +149,8 @@ async function getDesktopPushCredentials() {
   return registerDesktopPush();
 }
 
+const activeDesktopPushNotifications = new Set();
+
 function showDesktopPushNotification(message) {
   if (!Notification.isSupported()) return;
 
@@ -161,23 +163,35 @@ function showDesktopPushNotification(message) {
       : {}),
   });
 
-  if (message.deepLink) {
-    notification.on('click', () => {
-      const deepLink = String(message.deepLink);
+  activeDesktopPushNotifications.add(notification);
 
-      if (
-        deepLink.startsWith('https://') ||
-        deepLink.startsWith('http://')
-      ) {
-        shell.openExternal(deepLink).catch((error) => {
-          console.error('[Push] deep link failed:', error);
-        });
-      } else {
-        settingsWindow?.show();
-        settingsWindow?.focus();
-      }
-    });
-  }
+  const releaseNotification = () => {
+    activeDesktopPushNotifications.delete(notification);
+  };
+
+  notification.on('click', () => {
+    const deepLink = message.deepLink
+      ? String(message.deepLink).trim()
+      : '';
+
+    console.log('[Push] notification clicked:', deepLink || '(no link)');
+
+    if (
+      deepLink.startsWith('https://') ||
+      deepLink.startsWith('http://')
+    ) {
+      shell.openExternal(deepLink).catch((error) => {
+        console.error('[Push] link failed:', error);
+      });
+    } else {
+      settingsWindow?.show();
+      settingsWindow?.focus();
+    }
+
+    releaseNotification();
+  });
+
+  notification.on('close', releaseNotification);
 
   notification.show();
 }
