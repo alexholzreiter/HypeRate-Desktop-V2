@@ -787,9 +787,24 @@ ipcMain.handle('test-osc', (_, { host, port, param, chatbox, chatboxFormat }) =>
   }
 });
 ipcMain.on('save-settings', (_, data) => {
-  const store = loadStore(); Object.assign(store, data); saveStore(store);
+  const store = loadStore();
+  const previousHrId = String(store.hrId || '').trim();
+
+  Object.assign(store, data);
+  saveStore(store);
+
   if (data.lang && tray) tray.setContextMenu(buildMenu());
   if (data.config?.zones) sessions.setOptions({ zones: data.config.zones });
+
+  if (Object.prototype.hasOwnProperty.call(data, 'hrId')) {
+    const nextHrId = String(data.hrId || '').trim();
+
+    if (nextHrId !== previousHrId) {
+      registerDesktopPush().catch((error) => {
+        console.error('[Push] HypeRate ID sync failed:', error);
+      });
+    }
+  }
 });
 
 // ── Sessions ─────────────────────────────────────────────────────────────────
