@@ -12,6 +12,225 @@ const mqtt    = require('./mqtt');
 const sessions = require('./sessions');
 const sessionCard = require('./session-card');
 const systemFonts = require('./system-fonts');
+const crypto = require('crypto');
+
+const HYPERATE_PUSH_URL = 'https://push.hyperate.io';
+const DESKTOP_PUSH_INTERVAL_MS = 30000;
+
+let desktopPushTimer = null;
+let desktopPushRunning = false;
+
+function desktopPushPlatform() {
+  if (process.platform === 'darwin') return 'MACOS';
+  if (process.platform === 'win32') return 'WINDOWS';
+  if (process.platform === 'linux') return 'LINUX';
+  return 'UNKNOWN';
+}
+
+function encryptDesktopPushToken(token) {
+  if (!token) return null;
+
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      return 'enc:' + safeStorage.encryptString(token).toString('base64');
+    }
+  } catch (error) {
+    console.error('[Push] token encryption failed:', error);
+  }
+
+  return token;
+}
+
+function decryptDesktopPushToken(stored) {
+  if (!stored) return null;
+
+  if (!String(stored).startsWith('enc:')) {
+    return String(stored);
+  }
+
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return null;
+
+    return safeStorage.decryptString(
+      Buffer.from(String(stored).slice(4), 'base64'),
+    );
+  } catch (error) {
+    console.error('[Push] token decryption failed:', error);
+    return null;
+  }
+}
+
+async function registerDesktopPush() {
+  const store = loadStore();
+
+  const installationId =
+    store.desktopPushInstallationId || crypto.randomUUID();
+
+  if (!store.desktopPushInstallationId) {
+    saveStore({
+      ...store,
+      desktopPushInstallationId: installationId,
+    });
+  }
+
+  const payload = {
+    installationId,
+    platform: desktopPushPlatform(),
+    deviceModel: require('os').hostname(),
+    osVersion: require('os').release(),
+    appVersion: VERSION,
+    appBuild: VERSION,
+    language: app.getLocale() || undefined,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
+  };
+
+  if (store.hrId) {
+    payload.externalId = String(store.hrId).trim();
+  }
+
+  const response = await fetch(
+    `${HYPERATE_PUSH_URL}/api/devices/register`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Registration failed with HTTP ${response.status}`);
+  }
+
+  const result = await response.json();
+
+  if (!result?.device?.desktopPushToken) {
+    throw new Error('Registration returned no desktop push token');
+  }
+
+  const latestStore = loadStore();
+
+  saveStore({
+    ...latestStore,
+    desktopPushInstallationId: installationId,
+    desktopPushToken: encryptDesktopPushToken(
+      result.device.desktopPushToken,
+    ),
+  });
+
+  console.log('[Push] desktop registered');
+
+  return {
+    installationId,
+    token: result.device.desktopPushToken,
+  };
+}
+
+async function getDesktopPushCredentials() {
+  const store = loadStore();
+
+  const installationId = store.desktopPushInstallationId;
+  const token = decryptDesktopPushToken(store.desktopPushToken);
+
+  if (installationId && token) {
+    return {
+      installationId,
+      token,
+    };
+  }
+
+  return registerDesktopPush();
+}
+
+function showDesktopPushNotification(message) {
+  if (!Notification.isSupported()) return;
+
+  const notification = new Notification({
+    title: message.title || 'HypeRate',
+    body: message.message || '',
+    silent: false,
+  });
+
+  if (message.deepLink) {
+    notification.on('click', () => {
+      const deepLink = String(message.deepLink);
+
+      if (
+        deepLink.startsWith('https://') ||
+        deepLink.startsWith('http://')
+      ) {
+        shell.openExternal(deepLink).catch((error) => {
+          console.error('[Push] deep link failed:', error);
+        });
+      } else {
+        settingsWindow?.show();
+        settingsWindow?.focus();
+      }
+    });
+  }
+
+  notification.show();
+}
+
+async function pollDesktopPush() {
+  if (desktopPushRunning) return;
+  desktopPushRunning = true;
+
+  try {
+    const { installationId, token } =
+      await getDesktopPushCredentials();
+
+    const url =
+      `${HYPERATE_PUSH_URL}/api/desktop/messages` +
+      `?installationId=${encodeURIComponent(installationId)}`;
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (response.status === 401) {
+      const store = loadStore();
+
+      saveStore({
+        ...store,
+        desktopPushToken: null,
+      });
+
+      console.warn('[Push] credentials rejected; will re-register');
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error(`Message fetch failed with HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    const messages = result.messages || [];
+
+    for (const message of messages) {
+      showDesktopPushNotification(message);
+    }
+  } catch (error) {
+    console.error('[Push] poll failed:', error);
+  } finally {
+    desktopPushRunning = false;
+  }
+}
+
+function startDesktopPush() {
+  if (desktopPushTimer) return;
+
+  pollDesktopPush();
+
+  desktopPushTimer = setInterval(
+    pollDesktopPush,
+    DESKTOP_PUSH_INTERVAL_MS,
+  );
+}
 
 // ── OSC ──────────────────────────────────────────────────────────────────────
 // Pure Node.js UDP — no extra npm package needed.
@@ -427,6 +646,7 @@ function hotkeyInfo() {
 
 // ── App ready ──
 app.whenReady().then(() => {
+  startDesktopPush();
   if (process.platform === 'darwin') app.dock.hide();
 
   createSettingsWindow();
