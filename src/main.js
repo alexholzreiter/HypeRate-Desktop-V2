@@ -230,6 +230,10 @@ function startDesktopPush() {
     pollDesktopPush,
     DESKTOP_PUSH_INTERVAL_MS,
   );
+
+  powerMonitor.on('resume', () => {
+    pollDesktopPush();
+  });
 }
 
 // ── OSC ──────────────────────────────────────────────────────────────────────
