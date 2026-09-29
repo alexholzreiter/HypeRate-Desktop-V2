@@ -152,6 +152,9 @@ function showDesktopPushNotification(message) {
     title: message.title || 'HypeRate',
     body: message.message || '',
     silent: false,
+    ...(process.platform === 'linux'
+      ? { icon: path.join(__dirname, '..', 'assets', 'icon-linux.png') }
+      : {}),
   });
 
   if (message.deepLink) {
