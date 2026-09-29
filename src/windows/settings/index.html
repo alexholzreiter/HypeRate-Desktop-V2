@@ -1246,12 +1246,13 @@
     const id=v('hrId').trim();
     if(!id){ alert(currentLang==='de'?'Bitte gib deine HypeRate Session ID ein.':'Please enter your HypeRate Session ID.'); return; }
     $('hrId').value=id;
-    window.electronAPI.saveSettings({hrId:id});
+    window.electronAPI.saveSettings({hrId:id, cloudAutoConnect:true});
     setStatus('connecting');
     window.electronAPI.wsConnect(id);
   }
 
   function doDisconnect(){
+    window.electronAPI.saveSettings({cloudAutoConnect:false});
     window.electronAPI.wsDisconnect();
     isConn=false;
     $('connLabel').textContent=t('connect');
@@ -2170,7 +2171,14 @@
         $('hotkeyBadge').title = t('hotkey_taken');
       }
     }
-    if (saved.hrId) $('hrId').value = saved.hrId;
+    if (saved.hrId) {
+      $('hrId').value = saved.hrId;
+
+      if (saved.cloudAutoConnect) {
+        setStatus('connecting');
+        window.electronAPI.wsConnect(saved.hrId);
+      }
+    }
     if (saved.config) applyConfigToForm(saved.config);
     applyOscSettings(saved);
     if (saved.bleAutoReconnect) {
