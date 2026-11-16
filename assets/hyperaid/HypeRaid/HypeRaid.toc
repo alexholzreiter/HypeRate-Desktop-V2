@@ -1,0 +1,16 @@
+## Interface: 16001
+## Title: HypeRaid
+## Notes: Live heart rates for your WoW party and raid. Powered by HypeRate.
+## Author: HypeRate
+## Version: 0.4.1
+## OptionalDeps: EllesmereUI, EllesmereUIUnitFrames, ShadowedUnitFrames
+## IconTexture: Interface\AddOns\HypeRaid\HypeRaidLogo.tga
+## SavedVariables: HypeRaidSettings
+
+FontBank.lua
+FontMetrics.lua
+Party.lua
+PublicAPI.lua
+PartyUI.lua
+FontLive.lua
+UnitFrames.lua

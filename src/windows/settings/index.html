@@ -132,7 +132,9 @@
     .srow input{flex:1;}
     .sv{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);min-width:34px;text-align:right;}
     .trow{display:flex;align-items:center;justify-content:space-between;}
+    .trow[hidden]{display:none;}
     .tl{font-size:13px;color:var(--text);}
+    .trow > label.tl{font-weight:inherit;letter-spacing:normal;text-transform:none;}
     .tog{position:relative;width:42px;height:22px;flex-shrink:0;}
     .tog input{opacity:0;width:0;height:0;}
     .ts{position:absolute;inset:0;background:var(--surface2);border-radius:11px;cursor:pointer;transition:background .2s;}
@@ -549,6 +551,27 @@
           </div>
           <a href="#" onclick="window.electronAPI.wowShowDiagnostics();return false;" style="font-size:11px;color:var(--accent3);text-decoration:none;" data-i18n="wow_diagnostics">Show diagnostics file</a>
         </div>
+        <div class="trow">
+          <label class="tl" for="hyperaidEnabled" data-i18n="hyperaid_toggle">Send heart rate to HypeRaid</label>
+          <label class="tog"><input type="checkbox" id="hyperaidEnabled" onchange="hyperaidToggle()" /><span class="ts"></span></label>
+        </div>
+        <div id="hyperaidBody" style="display:none;flex-direction:column;gap:9px;">
+          <div class="field">
+            <label for="hyperaidFolder" data-i18n="hyperaid_folder">WoW Forever folder</label>
+            <div style="display:flex;gap:6px;">
+              <input type="text" id="hyperaidFolder" onchange="saveHyperaid()" style="font-size:11px;padding:6px 9px;flex:1;min-width:0;" />
+              <button class="btn bs" onclick="pickHyperaidFolder()" data-i18n="hyperaid_choose">Choose folder</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;" role="status">
+            <span class="dot" id="hyperaidDot"></span>
+            <span id="hyperaidStatusText" style="font-size:12px;color:var(--text-dim);"></span>
+          </div>
+          <div id="hyperaidVersion" style="font-size:11px;color:var(--text-dim);"></div>
+          <button class="btn bs" id="hyperaidInstall" onclick="installHyperaid()" disabled data-i18n="hyperaid_install">Install or update HypeRaid</button>
+          <div style="font-size:11px;color:var(--text-dim);line-height:1.6;" data-i18n="hyperaid_help">Close WoW before installing. To share with your group, enable Share my BPM in the HypeRaid addon.</div>
+          <a href="#" id="hyperaidCurseForge" hidden style="font-size:11px;color:var(--accent3);" data-i18n="hyperaid_curseforge">HypeRaid on CurseForge ↗</a>
+        </div>
       </div>
     </div>
 
@@ -706,6 +729,10 @@
             <input type="text" id="glowColorHex" value="#2563eb" class="chex" oninput="syncPicker('glowColor','glowColorHex')" />
           </div>
         </div>
+        <div class="field" id="heartGlowOpacityWrap">
+          <label for="heartGlowOpacity" data-i18n="glow_opacity">Glow opacity</label>
+          <div class="srow"><input type="range" id="heartGlowOpacity" min="0" max="100" value="100" oninput="sv('heartGlowOpacity','heartGlowOpacityV','%');live()" /><span class="sv" id="heartGlowOpacityV">100%</span></div>
+        </div>
       </div>
 
       <div class="tp" id="tab-typo">
@@ -741,9 +768,21 @@
           <select id="numAnim" onchange="live()"><option value="flip">Flip</option><option value="fade">Fade</option><option value="pop">Pop</option><option value="none">None</option></select>
         </div>
         <div class="trow"><span class="tl" data-i18n="text_glow">Text glow</span><label class="tog"><input type="checkbox" id="textGlow" checked onchange="live()" /><span class="ts"></span></label></div>
+        <div class="field" id="textGlowOpacityWrap">
+          <label for="textGlowOpacity" data-i18n="glow_opacity">Glow opacity</label>
+          <div class="srow"><input type="range" id="textGlowOpacity" min="0" max="100" value="100" oninput="sv('textGlowOpacity','textGlowOpacityV','%');live()" /><span class="sv" id="textGlowOpacityV">100%</span></div>
+        </div>
       </div>
 
       <div class="tp" id="tab-layout">
+        <div class="field">
+          <label for="overlayDisplay" data-i18n="overlay_display">Overlay display</label>
+          <select id="overlayDisplay" onchange="selectOverlayDisplay()" disabled></select>
+        </div>
+        <div class="trow" id="overlaySpacesRow" hidden>
+          <label class="tl" for="overlayAllSpaces" data-i18n="overlay_all_spaces">Show on all Spaces</label>
+          <label class="tog"><input type="checkbox" id="overlayAllSpaces" onchange="window.electronAPI.setOverlayAllSpaces(this.checked)" /><span class="ts"></span></label>
+        </div>
         <div class="field"><label data-i18n="background">Background</label>
           <select id="bgStyle" onchange="live()"><option value="transparent">Transparent</option><option value="dark-pill" selected>Dark pill</option><option value="glass">Glassmorphism</option><option value="solid">Solid color</option><option value="gradient">Gradient</option></select>
         </div>
@@ -830,8 +869,10 @@
       connect:'Connect', disconnect:'Disconnect',
       customization:'Customization',
       tab_heart:'Heart', tab_font:'Font', tab_layout:'Layout', tab_zones:'Zones',
+      overlay_display:'Overlay display', overlay_display_number:'Display {n}', overlay_primary:'Primary',
+      overlay_all_spaces:'Show on all Spaces',
       anim:'Animation', heart_style:'Heart Style', color:'Color', size:'Size',
-      glow_effect:'Glow effect', glow_color:'Glow Color',
+      glow_effect:'Glow effect', glow_color:'Glow Color', glow_opacity:'Glow opacity',
       font_style:'Font Style', sys_font:'System Font Name',
       bpm_color:'BPM Color', label_color:'Label Color', bpm_size:'BPM Font Size',
       num_anim:'Number Animation', text_glow:'Text glow',
@@ -876,6 +917,16 @@
       osc_chatbox_info_html:'Sends your BPM to <code style="color:var(--accent3);font-size:10.5px;">/chatbox/input</code> — shown as text above your avatar\'s head in VRChat. Use <code style="color:var(--accent3);font-size:10.5px;">{bpm}</code> as placeholder.',
       // World of Warcraft
       wow_heading:'World of Warcraft', wow_toggle:'Fight results in overlay',
+      hyperaid_toggle:'Send heart rate to HypeRaid', hyperaid_folder:'WoW Forever folder',
+      hyperaid_choose:'Choose folder', hyperaid_install:'Install or update HypeRaid',
+      hyperaid_help:'Close WoW before installing. To share with your group, enable Share my BPM in the HypeRaid addon.',
+      hyperaid_curseforge:'HypeRaid on CurseForge ↗', hyperaid_version:'Installed addon version {version}',
+      hyperaid_off:'Off', hyperaid_folder_status:'Choose the WoW Forever installation folder.',
+      hyperaid_setup:'Install HypeRaid to prepare the local heart-rate feed.',
+      hyperaid_installing:'Installing HypeRaid…', hyperaid_waiting:'Waiting for heart rate…',
+      hyperaid_writing:'Last written for WoW: {bpm} BPM',
+      hyperaid_error:'Could not write to the WoW folder. Check the path and your permissions.',
+      hyperaid_restart:'HypeRaid is ready. Fully restart WoW to load it.',
       wow_idle:'Off', wow_no_folder:'WoW folder not found', wow_waiting:'Waiting for combat log…', wow_active:'Reading combat log',
       wow_folder:'WoW folder', wow_close_call:'Close call at health ≤', wow_size:'Widget size', wow_preview:'Preview',
       wow_diagnostics:'Show diagnostics file ↗',
@@ -913,8 +964,10 @@
       connect:'Verbinden', disconnect:'Trennen',
       customization:'Anpassung',
       tab_heart:'Herz', tab_font:'Schrift', tab_layout:'Layout', tab_zones:'Zonen',
+      overlay_display:'Overlay-Bildschirm', overlay_display_number:'Bildschirm {n}', overlay_primary:'Hauptbildschirm',
+      overlay_all_spaces:'Auf allen Spaces anzeigen',
       anim:'Animation', heart_style:'Herzstil', color:'Farbe', size:'Größe',
-      glow_effect:'Leuchten', glow_color:'Leuchtfarbe',
+      glow_effect:'Leuchten', glow_color:'Leuchtfarbe', glow_opacity:'Deckkraft des Leuchtens',
       font_style:'Schriftstil', sys_font:'Systemschrift',
       bpm_color:'BPM Farbe', label_color:'Label Farbe', bpm_size:'BPM Schriftgröße',
       num_anim:'Zahlenanimation', text_glow:'Text Leuchten',
@@ -959,6 +1012,16 @@
       osc_chatbox_info_html:'Sendet deine BPM an <code style="color:var(--accent3);font-size:10.5px;">/chatbox/input</code> — erscheint als Text über deinem Kopf in VRChat. Nutze <code style="color:var(--accent3);font-size:10.5px;">{bpm}</code> als Platzhalter.',
       // World of Warcraft
       wow_heading:'World of Warcraft', wow_toggle:'Kampf-Ergebnisse im Overlay',
+      hyperaid_toggle:'Puls an HypeRaid senden', hyperaid_folder:'WoW-Forever-Ordner',
+      hyperaid_choose:'Ordner wählen', hyperaid_install:'HypeRaid installieren oder aktualisieren',
+      hyperaid_help:'Beende WoW vor der Installation. Zum Teilen mit deiner Gruppe aktiviere Share my BPM im HypeRaid-Addon.',
+      hyperaid_curseforge:'HypeRaid auf CurseForge ↗', hyperaid_version:'Installierte Addon-Version {version}',
+      hyperaid_off:'Aus', hyperaid_folder_status:'Wähle den Installationsordner von WoW Forever.',
+      hyperaid_setup:'Installiere HypeRaid, um die lokale Pulsübertragung einzurichten.',
+      hyperaid_installing:'HypeRaid wird installiert…', hyperaid_waiting:'Warte auf Puls…',
+      hyperaid_writing:'Zuletzt für WoW geschrieben: {bpm} BPM',
+      hyperaid_error:'Der WoW-Ordner konnte nicht beschrieben werden. Prüfe den Pfad und die Zugriffsrechte.',
+      hyperaid_restart:'HypeRaid ist bereit. Starte WoW vollständig neu, um es zu laden.',
       wow_idle:'Aus', wow_no_folder:'WoW-Ordner nicht gefunden', wow_waiting:'Warte auf Combat Log…', wow_active:'Liest Combat Log mit',
       wow_folder:'WoW-Ordner', wow_close_call:'Close Call bei Gesundheit ≤', wow_size:'Widget-Größe', wow_preview:'Vorschau',
       wow_diagnostics:'Diagnose-Datei anzeigen ↗',
@@ -998,6 +1061,9 @@
   let bleCurState = 'idle', bleCurExtra = {};
   let discordCurState = null, discordCurReason = null;
   let wowCurState = null, wowCurExtra = {};
+  let hyperaidState = { state: 'off' };
+  let hyperaidBusy = false;
+  let overlayDisplayState = null;
 
   function applyLang(lang) {
     currentLang = lang;
@@ -1021,7 +1087,31 @@
     setBleStatus(bleCurState, bleCurExtra);
     renderDiscordStatus(discordCurState, discordCurReason);
     renderWowStatus(wowCurState, wowCurExtra);
+    renderHyperaidStatus(hyperaidState);
+    if (overlayDisplayState) renderOverlayDisplays(overlayDisplayState);
   }
+
+  function renderOverlayDisplays(state) {
+    overlayDisplayState = state;
+    const select = $('overlayDisplay');
+    select.replaceChildren();
+    state.displays.forEach((display, index) => {
+      const name = display.label || t('overlay_display_number').replace('{n}', index + 1);
+      const label = display.primary ? name + ' (' + t('overlay_primary') + ')' : name;
+      select.add(new Option(label, String(display.id)));
+    });
+    select.value = String(state.selected);
+    select.disabled = state.displays.length < 2;
+    $('overlaySpacesRow').hidden = !state.supportsSpaces;
+    $('overlayAllSpaces').checked = state.allSpaces;
+  }
+
+  async function selectOverlayDisplay() {
+    const id = Number($('overlayDisplay').value);
+    renderOverlayDisplays(await window.electronAPI.setOverlayDisplay(id));
+  }
+
+  window.electronAPI.onOverlayDisplays(renderOverlayDisplays);
 
   function setLang(lang) {
     applyLang(lang);
@@ -1058,9 +1148,9 @@
   function getConfig(){
     return{
       heartAnim:v('heartAnim'),heartStyle:v('heartStyle'),heartColor:v('heartColor'),
-      heartSize:+v('heartSize'),heartGlow:cb('heartGlow'),
+      heartSize:+v('heartSize'),heartGlow:cb('heartGlow'),heartGlowOpacity:+v('heartGlowOpacity'),
       fontStyle:v('fontStyle'),systemFont:v('systemFontName'),bpmColor:v('bpmColor'),labelColor:v('labelColor'),
-      bpmSize:+v('bpmSize'),numAnim:v('numAnim'),textGlow:cb('textGlow'),
+      bpmSize:+v('bpmSize'),numAnim:v('numAnim'),textGlow:cb('textGlow'),textGlowOpacity:+v('textGlowOpacity'),
       bgStyle:v('bgStyle'),bgColor:v('bgColor'),bgOpacity:+v('bgOpacity'),
       layoutStyle:v('layoutStyle'),borderRadius:+v('borderRadius'),
       showLabel:cb('showLabel'),showBorder:cb('showBorder'),
@@ -1076,8 +1166,8 @@
   }
 
   function applyConfigToForm(c){
-    ['heartAnim','heartStyle','heartColor','heartSize','fontStyle','bpmColor','labelColor',
-     'bpmSize','numAnim','bgStyle','bgColor','bgOpacity','layoutStyle','borderRadius','glowColor','wowScale','lolScale'].forEach(id=>{
+    ['heartAnim','heartStyle','heartColor','heartSize','heartGlowOpacity','fontStyle','bpmColor','labelColor',
+     'bpmSize','numAnim','textGlowOpacity','bgStyle','bgColor','bgOpacity','layoutStyle','borderRadius','glowColor','wowScale','lolScale'].forEach(id=>{
       if($(id)&&c[id]!==undefined) $(id).value=c[id];
     });
     if(c.systemFont&&$('systemFontName')) $('systemFontName').value=c.systemFont;
@@ -1087,6 +1177,7 @@
     });
     ['heartColor','bpmColor','labelColor','bgColor','glowColor'].forEach(id=>syncHex(id,id+'Hex'));
     sv('heartSize','heartSizeV','px'); sv('bpmSize','bpmSizeV','px');
+    sv('heartGlowOpacity','heartGlowOpacityV','%'); sv('textGlowOpacity','textGlowOpacityV','%');
     sv('bgOpacity','bgOpacityV','%'); sv('borderRadius','borderRadiusV','px'); sv('wowScale','wowScaleV','%'); sv('lolScale','lolScaleV','%');
     if(c.zonesEnabled!==undefined){$('zonesEnabled').checked=c.zonesEnabled;onZonesToggle(false);}
     syncZoneColorHint();
@@ -1099,6 +1190,8 @@
     updatePreview();
     $('bgColorWrap').style.display=['solid','gradient'].includes(v('bgStyle'))?'flex':'none';
     if($('glowColorWrap')) $('glowColorWrap').style.display=cb('heartGlow')?'flex':'none';
+    $('heartGlowOpacityWrap').style.display=(cb('heartGlow')||v('heartAnim')==='glow')?'flex':'none';
+    $('textGlowOpacityWrap').style.display=cb('textGlow')?'flex':'none';
     if($('systemFontWrap')) $('systemFontWrap').style.display=v('fontStyle')==='system'?'flex':'none';
     $('wowPreviewHint').hidden=!cb('wowEnabled');
     $('lolPreviewHint').hidden=!cb('lolEnabled');
@@ -1140,15 +1233,17 @@
     const activeColor = zoneColor || c.heartColor;
 
     // Set CSS var so pa-glow keyframe knows the color (no inline filter needed)
-    const glowC = (c.glowColor && c.glowColor !== '#000000') ? c.glowColor : activeColor;
-    ph.style.setProperty('--glow-color', glowC);
+    const glowC = zoneColor || ((c.glowColor && c.glowColor !== '#000000') ? c.glowColor : activeColor);
+    const heartGlowAlpha = c.heartGlowOpacity / 100;
+    const heartGlowColor = h2r(glowC, heartGlowAlpha);
+    ph.style.setProperty('--glow-color', heartGlowColor);
     // ── Heart: minimal dot uses real circle (matches overlay exactly) ──
     const isMinimal = c.heartStyle === 'minimal';
     const isGlowAnim = c.heartAnim === 'glow';
     if (isMinimal) {
       const s = c.heartSize + 'px';
       const glowStyle = c.heartGlow
-        ? `box-shadow:0 0 16px 2px ${glowC}, 0 0 32px 4px ${glowC}40;`
+        ? `box-shadow:0 0 16px 2px ${heartGlowColor}, 0 0 32px 4px ${h2r(glowC, heartGlowAlpha * 64 / 255)};`
         : '';
       ph.innerHTML = `<span style="display:block;border-radius:50%;width:${s};height:${s};background:${activeColor};${glowStyle}"></span>`;
       ph.style.fontSize = '0';
@@ -1164,7 +1259,7 @@
       if (isGlowAnim) {
         ph.style.filter = 'none';
       } else {
-        ph.style.filter = c.heartGlow ? `drop-shadow(0 0 12px ${glowC})` : 'none';
+        ph.style.filter = c.heartGlow ? `drop-shadow(0 0 12px ${heartGlowColor})` : 'none';
       }
     }
     ph.className = 'ph' + (c.heartAnim !== 'none' ? ' pa-'+c.heartAnim : '');
@@ -1173,7 +1268,7 @@
     const fontZoneColor = (c.zonesEnabled && c.zonesAffectFont !== false && zoneColor) ? zoneColor : null;
     const activeFontColor = fontZoneColor || c.bpmColor;
     pn.style.color=activeFontColor;
-    pn.style.textShadow=c.textGlow?`0 0 20px ${activeFontColor}`:'none';
+    pn.style.textShadow=c.textGlow?`0 0 20px ${h2r(activeFontColor, c.textGlowOpacity / 100)}`:'none';
     pl.style.color=c.labelColor;
     pl.style.display=(c.showLabel&&c.layoutStyle!=='compact')?'block':'none';
     pw.style.flexDirection=c.layoutStyle==='vertical'?'column':'row';
@@ -1968,6 +2063,71 @@
     }
   }
 
+  function renderHyperaidStatus(status) {
+    hyperaidState = status;
+    const keys = { off: 'hyperaid_off', folder: 'hyperaid_folder_status', setup: 'hyperaid_setup',
+      installing: 'hyperaid_installing', waiting: 'hyperaid_waiting', writing: 'hyperaid_writing', error: 'hyperaid_error' };
+    const color = { writing: 'connected', waiting: 'connecting', installing: 'connecting', error: 'error' };
+    $('hyperaidDot').className = 'dot ' + (color[status.state] || '');
+    $('hyperaidStatusText').textContent = t(keys[status.state] || keys.off).replace('{bpm}', status.bpm ?? '');
+    $('hyperaidStatusText').title = status.error || '';
+    $('hyperaidVersion').textContent = status.installedVersion
+      ? t('hyperaid_version').replace('{version}', status.installedVersion) : '';
+    $('hyperaidInstall').disabled = hyperaidBusy || !status.canInstall || status.state === 'installing';
+  }
+
+  async function saveHyperaid() {
+    const status = await window.electronAPI.hyperaidConfigure({
+      enabled: cb('hyperaidEnabled'), folder: $('hyperaidFolder').value.trim(),
+    });
+    renderHyperaidStatus(status);
+  }
+
+  async function hyperaidToggle() {
+    const enabled = cb('hyperaidEnabled');
+    $('hyperaidBody').style.display = enabled ? 'flex' : 'none';
+    if (enabled && !$('hyperaidFolder').value.trim()) {
+      $('hyperaidFolder').value = $('wowPath').value.trim() || await window.electronAPI.wowDefaultPath();
+    }
+    await saveHyperaid();
+  }
+
+  async function pickHyperaidFolder() {
+    const picked = await window.electronAPI.wowPickFolder($('hyperaidFolder').value.trim());
+    if (!picked) return;
+    $('hyperaidFolder').value = picked;
+    await saveHyperaid();
+  }
+
+  async function installHyperaid() {
+    hyperaidBusy = true;
+    renderHyperaidStatus(hyperaidState);
+    try {
+      const status = await window.electronAPI.hyperaidInstall();
+      if (status.state === 'waiting' || status.state === 'writing') {
+        $('hyperaidStatusText').textContent = t('hyperaid_restart');
+      }
+    } finally {
+      hyperaidBusy = false;
+      $('hyperaidInstall').disabled = !hyperaidState.canInstall || hyperaidState.state === 'installing';
+    }
+  }
+
+  window.electronAPI.onHyperaidStatus(renderHyperaidStatus);
+
+  async function applyHyperaidSettings(s) {
+    $('hyperaidEnabled').checked = !!s.hyperaidEnabled;
+    $('hyperaidFolder').value = s.hyperaidFolder || s.wowPath || '';
+    $('hyperaidBody').style.display = s.hyperaidEnabled ? 'flex' : 'none';
+    const status = await window.electronAPI.hyperaidStatus();
+    if (status.curseforgeUrl) {
+      const link = $('hyperaidCurseForge');
+      link.hidden = false;
+      link.onclick = () => { window.electronAPI.openExternal(status.curseforgeUrl); return false; };
+    }
+    renderHyperaidStatus(status);
+  }
+
   // ── Home Assistant / MQTT ──
   const MQTT_PLACEHOLDER = '••••••••';   // shown instead of the stored password, never sent back
   let mqttCurState = null, mqttCurExtra = {};
@@ -2153,6 +2313,7 @@
     fillHeartStyles();          // vor applyConfigToForm, damit der gespeicherte Stil wählbar ist
 
     applyLang(saved.lang || 'en');
+    window.electronAPI.getOverlayDisplays().then(renderOverlayDisplays);
     $('tlVersion').textContent = 'v' + (saved.version || '?');
     if (saved.scaleFactor && saved.scaleFactor > 1.5) document.documentElement.style.fontSize = '15px';
     for (const id of ['sessionsEndAfterMin', 'sessionsMinLengthMin', 'sessionsKeepDays']) {
@@ -2192,6 +2353,7 @@
       window.electronAPI.discordEnable();
     }
     applyWowSettings(saved);
+    applyHyperaidSettings(saved);
     applyLolSettings(saved);
     applyMqttSettings(saved);
     updatePreview(); live();

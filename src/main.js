@@ -13,11 +13,13 @@ const ble     = require('./ble');
 const discord = require('./discord');
 const moments = require('./moments');
 const wow     = require('./games/wow');
+const { createHyperaid } = require('./games/wow/hyperaid');
 const lol     = require('./games/lol');
 const mqtt    = require('./mqtt');
 const sessions = require('./sessions');
 const sessionCard = require('./session-card');
 const systemFonts = require('./system-fonts');
+const { fitOverlay, restoreOverlayPlacement, overlayPlacementPreferences } = require('./overlay-placement');
 const crypto = require('crypto');
 
 const HYPERATE_PUSH_URL = 'https://push.hyperate.io';
@@ -382,7 +384,9 @@ let overlayTrackedW = 300; // current window size, kept in sync with widget size
 let overlayTrackedH = 160;
 let overlayClampedX = null; // last position set by resize-overlay (may differ from tracked near screen edges)
 let overlayClampedY = null;
+let overlayDisplayId = null;
 let overlayDragging = false, overlayDragTimer = null, overlayPendingSize = null;
+let overlayDisplayRefreshPending = false;
 let overlayCursorTimer = null, overlayCursorInside = false;
 let showBpmInTray   = loadStore().showBpmInTray !== false; // default true
 
@@ -391,8 +395,32 @@ function scaleFactor() {
   return screen.getPrimaryDisplay().scaleFactor || 1;
 }
 
-function workArea() {
-  return screen.getPrimaryDisplay().workArea; // {x, y, width, height}
+function overlayDisplaySettings() {
+  const store = loadStore();
+  const primary = screen.getPrimaryDisplay();
+  const displays = screen.getAllDisplays();
+  const current = displays.find(display => display.id === overlayDisplayId);
+  const { display } = restoreOverlayPlacement(screen, store, overlayTrackedW, overlayTrackedH);
+  return {
+    displays: displays.map(({ id, label }) => ({ id, label, primary: id === primary.id })),
+    selected: (current || display).id,
+    supportsSpaces: process.platform === 'darwin',
+    allSpaces: store.overlayAllSpaces === true,
+  };
+}
+
+function notifyOverlayDisplays() {
+  sendToSettings('overlay-displays', overlayDisplaySettings());
+}
+
+function applyOverlaySpaces(enabled) {
+  if (process.platform === 'darwin' && overlayWindow
+      && overlayWindow.isVisibleOnAllWorkspaces() !== enabled) {
+    overlayWindow.setVisibleOnAllWorkspaces(enabled, {
+      visibleOnFullScreen: enabled,
+      skipTransformProcessType: !app.dock.isVisible(),
+    });
+  }
 }
 
 // ── Settings window ──
@@ -520,16 +548,19 @@ function createTray() {
 
 // ── Overlay window ──
 function createOverlayWindow() {
-  const { width, height } = workArea();
-  const sf    = scaleFactor();
   const store = loadStore();
-  const ox = Number.isFinite(store.overlayX) ? store.overlayX : (width - 300);
-  const oy = Number.isFinite(store.overlayY) ? store.overlayY : 20;
-  overlayTrackedX = Math.round(ox);
-  overlayTrackedY = Math.round(oy);
+  const { display, x, y } = restoreOverlayPlacement(screen, store, 300, 160);
+  const bounds = fitOverlay(display.workArea, x, y, 300, 160);
+  overlayDisplayId = display.id;
+  overlayTrackedX = x;
+  overlayTrackedY = y;
+  overlayTrackedW = bounds.width;
+  overlayTrackedH = bounds.height;
+  overlayClampedX = bounds.x;
+  overlayClampedY = bounds.y;
 
   overlayWindow = new BrowserWindow({
-    width:300, height:160, x:ox, y:oy,
+    ...bounds,
     frame:false, transparent:true, alwaysOnTop:true,
     skipTaskbar:true, resizable:false, maximizable:false, fullscreenable:false, hasShadow:false,
     webPreferences:{ nodeIntegration:false, contextIsolation:true, preload:path.join(__dirname,'preload.js') },
@@ -537,6 +568,7 @@ function createOverlayWindow() {
   });
   overlayWindow.loadFile(path.join(__dirname,'windows/overlay/index.html'));
   overlayWindow.setAlwaysOnTop(true,'screen-saver');
+  applyOverlaySpaces(store.overlayAllSpaces === true);
 
   // will-resize and will-move are intentionally not blocked here.
   // resizable:false + maximizable:false prevent user-initiated resizes.
@@ -555,15 +587,20 @@ function createOverlayWindow() {
     if (!overlayWindow) return;
     const [x, y] = overlayWindow.getPosition();
     if (x === overlayClampedX && y === overlayClampedY) return;  // our own resize, not the user
+    overlayClampedX = overlayClampedY = null;
     overlayTrackedX = x; overlayTrackedY = y;
     noteOverlayDrag();
   });
-  overlayWindow.on('moved', () => {
-    const store = loadStore(); store.overlayX = overlayTrackedX; store.overlayY = overlayTrackedY; saveStore(store);
-  });
 
+  overlayWindow.on('close', () => {
+    if (overlayDragging && !overlayDisplayRefreshPending) saveOverlayDrag(overlayWindow);
+  });
   overlayWindow.on('closed', () => {
     overlayWindow = null;
+    overlayDisplayId = null;
+    clearTimeout(overlayDragTimer);
+    overlayDragging = overlayDisplayRefreshPending = false;
+    overlayPendingSize = null;
     notifyOverlayState();
     clearInterval(overlayCursorTimer);
     overlayCursorTimer = null;
@@ -573,7 +610,7 @@ function createOverlayWindow() {
 
   // Send scale factor so overlay can adjust sizes
   overlayWindow.webContents.on('did-finish-load', () => {
-    overlayWindow.webContents.send('scale-factor', sf);
+    sendOverlayDisplayScale();
   });
 }
 
@@ -642,6 +679,10 @@ const alive = (w) => !!w && !w.isDestroyed() && !w.webContents.isDestroyed();
 function sendToSettings(ch, d) { if (alive(settingsWindow)) settingsWindow.webContents.send(ch, d); }
 function sendToOverlay(ch, d)  { if (alive(overlayWindow))  overlayWindow.webContents.send(ch, d); }
 
+const hyperaid = createHyperaid(status => sendToSettings('hyperaid-status', status));
+const HYPERAID_CURSEFORGE_URL = '';
+let hyperaidTimer;
+
 // Game moments go to the overlay and to every output that wants them (MQTT today)
 function emitGameMoment(moment) {
   sendToOverlay('game-moment', moment);
@@ -651,6 +692,7 @@ function emitGameMoment(moment) {
 
 // Every BPM sample (cloud or BLE) goes through here
 function broadcastBpm(bpm, source) {
+  hyperaid.record(bpm);
   sendToSettings('bpm-update', source === 'ble' ? { bpm, source } : { bpm });
   sendToOverlay('heart-rate-update', { bpm });
   sendHeartRateOsc(bpm);
@@ -713,11 +755,19 @@ function hotkeyInfo() {
 // ── App ready ──
 app.whenReady().then(() => {
   startDesktopPush();
+  const settings = loadStore();
+  if (settings.hyperaidEnabled) {
+    hyperaid.configure({ enabled: true, folder: settings.hyperaidFolder || settings.wowPath }).catch(() => {});
+  }
+  hyperaidTimer = setInterval(() => hyperaid.tick(), 500);
   if (process.platform === 'darwin') app.dock.hide();
 
   createSettingsWindow();
   createTray();
   registerHotkey();
+  for (const event of ['display-added', 'display-removed', 'display-metrics-changed']) {
+    screen.on(event, refreshOverlayDisplays);
+  }
 
   setTimeout(() => checkForUpdate(), 8000);            // nicht gleich in den Startvorgang hinein
   setInterval(() => checkForUpdate(), UPDATE_EVERY_MS);
@@ -736,7 +786,7 @@ app.whenReady().then(() => {
   }
 });
 
-app.on('before-quit', () => { app.isQuitting = true; sessions.stop(); });   // die letzte halbe Minute soll nicht verloren gehen
+app.on('before-quit', () => { app.isQuitting = true; clearInterval(hyperaidTimer); sessions.stop(); });   // die letzte halbe Minute soll nicht verloren gehen
 app.on('will-quit', () => globalShortcut.unregisterAll());
 // App lives in tray — never auto-quit when windows are closed
 app.on('window-all-closed', () => {});
@@ -806,6 +856,12 @@ function noteOverlayDrag() {
   overlayDragTimer = setTimeout(() => {
     overlayDragging = false;
     sendToOverlay('overlay-dragging', false);
+    if (overlayDisplayRefreshPending) {
+      overlayDisplayRefreshPending = false;
+      refreshOverlayDisplays();
+    } else if (overlayWindow) {
+      saveOverlayDrag(overlayWindow);
+    }
     if (overlayPendingSize) {
       const { width, height } = overlayPendingSize;
       overlayPendingSize = null;
@@ -814,20 +870,51 @@ function noteOverlayDrag() {
   }, OVERLAY_DRAG_IDLE_MS);
 }
 
+function saveOverlayDrag(window) {
+  if (!window || window.isDestroyed()) return;
+  const bounds = window.getBounds();
+  const display = screen.getDisplayMatching(bounds);
+  overlayDisplayId = display.id;
+  overlayTrackedX = bounds.x;
+  overlayTrackedY = bounds.y;
+  saveStore({ ...loadStore(), ...overlayPlacementPreferences(display, bounds.x, bounds.y) });
+  sendOverlayDisplayScale();
+  notifyOverlayDisplays();
+}
+
+function sendOverlayDisplayScale() {
+  const display = screen.getAllDisplays().find(item => item.id === overlayDisplayId);
+  sendToOverlay('scale-factor', display?.scaleFactor || scaleFactor());
+}
+
+function refreshOverlayDisplays() {
+  if (overlayDragging) {
+    overlayDisplayRefreshPending = true;
+    return;
+  }
+  if (overlayWindow) {
+    const { display, x, y } = restoreOverlayPlacement(screen, loadStore(), overlayTrackedW, overlayTrackedH);
+    overlayDisplayId = display.id;
+    overlayTrackedX = x;
+    overlayTrackedY = y;
+    applyOverlaySize(overlayTrackedW, overlayTrackedH);
+    sendOverlayDisplayScale();
+  }
+  notifyOverlayDisplays();
+}
+
 function applyOverlaySize(width, height) {
   if (!overlayWindow) return;
-  const wa = workArea();
-  const w = Math.round(Math.max(40, Math.min(Number(width)  || 300, wa.width)));
-  const h = Math.round(Math.max(20, Math.min(Number(height) || 160, 500)));
-  overlayTrackedW = w;
-  overlayTrackedH = h;
-  // Clamp the user's position so the widget stays fully on screen at this size
-  overlayClampedX = Math.round(Math.max(wa.x, Math.min(overlayTrackedX, wa.x + wa.width  - w)));
-  overlayClampedY = Math.round(Math.max(wa.y, Math.min(overlayTrackedY, wa.y + wa.height - h)));
-  overlayWindow.setBounds({ x: overlayClampedX, y: overlayClampedY, width: w, height: h });
+  const display = screen.getAllDisplays().find(item => item.id === overlayDisplayId) || screen.getPrimaryDisplay();
+  const bounds = fitOverlay(display.workArea, overlayTrackedX, overlayTrackedY, width, height);
+  overlayTrackedW = bounds.width;
+  overlayTrackedH = bounds.height;
+  overlayClampedX = bounds.x;
+  overlayClampedY = bounds.y;
+  overlayWindow.setBounds(bounds);
   // The overlay waits for this before it animates a card open: growing a transparent window
   // can leave stale pixels behind, and those would be the other game's widget.
-  sendToOverlay('overlay-resized', { width: w, height: h });
+  sendToOverlay('overlay-resized', { width: bounds.width, height: bounds.height });
 }
 
 ipcMain.on('resize-overlay', (_, { width, height }) => {
@@ -836,6 +923,25 @@ ipcMain.on('resize-overlay', (_, { width, height }) => {
   applyOverlaySize(width, height);
 });
 
+ipcMain.handle('get-overlay-displays', overlayDisplaySettings);
+ipcMain.handle('set-overlay-display', (_, id) => {
+  const target = screen.getAllDisplays().find(display => display.id === id);
+  if (!target) return overlayDisplaySettings();
+  const store = loadStore();
+  const previous = restoreOverlayPlacement(screen, store, overlayTrackedW, overlayTrackedH);
+  const area = target.workArea;
+  const { x, y } = fitOverlay(area, area.x + previous.x - previous.display.workArea.x,
+    area.y + previous.y - previous.display.workArea.y, overlayTrackedW, overlayTrackedH);
+  saveStore({ ...store, ...overlayPlacementPreferences(target, x, y) });
+  refreshOverlayDisplays();
+  return overlayDisplaySettings();
+});
+ipcMain.handle('set-overlay-all-spaces', (_, value) => {
+  if (process.platform !== 'darwin') return;
+  const enabled = value === true;
+  saveStore({ ...loadStore(), overlayAllSpaces: enabled });
+  applyOverlaySpaces(enabled);
+});
 
 ipcMain.handle('load-settings', () => ({ ...loadStore(), version: VERSION, scaleFactor: scaleFactor(), hotkey: hotkeyInfo() }));
 
@@ -1116,6 +1222,19 @@ ipcMain.on('wow-enable',      (_, opts) => wow.start(opts || {}));
 ipcMain.on('wow-disable',     ()        => wow.stop());
 ipcMain.on('wow-set-options', (_, opts) => wow.setOptions(opts || {}));
 ipcMain.handle('wow-default-path', () => wow.defaultPath());
+ipcMain.handle('hyperaid-status', () => ({ ...hyperaid.status(), curseforgeUrl: HYPERAID_CURSEFORGE_URL }));
+ipcMain.handle('hyperaid-configure', async (_, options) => {
+  const store = loadStore();
+  store.hyperaidEnabled = options?.enabled === true;
+  store.hyperaidFolder = typeof options?.folder === 'string' ? options.folder.trim() : '';
+  saveStore(store);
+  await hyperaid.configure({ enabled: store.hyperaidEnabled, folder: store.hyperaidFolder }).catch(() => {});
+  return hyperaid.status();
+});
+ipcMain.handle('hyperaid-install', async () => {
+  await hyperaid.install().catch(() => {});
+  return hyperaid.status();
+});
 ipcMain.handle('wow-pick-folder', async (_, current) => {
   const res = await dialog.showOpenDialog(settingsWindow, {
     properties: ['openDirectory'],

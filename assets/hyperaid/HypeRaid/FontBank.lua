@@ -1,0 +1,3 @@
+-- The local sender installer enables the font bank on a sender's machine.
+local _, addon = ...
+addon.fontBankSize = 0
