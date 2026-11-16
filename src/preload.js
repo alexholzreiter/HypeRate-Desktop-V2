@@ -135,6 +135,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadSettings:   ()     => ipcRenderer.invoke('load-settings'),
   saveSettings:   (data) => ipcRenderer.send('save-settings', data),
   testOsc:        (cfg)  => ipcRenderer.invoke('test-osc', cfg),
+  saveOscSettings: (cfg) => ipcRenderer.invoke('save-osc-settings', cfg),
   closeFtue:      ()     => ipcRenderer.send('close-ftue'),
   ftueComplete:   ()     => ipcRenderer.send('ftue-complete'),
   getAutostart:   ()     => ipcRenderer.invoke('get-autostart'),
