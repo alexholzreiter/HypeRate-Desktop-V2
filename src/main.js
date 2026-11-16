@@ -19,6 +19,7 @@ const mqtt    = require('./mqtt');
 const sessions = require('./sessions');
 const sessionCard = require('./session-card');
 const systemFonts = require('./system-fonts');
+const { fetchLatestRelease } = require('./desktop-update');
 const { fitOverlay, restoreOverlayPlacement, overlayPlacementPreferences } = require('./overlay-placement');
 const crypto = require('crypto');
 
@@ -1074,32 +1075,8 @@ ipcMain.handle('get-system-fonts', () => systemFonts.list());
 const UPDATE_EVERY_MS = 6 * 60 * 60 * 1000;
 let newRelease = null;                 // { version, url } while something newer is out
 
-function fetchLatestRelease() {
-  return new Promise((resolve) => {
-    const https = require('https');
-    const req = https.get(
-      'https://api.github.com/repos/alexholzreiter/HypeRate-Desktop-V2/releases/latest',
-      { headers: { 'User-Agent': 'HypeRate-Overlay/' + VERSION } },
-      (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          try {
-            const release = JSON.parse(data);
-            const latest = (release.tag_name || '').replace(/^v/, '');
-            const hasUpdate = !!latest && latest !== VERSION && isNewer(latest, VERSION);
-            resolve({ hasUpdate, latestVersion: latest, downloadUrl: release.html_url || '' });
-          } catch { resolve({ hasUpdate: false }); }
-        });
-      }
-    );
-    req.on('error', () => resolve({ hasUpdate: false }));
-    req.setTimeout(6000, () => { req.destroy(); resolve({ hasUpdate: false }); });
-  });
-}
-
 async function checkForUpdate({ notify = true } = {}) {
-  const result = await fetchLatestRelease();
+  const result = await fetchLatestRelease(VERSION);
   if (!result.hasUpdate) return result;
 
   newRelease = { version: result.latestVersion, url: result.downloadUrl };
@@ -1125,16 +1102,6 @@ async function checkForUpdate({ notify = true } = {}) {
 ipcMain.handle('check-update', () => (newRelease
   ? { hasUpdate: true, latestVersion: newRelease.version, downloadUrl: newRelease.url }
   : checkForUpdate({ notify: false })));
-
-function isNewer(latest, current) {
-  const l = latest.split('.').map(Number);
-  const c = current.split('.').map(Number);
-  for (let i = 0; i < 3; i++) {
-    if ((l[i]||0) > (c[i]||0)) return true;
-    if ((l[i]||0) < (c[i]||0)) return false;
-  }
-  return false;
-}
 
 // ── BLE ──────────────────────────────────────────────────────────────────────
 ble.init({
