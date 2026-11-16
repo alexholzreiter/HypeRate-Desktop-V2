@@ -284,24 +284,30 @@
     return null;
   }
 
-  // ── Apply active zone color to heart & number ──
-  function applyZoneColor(bpm, cfg){
-    const color = zoneColorForBpm(bpm, cfg);
-    if(!color) return;
-    // Override heart color
-    heart.style.setProperty('--glow-color', color);
-    if(cfg.heartStyle === 'minimal'){
-      const dot = heart.querySelector('.dot-heart');
-      if(dot) dot.style.background = color;
+  function applyPulseColors(bpm, c) {
+    const zoneColor = bpm == null ? null : zoneColorForBpm(bpm, c);
+    const heartColor = zoneColor || c.heartColor;
+    const glowColor = zoneColor || ((c.glowColor && c.glowColor !== '#000000') ? c.glowColor : heartColor);
+    const heartAlpha = (c.heartGlowOpacity ?? 100) / 100;
+    const textAlpha = (c.textGlowOpacity ?? 100) / 100;
+    const glow = hex2rgba(glowColor, heartAlpha);
+    heart.style.setProperty('--glow-color', glow);
+
+    const dot = heart.querySelector('.dot-heart');
+    if (dot) {
+      dot.style.background = heartColor;
+      dot.style.boxShadow = c.heartGlow
+        ? `0 0 16px 2px ${glow}, 0 0 32px 4px ${hex2rgba(glowColor, heartAlpha * 64 / 255)}`
+        : 'none';
     } else {
-      heart.style.color = color;
+      heart.style.color = heartColor;
     }
-    // Only affect font if zonesAffectFont is enabled (default true)
-    const affectFont = cfg.zonesAffectFont !== false;
-    if(affectFont){
-      bpmNum.style.color = color;
-      if(cfg.textGlow) bpmNum.style.textShadow = `0 0 24px ${color},0 0 48px ${color}40`;
-    }
+
+    const textColor = (c.zonesAffectFont !== false && zoneColor) || c.bpmColor;
+    bpmNum.style.color = textColor;
+    bpmNum.style.textShadow = c.textGlow
+      ? `0 0 24px ${hex2rgba(textColor, textAlpha)},0 0 48px ${hex2rgba(textColor, textAlpha * 64 / 255)}`
+      : 'none';
   }
 
   function applyConfig(c) {
@@ -311,9 +317,7 @@
     const isMinimal = c.heartStyle  === 'minimal';
     const isGlowAnim = c.heartAnim  === 'glow';
 
-    // ── Set CSS vars used by keyframes and dot sizing ──
-    const glowC = (c.glowColor && c.glowColor !== '#000000') ? c.glowColor : c.heartColor;
-    heart.style.setProperty('--glow-color', glowC);
+    // ── Dot sizing ──
     widget.style.setProperty('--dot-size', c.heartSize + 'px');
 
     // Layout
@@ -321,12 +325,7 @@
 
     // ── Heart content ──
     if (isMinimal) {
-      // Use a real circle — sized via --dot-size CSS var
-      // Box-shadow provides glow for minimal (not filter, since there's no "shape" for drop-shadow)
-      const glowStyle = c.heartGlow
-        ? `box-shadow:0 0 16px 2px ${glowC}, 0 0 32px 4px ${glowC}40;`
-        : '';
-      heart.innerHTML = `<span class="dot-heart" style="background:${c.heartColor};${glowStyle}"></span>`;
+      heart.innerHTML = '<span class="dot-heart"></span>';
       heart.style.fontSize = '0'; // no font rendering
       heart.style.color    = 'transparent';
     } else {
@@ -337,7 +336,6 @@
       const shape = shapes[c.heartStyle] || shapes.filled;
       heart.innerHTML      = shape ? shape.svg : '';
       heart.style.fontSize = c.heartSize + 'px';
-      heart.style.color    = c.heartColor;
     }
 
     // ── Compact: hide heart ──
@@ -363,8 +361,7 @@
     // ── Typography ──
     bpmNum.style.fontFamily = resolveFont(c);
     bpmNum.style.fontSize   = c.bpmSize + 'px';
-    bpmNum.style.color      = c.bpmColor;
-    bpmNum.style.textShadow = c.textGlow ? `0 0 24px ${c.bpmColor},0 0 48px ${c.bpmColor}40` : 'none';
+    applyPulseColors(currentBpm, c);
     bpmLabel.style.color    = c.labelColor;
     bpmLabel.style.display  = (!isCompact && c.showLabel) ? 'block' : 'none';
 
@@ -418,8 +415,7 @@
     if (cfg && cfg.heartAnim !== 'none' && cfg.layoutStyle !== 'compact') {
       heart.style.setProperty('--spd', Math.max(.2, 60/bpm).toFixed(2)+'s');
     }
-    // Apply zone color if zones are enabled
-    if (cfg) applyZoneColor(bpm, cfg);
+    if (cfg?.zonesEnabled) applyPulseColors(bpm, cfg);
     gameUpdateBpm(bpm);
   }
 
@@ -835,7 +831,6 @@
     applyConfig(cfg);
     reportSize();
     // Re-apply zone color immediately if we already have a BPM
-    if (currentBpm !== null) applyZoneColor(currentBpm, cfg);
   });
   window.electronAPI.onHeartRateUpdate(d => updateBpm(d.bpm));
   window.electronAPI.onGameMoment(showMoment);

@@ -129,6 +129,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimizeSettings: ()   => ipcRenderer.send('minimize-settings'),
   closeSettings:  ()     => ipcRenderer.send('close-settings'),
   getOverlayPosition:   ()       => ipcRenderer.invoke('get-overlay-position'),
+  getOverlayDisplays:   ()       => ipcRenderer.invoke('get-overlay-displays'),
+  setOverlayDisplay:    (id)     => ipcRenderer.invoke('set-overlay-display', id),
+  setOverlayAllSpaces:  (on)     => ipcRenderer.invoke('set-overlay-all-spaces', on),
   overlayMove:          (pos)    => ipcRenderer.send('overlay-move', pos),
   resizeOverlay:        (size)   => ipcRenderer.send('resize-overlay', size),
   setIgnoreMouseEvents: (ignore) => ipcRenderer.send('set-ignore-mouse-events', ignore),
@@ -153,6 +156,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onOverlayCursor:   (cb) => ipcRenderer.on('overlay-cursor',   (_, d) => cb(d)),
   onOverlayResized:  (cb) => ipcRenderer.on('overlay-resized',  (_, d) => cb(d)),
   onOverlayState:    (cb) => ipcRenderer.on('overlay-state',    (_, d) => cb(d)),
+  onOverlayDisplays: (cb) => ipcRenderer.on('overlay-displays', (_, d) => cb(d)),
 
   discordEnable:      ()     => ipcRenderer.send('discord-enable'),
   discordDisable:     ()     => ipcRenderer.send('discord-disable'),
@@ -184,6 +188,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   wowShowDiagnostics: ()        => ipcRenderer.send('wow-show-diagnostics'),
   wowTest:            (type)    => ipcRenderer.send('wow-test', type),
   onWowStatus:        (cb)      => ipcRenderer.on('wow-status',  (_, d) => cb(d)),
+  hyperaidStatus:     ()        => ipcRenderer.invoke('hyperaid-status'),
+  hyperaidConfigure:  (opts)    => ipcRenderer.invoke('hyperaid-configure', opts),
+  hyperaidInstall:    ()        => ipcRenderer.invoke('hyperaid-install'),
+  onHyperaidStatus:   (cb)      => ipcRenderer.on('hyperaid-status', (_, d) => cb(d)),
 
   sessionsList:       ()        => ipcRenderer.invoke('sessions-list'),
   sessionsDelete:     ()        => ipcRenderer.invoke('sessions-delete'),

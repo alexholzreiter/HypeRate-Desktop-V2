@@ -1,0 +1,99 @@
+name: Build desktop release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'release/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS Apple Silicon
+            artifact: mac-arm64
+            runner: macos-15
+            command: --mac dmg --arm64
+            files: dist/*.dmg
+          - name: macOS Intel
+            artifact: mac-x64
+            runner: macos-15-intel
+            command: --mac dmg --x64
+            files: dist/*.dmg
+          - name: Windows x64
+            artifact: windows-x64
+            runner: windows-2022
+            command: --win nsis --x64
+            files: dist/*.exe
+          - name: Linux x64
+            artifact: linux-x64
+            runner: ubuntu-22.04
+            command: --linux AppImage tar.gz --x64
+            files: |
+              dist/*.AppImage
+              dist/*.tar.gz
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libbluetooth-dev libudev-dev libusb-1.0-0-dev libfuse2
+      - uses: actions/setup-dotnet@v4
+        if: runner.os == 'Windows'
+        with:
+          dotnet-version: '9.0.x'
+      - name: Build Windows Bluetooth helper
+        if: runner.os == 'Windows'
+        run: |
+          dotnet publish src/native/win-ble/HypeRate.BleWin.csproj -c Release -r win-x64 --self-contained true -o src/native/win-ble/publish-self
+          if (!(Test-Path src/native/win-ble/publish-self/HypeRate.BleWin.exe)) { throw 'Bluetooth helper was not built' }
+      - run: npm ci
+      - name: Run tests
+        if: runner.os == 'Linux'
+        run: npm test
+      - name: Package desktop app
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run build -- ${{ matrix.command }} --publish never
+      - name: Verify Mac package
+        if: runner.os == 'macOS'
+        run: |
+          for app in dist/mac*/"HypeRate Desktop.app"; do
+            test -d "$app"
+            codesign --verify --deep --strict "$app"
+            test "$(lipo -archs "$app/Contents/MacOS/HypeRate Desktop")" = "$(uname -m)"
+          done
+          for image in dist/*.dmg; do hdiutil verify "$image"; done
+      - name: Verify Windows package
+        if: runner.os == 'Windows'
+        run: |
+          if (!(Test-Path dist/win-unpacked/resources/native/win-ble/HypeRate.BleWin.exe)) { throw 'Installer is missing the Bluetooth helper' }
+          if (!(Get-ChildItem dist/*.exe)) { throw 'Installer was not built' }
+      - name: Verify Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          file dist/*.AppImage | grep 'x86-64'
+          for archive in dist/*.tar.gz; do tar -tzf "$archive" > /dev/null; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.artifact }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+          compression-level: 0
