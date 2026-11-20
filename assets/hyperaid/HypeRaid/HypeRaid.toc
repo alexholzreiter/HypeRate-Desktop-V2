@@ -2,8 +2,9 @@
 ## Title: HypeRaid
 ## Notes: Live heart rates for your WoW party and raid. Powered by HypeRate.
 ## Author: HypeRate
-## Version: 0.4.1
-## OptionalDeps: EllesmereUI, EllesmereUIUnitFrames, ShadowedUnitFrames
+## Version: 0.5.0
+## X-HypeRaid-Data: 1
+## OptionalDeps: HypeRaidData, EllesmereUI, EllesmereUIUnitFrames, ShadowedUnitFrames
 ## IconTexture: Interface\AddOns\HypeRaid\HypeRaidLogo.tga
 ## SavedVariables: HypeRaidSettings
 

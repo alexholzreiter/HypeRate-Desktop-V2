@@ -1,11 +1,15 @@
 local _, addon = ...
 addon.title = "HypeRaid"
-addon.version = "0.4.1"
+addon.version = C_AddOns.GetAddOnMetadata("HypeRaid", "Version") or "0.5.0"
 -- Keep the message prefix for players using older versions of the addon.
 local PREFIX = "HypeRateParty"
 local SEND_INTERVAL = 7.5
 local LOCAL_TIMEOUT, SAMPLE_TIMEOUT = 25, 30
 addon.localTimeout, addon.remoteTimeout = LOCAL_TIMEOUT, SAMPLE_TIMEOUT
+-- Display only: keep the last reading visible through gaps in the upstream feed. Your own reading
+-- stays until a new one arrives, like in HypeRate Desktop; a group reading ends after HOLD_TIMEOUT.
+local STALE_AFTER, HOLD_TIMEOUT = 20, 90
+addon.staleAfter, addon.holdTimeout = STALE_AFTER, HOLD_TIMEOUT
 local CHART_SECONDS, CHART_POINTS = 60, 24
 addon.chartSeconds = CHART_SECONDS
 local MIN_BPM, MAX_BPM = 30, 240
@@ -20,6 +24,8 @@ local sendStatus
 local fontStatus
 local registration, lastTestSend, lastTestReceive
 local nextTest = 0
+local combat, lastFight
+local records = {}
 
 local function isSecret(value)
     return issecretvalue and issecretvalue(value)
@@ -86,6 +92,22 @@ function addon.getLocalBpm()
     end
 end
 
+-- Returns the last local reading for display, with its age and whether it is stale.
+function addon.getLocalDisplayBpm()
+    if localSample then
+        local age = time() - localSample.timestamp
+        if age >= 0 then
+            return localSample.bpm, age, age >= STALE_AFTER
+        end
+    end
+end
+
+function addon.getLocalPulseStatus()
+    local bpm = addon.getLocalBpm()
+    local age = localSample and time() - localSample.timestamp
+    return bpm, age and age >= 0 and age or nil, sharing and channel and hasSent and not sendStatus
+end
+
 -- Return a detached snapshot for the public API, never the peer or history table.
 function addon.getHeartRateRecord(guid, includeTest)
     local now = GetTime()
@@ -115,14 +137,16 @@ function addon.getHeartRateGUIDs()
     return result
 end
 
-function addon.getSharedBpm(unit)
+-- With allowStale, readings up to HOLD_TIMEOUT old are returned for display.
+function addon.getSharedBpm(unit, allowStale)
     if not channel or isSecret(unit) or type(unit) ~= "string" then
         return
     end
     local key = unitCharacterName(unit)
     local member = key and roster[key]
     local sample = member and peers[key]
-    if not sample or sample.test or GetTime() - sample.receivedAt >= SAMPLE_TIMEOUT then
+    local age = sample and GetTime() - sample.receivedAt
+    if not sample or sample.test or age >= (allowStale and HOLD_TIMEOUT or SAMPLE_TIMEOUT) then
         return
     end
     if unit ~= member.unit then
@@ -131,7 +155,11 @@ function addon.getSharedBpm(unit)
             return
         end
     end
-    return sample.bpm
+    return sample.bpm, sample.history, age, age >= STALE_AFTER
+end
+
+function addon.getLocalHistory()
+    return localHistory
 end
 
 local function recordPulse(history, bpm, now)
@@ -153,19 +181,78 @@ end
 function addon.getPartyRows()
     local now, rows = GetTime(), {}
     for name, sample in pairs(peers) do
-        if now - sample.receivedAt >= SAMPLE_TIMEOUT then
+        local age = now - sample.receivedAt
+        if age >= (sample.test and SAMPLE_TIMEOUT or HOLD_TIMEOUT) then
             peers[name] = nil
         else
             rows[#rows + 1] = {
                 name = name, class = roster[name].class, bpm = sample.bpm, test = sample.test, history = sample.history,
+                age = age, stale = age >= STALE_AFTER,
             }
         end
     end
-    local bpm = sharing and hasSent and addon.getLocalBpm()
-    if bpm and playerKey then
-        rows[#rows + 1] = { name = playerKey, class = playerClass, bpm = bpm, history = localHistory }
+    if sharing and hasSent and playerKey then
+        local bpm, age, stale = addon.getLocalDisplayBpm()
+        if bpm then
+            rows[#rows + 1] = { name = playerKey, class = playerClass, bpm = bpm, history = localHistory,
+                age = age, stale = stale }
+        end
     end
     return rows
+end
+
+local function recordFightPulse(key, name, bpm, arrivedAfterStart)
+    if not combat or not key or not name then return end
+    local row = combat.rows[key]
+    if row then
+        row.peak = math.max(row.peak, bpm)
+    else
+        combat.rows[key] = { name = name, start = bpm, peak = bpm, late = arrivedAfterStart }
+    end
+end
+
+local function startFight(name, encounter)
+    if combat then
+        if encounter then combat.name, combat.encounter = name, encounter end
+        return
+    end
+    local inInstance, instanceType = IsInInstance()
+    combat = { name = name, encounter = encounter, rows = {},
+        inInstance = inInstance, inRaid = instanceType == "raid", solo = currentChannel() == nil }
+    local bpm = addon.getLocalBpm()
+    if bpm then recordFightPulse("player", playerKey, bpm) end
+    for key, sample in pairs(peers) do
+        if not sample.test and GetTime() - sample.receivedAt < SAMPLE_TIMEOUT then
+            recordFightPulse(sample.guid or key, key, sample.bpm)
+        end
+    end
+end
+
+local function finishFight()
+    if not combat then return end
+    local rows = {}
+    for _, row in pairs(combat.rows) do rows[#rows + 1] = row end
+    table.sort(rows, function(left, right)
+        local leftGain, rightGain = left.peak - left.start, right.peak - right.start
+        if leftGain ~= rightGain then return leftGain > rightGain end
+        if left.peak ~= right.peak then return left.peak > right.peak end
+        return left.name < right.name
+    end)
+    local own = combat.rows.player
+    if own then
+        records[#records + 1] = { name = combat.name, peak = own.peak }
+        table.sort(records, function(left, right) return left.peak > right.peak end)
+        records[6] = nil
+    end
+    if #rows > 0 then
+        lastFight = { name = combat.name, rows = rows, finishedAt = GetTime(),
+            inInstance = combat.inInstance, inRaid = combat.inRaid, solo = combat.solo }
+    end
+    combat = nil
+end
+
+function addon.getFightSummary()
+    return lastFight, records, combat ~= nil
 end
 
 function addon.getGroupState()
@@ -179,7 +266,8 @@ end
 function addon.syncFontReader()
     if addon.setFontReading then
         addon.setFontReading((sharing and channel ~= nil) or addon.isPortraitEnabled()
-            or (addon.hasUnitFrameConsumer and addon.hasUnitFrameConsumer()))
+            or addon.needsFightPulse() or (addon.hasUnitFrameConsumer and addon.hasUnitFrameConsumer())
+            or (addon.hasActionIcon and addon.hasActionIcon()))
     end
 end
 
@@ -201,7 +289,6 @@ local function updateRoster()
         channel = newChannel
         hasSent, sendStatus, nextSend = false, nil, 0
         wipe(peers)
-        wipe(localHistory)
     end
     wipe(roster)
     wipe(guidToName)
@@ -254,6 +341,8 @@ function HypeRaid_PublishBpm(bpm, timestamp)
         return
     end
     localSample = { bpm = bpm, timestamp = timestamp, receivedAt = GetTime() }
+    recordPulse(localHistory, bpm, localSample.receivedAt)
+    recordFightPulse("player", playerKey, bpm, true)
     if not sharing or not channel or currentChannel() ~= channel or GetTime() < nextSend then
         render()
         return
@@ -262,7 +351,6 @@ function HypeRaid_PublishBpm(bpm, timestamp)
     if send(("1:%d"):format(bpm)) then
         hasSent = true
         sendStatus = nil
-        recordPulse(localHistory, bpm, GetTime())
     else
         sendStatus = "WoW blocked sending. Retrying on a new sample."
     end
@@ -290,7 +378,6 @@ function addon.setSharing(enabled)
     if not sharing and hasSent then
         send("1:off")
         hasSent = false
-        wipe(localHistory)
     end
     addon.syncFontReader()
     publishInitialSample()
@@ -314,12 +401,31 @@ listener:RegisterEvent("PLAYER_ENTERING_WORLD")
 listener:RegisterEvent("GROUP_ROSTER_UPDATE")
 listener:RegisterEvent("PLAYER_TARGET_CHANGED")
 listener:RegisterEvent("CHAT_MSG_ADDON")
+listener:RegisterEvent("PLAYER_REGEN_DISABLED")
+listener:RegisterEvent("PLAYER_REGEN_ENABLED")
+listener:RegisterEvent("ENCOUNTER_START")
+listener:RegisterEvent("ENCOUNTER_END")
 listener:SetScript("OnEvent", function(_, event, prefix, message, distribution, sender)
-    if event == "PLAYER_TARGET_CHANGED" then
+    if event == "PLAYER_REGEN_DISABLED" then
+        local hostile = UnitCanAttack("player", "target")
+        local target = not isSecret(hostile) and hostile and characterName(UnitName("target"))
+        startFight(target or "Combat")
+        return
+    elseif event == "ENCOUNTER_START" then
+        startFight(characterName(message) or "Encounter", not isSecret(prefix) and prefix or nil)
+        return
+    elseif event == "ENCOUNTER_END" or event == "PLAYER_REGEN_ENABLED" then
+        if event == "ENCOUNTER_END" or not (combat and combat.encounter) then
+            finishFight()
+            render()
+        end
+        return
+    elseif event == "PLAYER_TARGET_CHANGED" then
         render()
         return
     elseif event ~= "CHAT_MSG_ADDON" then
         if event == "PLAYER_ENTERING_WORLD" then
+            combat = nil
             registration = C_ChatInfo.RegisterAddonMessagePrefix(PREFIX)
             addon.initializeUI()
         end
@@ -367,6 +473,7 @@ listener:SetScript("OnEvent", function(_, event, prefix, message, distribution, 
         local history = previous and previous.history or {}
         if not isTest then
             recordPulse(history, bpm, now)
+            recordFightPulse(guid or key, key, bpm, true)
         end
         peers[key] = { bpm = bpm, receivedAt = now, test = isTest, history = history, guid = guid }
         if isTest then
@@ -380,6 +487,10 @@ end)
 SLASH_HYPERAID1 = "/hyperaid"
 SLASH_HYPERAID2 = "/hrparty"
 SlashCmdList.HYPERAID = function(input)
+    if input:match("^%s*icon%s*$") then
+        addon.pickupActionIcon()
+        return
+    end
     if input:match("^%s*status%s*$") then
         local restricted = C_ChatInfo.AreOutgoingAddonChatMessagesRestricted
         local lockdown = C_ChatInfo.InChatMessagingLockdown
@@ -391,6 +502,7 @@ SlashCmdList.HYPERAID = function(input)
         if fontStatus then
             print(addon.title .. ": " .. fontStatus)
         end
+        if addon.getFontReaderStatus then print(addon.title .. ": " .. addon.getFontReaderStatus()) end
         if addon.getUnitFrameStatus then print(addon.title .. ": " .. addon.getUnitFrameStatus()) end
         return
     end

@@ -1,3 +1,8 @@
+// A detached terminal can fail asynchronously while Node or Electron is logging.
+// Neither console stream is required for the app to continue running.
+process.stdout.on('error', () => {});
+process.stderr.on('error', () => {});
+
 const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell, dialog, safeStorage, Notification, powerMonitor } = require('electron');
 
 if (process.platform === 'linux') {
@@ -343,6 +348,17 @@ const STORE_PATH = path.join(app.getPath('userData'), 'settings.json');
 function loadStore()     { try { return JSON.parse(fs.readFileSync(STORE_PATH,'utf8')); } catch { return {}; } }
 function saveStore(data) { try { fs.writeFileSync(STORE_PATH, JSON.stringify(data,null,2),'utf8'); } catch(e) { console.error('store save:',e); } }
 
+const HYPERAID_TRACE = process.env.HYPERAID_TRACE === '1';
+const HYPERAID_TRACE_PATH = path.join(path.dirname(STORE_PATH), 'hyperaid-diagnostics.log');
+function tracePulse(component, event, detail = {}) {
+  try {
+    const line = `${new Date().toISOString()} [${component}] ${event} ${JSON.stringify(detail)}\n`;
+    fs.appendFileSync(HYPERAID_TRACE_PATH, line, { mode: 0o600 });
+  } catch {
+    // A diagnostic write must never interrupt the live pulse feed.
+  }
+}
+
 const HYPERATE_API_KEY = '7XnPqR2m9LdHsV4tYk8ZuEf1WaJ5GcB3rTsQ6v';
 const VERSION = app.getVersion();            // reads from package.json
 const IS_FIRST_RUN = !loadStore().onboarded; // FTUE flag
@@ -635,7 +651,7 @@ let ws = null, heartbeatInt = null, wsSessionId = null;
 function wsConnect(sessionId) {
   wsDisconnect();
   wsSessionId = sessionId;
-  console.log('[WS] Connecting, session:', sessionId);
+  if (HYPERAID_TRACE) tracePulse('WS', 'connecting');
   const url = `wss://app.hyperate.io/socket/websocket?token=${HYPERATE_API_KEY}`;
   ws = new WebSocket(url);
 
@@ -650,7 +666,9 @@ function wsConnect(sessionId) {
 
   ws.on('message', (data) => {
     let msg; try { msg = JSON.parse(data.toString()); } catch { return; }
-    console.log('[WS]', JSON.stringify(msg));
+    if (HYPERAID_TRACE && ['phx_reply', 'heartbeat', 'hr_update', 'hr_feed'].includes(msg.event)) {
+      tracePulse('WS', msg.event);
+    }
     if (msg.event === 'phx_reply') {
       sendToSettings('ws-status', { status: msg.payload?.status === 'ok' ? 'connected' : 'error', sessionId });
       return;
@@ -680,7 +698,9 @@ const alive = (w) => !!w && !w.isDestroyed() && !w.webContents.isDestroyed();
 function sendToSettings(ch, d) { if (alive(settingsWindow)) settingsWindow.webContents.send(ch, d); }
 function sendToOverlay(ch, d)  { if (alive(overlayWindow))  overlayWindow.webContents.send(ch, d); }
 
-const hyperaid = createHyperaid(status => sendToSettings('hyperaid-status', status));
+const hyperaid = createHyperaid(status => sendToSettings('hyperaid-status', status), {
+  trace: HYPERAID_TRACE ? (event, detail) => tracePulse('HypeRaid', event, detail) : undefined,
+});
 const HYPERAID_CURSEFORGE_URL = '';
 let hyperaidTimer;
 
