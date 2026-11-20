@@ -2014,11 +2014,19 @@
     setTimeout(() => window.electronAPI.wowTest(type), 1200);
   }
 
+  // Die Karte hält zwei getrennte Funktionen: den Puls an HypeRaid und die Kampfergebnisse.
+  // Das Lämpchen oben zeigt die bessere der beiden, damit ein laufender Puls auch dann grün
+  // blinkt, wenn die Kampfergebnisse aus sind. Die Einzelheiten stehen in der Karte.
+  const HYPERAID_DOT = { writing: 'connected', waiting: 'connecting', installing: 'connecting', error: 'error' };
+  const DOT_RANG = ['', 'error', 'connecting', 'connected'];
+
   function syncWowHeadDot() {
-    const sendingPulse = cb('hyperaidEnabled') && hyperaidState.state === 'writing';
-    const fightResultsEnabled = cb('wowEnabled');
-    syncHeadDot('wowHeadDot', sendingPulse ? 'connected' : $('wowDot').classList[1],
-      sendingPulse || fightResultsEnabled);
+    const zustaende = [];
+    if (cb('hyperaidEnabled')) zustaende.push(HYPERAID_DOT[hyperaidState.state] || '');
+    if (cb('wowEnabled')) zustaende.push($('wowDot').classList[1] || '');
+    if (!zustaende.length) { syncHeadDot('wowHeadDot', '', false); return; }
+    zustaende.sort((a, b) => DOT_RANG.indexOf(b) - DOT_RANG.indexOf(a));
+    syncHeadDot('wowHeadDot', zustaende[0], true);
   }
 
   function renderWowStatus(state, extra = {}) {
@@ -2075,8 +2083,7 @@
     syncWowHeadDot();
     const keys = { off: 'hyperaid_off', folder: 'hyperaid_folder_status', setup: 'hyperaid_setup',
       installing: 'hyperaid_installing', waiting: 'hyperaid_waiting', writing: 'hyperaid_writing', error: 'hyperaid_error' };
-    const color = { writing: 'connected', waiting: 'connecting', installing: 'connecting', error: 'error' };
-    $('hyperaidDot').className = 'dot ' + (color[status.state] || '');
+    $('hyperaidDot').className = 'dot ' + (HYPERAID_DOT[status.state] || '');
     $('hyperaidStatusText').textContent = t(keys[status.state] || keys.off).replace('{bpm}', status.bpm ?? '');
     $('hyperaidStatusText').title = status.error || '';
     $('hyperaidVersion').textContent = status.installedVersion
