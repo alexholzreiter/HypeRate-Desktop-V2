@@ -2014,6 +2014,13 @@
     setTimeout(() => window.electronAPI.wowTest(type), 1200);
   }
 
+  function syncWowHeadDot() {
+    const sendingPulse = cb('hyperaidEnabled') && hyperaidState.state === 'writing';
+    const fightResultsEnabled = cb('wowEnabled');
+    syncHeadDot('wowHeadDot', sendingPulse ? 'connected' : $('wowDot').classList[1],
+      sendingPulse || fightResultsEnabled);
+  }
+
   function renderWowStatus(state, extra = {}) {
     wowCurState = state; wowCurExtra = extra;
     const dot = $('wowDot'), text = $('wowStatusText');
@@ -2040,7 +2047,7 @@
       const ago = min < 1 ? t('wow_just_now') : min < 60 ? t('wow_min_ago').replace('{n}', min) : t('wow_h_ago').replace('{n}', Math.floor(min / 60));
       lw.textContent = t('wow_last_write').replace('{ago}', ago);
     }
-    syncHeadDot('wowHeadDot', dot.classList[1], cb('wowEnabled'));
+    syncWowHeadDot();
   }
 
   window.electronAPI.onWowStatus(({ state, ...extra }) => {
@@ -2065,6 +2072,7 @@
 
   function renderHyperaidStatus(status) {
     hyperaidState = status;
+    syncWowHeadDot();
     const keys = { off: 'hyperaid_off', folder: 'hyperaid_folder_status', setup: 'hyperaid_setup',
       installing: 'hyperaid_installing', waiting: 'hyperaid_waiting', writing: 'hyperaid_writing', error: 'hyperaid_error' };
     const color = { writing: 'connected', waiting: 'connecting', installing: 'connecting', error: 'error' };
@@ -2086,6 +2094,7 @@
   async function hyperaidToggle() {
     const enabled = cb('hyperaidEnabled');
     $('hyperaidBody').style.display = enabled ? 'flex' : 'none';
+    syncWowHeadDot();
     if (enabled && !$('hyperaidFolder').value.trim()) {
       $('hyperaidFolder').value = $('wowPath').value.trim() || await window.electronAPI.wowDefaultPath();
     }

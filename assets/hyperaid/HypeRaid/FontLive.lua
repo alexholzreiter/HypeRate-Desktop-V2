@@ -1,26 +1,64 @@
 local _, addon = ...
+local fontFolder = "HypeRaid"
 local SLOT_COUNT, INTERVAL = addon.fontBankSize, addon.fontInterval
+local fontFolders = {}
+if SLOT_COUNT > 0 then
+    fontFolders[1] = fontFolder
+end
+-- The companion is provisioned by the sender and survives updates to HypeRaid.
+local ok, protocol = pcall(C_AddOns.GetAddOnMetadata, "HypeRaidData", "X-HypeRaid-Data")
+if ok and protocol == "1" then
+    fontFolder = "HypeRaidData"
+    SLOT_COUNT, INTERVAL = 4096, 8
+    table.insert(fontFolders, 1, fontFolder)
+end
 if SLOT_COUNT == 0 then
     return
 end
 
-local FONT_PATH = "Interface\\AddOns\\HypeRaid\\LiveFonts\\Live%04d.ttf"
+local FONT_PATH = "Interface\\AddOns\\%s\\LiveFonts\\Live%04d.ttf"
 local LOAD_DELAY = 2
 local MAX_SAMPLE_AGE = 25
+local RESET_AFTER_ATTEMPTS = 3
+local MAX_ATTEMPTS = 10
 local measurement = CreateFrame("Frame", nil, UIParent)
-local meter = measurement:CreateFontString(nil, "OVERLAY")
-meter:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 26, -320)
-meter:SetAlpha(0)
-meter:SetWordWrap(false)
-meter:SetNonSpaceWrap(false)
+
+local function createMeter()
+    local fontString = measurement:CreateFontString(nil, "OVERLAY")
+    fontString:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 26, -320)
+    fontString:SetAlpha(0)
+    fontString:SetWordWrap(false)
+    fontString:SetNonSpaceWrap(false)
+    return fontString
+end
+
+local meter, spareMeter = createMeter(), nil
+
+local function resetMeter()
+    local previousMeter = meter
+    meter = spareMeter or createMeter()
+    spareMeter = previousMeter
+    -- Clear the failed font from the measurement before reusing it on a later retry.
+    pcall(function()
+        previousMeter:SetFont(STANDARD_TEXT_FONT, 64, "")
+        previousMeter:SetText("")
+    end)
+end
 
 local used, usedCount = {}, 0
-local ticker, lastBucket, pendingSlot, attempts
+local ticker, lastBucket, pendingSlot, attempts, resetAttempted
 local reading = false
 local lastSample = 0
 local lastBpm, displayedStatus
 local waiting = "Waiting for HypeRate Desktop."
 local sourceDetail = waiting
+local lastAttemptSlot
+
+function addon.getFontReaderStatus()
+    local lastAccepted = lastSample > 0 and ("%d (%ds ago)"):format(lastSample, time() - lastSample) or "none"
+    return ("Reader %s (%s), last attempted slot %s, last accepted timestamp %s."):format(
+        ticker and "active" or "stopped", fontFolder, tostring(lastAttemptSlot or "none"), lastAccepted)
+end
 
 local function showStatus(text)
     if text ~= displayedStatus then
@@ -50,8 +88,8 @@ local function readNumber(digits, first, last)
     return value
 end
 
-local function decode(slot)
-    local path = FONT_PATH:format(slot)
+local function decode(slot, folder)
+    local path = FONT_PATH:format(folder, slot)
     local assigned = meter:SetFont(path, 64, "")
     -- WoW may assign the font only when a text layout is requested.
     local ready = pcall(function()
@@ -60,8 +98,11 @@ local function decode(slot)
     end)
     local current = meter:GetFont()
     local matches = type(current) == "string" and current:gsub("/", "\\"):lower() == path:lower()
-    if not ready or (not assigned and not matches) then
-        return nil, "Font assignment pending"
+    if not ready then
+        return nil, "Font layout unavailable", true
+    end
+    if not assigned and not matches then
+        return nil, "Font assignment pending", true
     end
     local digits, detail = addon.readFontDigits(meter, 15)
     if not digits then
@@ -75,6 +116,30 @@ local function decode(slot)
         return nil, "Font checksum mismatch"
     end
     return bpm, timestamp
+end
+
+local function readSlot(slot, now)
+    local newestBpm, newestTimestamp, newestFolder
+    local detail, assignmentFailed
+    for _, folder in ipairs(fontFolders) do
+        local ok, bpm, timestamp, failed = pcall(decode, slot, folder)
+        if ok and bpm and bpm >= 30 and bpm <= 240 and timestamp <= now
+            and now - timestamp < MAX_SAMPLE_AGE then
+            if not newestTimestamp or timestamp > newestTimestamp then
+                newestBpm, newestTimestamp, newestFolder = bpm, timestamp, folder
+            end
+        elseif ok and bpm then
+            detail = detail or "Waiting for a fresh pulse from HypeRate Desktop."
+        else
+            detail = detail or (ok and timestamp or "Font API error")
+            assignmentFailed = assignmentFailed or failed
+        end
+    end
+    if newestBpm then
+        fontFolder = newestFolder
+        return newestBpm, newestTimestamp
+    end
+    return nil, detail, assignmentFailed
 end
 
 local function poll()
@@ -102,16 +167,21 @@ local function poll()
             return
         end
         used[slot], usedCount = true, usedCount + 1
-        pendingSlot, attempts = slot, 0
+        pendingSlot, attempts, resetAttempted = slot, 0, false
     end
     if not pendingSlot then
         return
     end
 
     attempts = attempts + 1
-    local ok, bpm, timestamp = pcall(decode, pendingSlot)
+    lastAttemptSlot = pendingSlot
+    local ok, bpm, timestamp, assignmentFailed = pcall(readSlot, pendingSlot, now)
     if not ok or not bpm then
-        if attempts == 10 then
+        if assignmentFailed and not resetAttempted and attempts >= RESET_AFTER_ATTEMPTS and attempts < MAX_ATTEMPTS then
+            resetAttempted = true
+            resetMeter()
+        end
+        if attempts == MAX_ATTEMPTS then
             local slot = pendingSlot
             pendingSlot = nil
             local detail = ok and timestamp or "Font API error"
