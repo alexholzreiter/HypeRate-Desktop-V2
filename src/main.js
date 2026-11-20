@@ -279,7 +279,7 @@ function startDesktopPush() {
 function padTo4(n) { return Math.ceil(n / 4) * 4; }
 
 function encodeOscStr(s) {
-  const buf = Buffer.alloc(padTo4(s.length + 1));
+  const buf = Buffer.alloc(padTo4(Buffer.byteLength(s, 'utf8') + 1));
   buf.write(s, 'utf8');
   return buf;
 }
@@ -315,31 +315,85 @@ function oscSend(host, port, address, args) {
 
 let _chatboxLastSent = 0;
 
-function sendHeartRateOsc(bpm) {
-  const store = loadStore();
-  if (!store.oscEnabled) return;
-  const host  = store.oscHost  ?? '127.0.0.1';
-  const port  = parseInt(store.oscPort) || 9000;
-  const param = store.oscParam ?? 'HR';
+const OSC_OUTPUT_DEFAULTS = {
+  oscHost: '127.0.0.1', oscPort: 9000,
+  oscRawEnabled: false, oscRawParam: 'HR', oscRawType: 'i',
+  oscNormalizedEnabled: false, oscNormalizedParam: 'VRCOSC/Heartrate/Normalised', oscMinBpm: 0, oscMaxBpm: 240,
+  oscBoolEnabled: false, oscBoolParam: 'HR', oscBoolValue: true,
+  oscLegacyEnabled: false,
+};
 
-  // /avatar/parameters/HR  →  int, raw BPM (most avatar setups use this)
-  oscSend(host, port, `/avatar/parameters/${param}`, [{ t:'i', v: bpm }]);
+function oscSettings(settings) {
+  // Preserve existing mappings on upgrade
+  const legacy = settings.oscNormalizedEnabled === undefined &&
+    (settings.oscParam !== undefined || settings.oscEnabled === true);
+  return { ...OSC_OUTPUT_DEFAULTS, ...(legacy ? {
+    oscRawEnabled: true, oscRawParam: settings.oscParam ?? 'HR',
+    oscNormalizedEnabled: false, oscLegacyEnabled: true,
+  } : {}), ...settings };
+}
 
-  // Legacy digit parameters for avatar displays that split digits
-  //   onesHR / tensHR / hundredsHR  →  float 0.0–0.9
-  oscSend(host, port, '/avatar/parameters/onesHR',     [{ t:'f', v: (bpm % 10) / 10 }]);
-  oscSend(host, port, '/avatar/parameters/tensHR',     [{ t:'f', v: (Math.floor(bpm / 10) % 10) / 10 }]);
-  oscSend(host, port, '/avatar/parameters/hundredsHR', [{ t:'f', v: Math.floor(bpm / 100) / 10 }]);
-
-  if (store.oscChatbox) {
-    const now = Date.now();
-    if (now - _chatboxLastSent >= 2000) {
-      _chatboxLastSent = now;
-      const fmt  = store.oscChatboxFormat || '♥ {bpm} BPM';
-      const text = fmt.replace('{bpm}', bpm);
-      // /chatbox/input [string, T=send immediately, F=no notification sound]
-      oscSend(host, port, '/chatbox/input', [{ t:'s', v: text }, { t:'T' }, { t:'F' }]);
+function avatarHeartRatePackets(cfg, bpm) {
+  if (typeof cfg.oscHost !== 'string' || !cfg.oscHost.trim() ||
+      !Number.isInteger(cfg.oscPort) || cfg.oscPort < 1 || cfg.oscPort > 65535) {
+    throw new Error('Enter a host and a port from 1 to 65535.');
+  }
+  for (const key of ['oscEnabled', 'oscChatbox', 'oscRawEnabled', 'oscNormalizedEnabled', 'oscBoolEnabled', 'oscLegacyEnabled']) {
+    if (cfg[key] !== undefined && typeof cfg[key] !== 'boolean') throw new Error(`Invalid switch: ${key}`);
+  }
+  const packets = [];
+  const addresses = new Set();
+  function add(name, type, value) {
+    if (typeof name !== 'string' || !name || name.length > 256 ||
+        /[\s\x00-\x1f#*,?\[\]{}]/u.test(name) || name.split('/').some(part => !part)) {
+      throw new Error('Use a parameter name without spaces, OSC wildcards, or a leading slash.');
     }
+    const address = `/avatar/parameters/${name}`;
+    if (addresses.has(address)) throw new Error(`Duplicate enabled parameter: ${name}`);
+    addresses.add(address);
+    packets.push({ address, args: [{ t: type, v: value }] });
+  }
+  if (cfg.oscRawEnabled) {
+    if (!['i', 'f'].includes(cfg.oscRawType)) throw new Error('Raw BPM type must be Int or Float.');
+    add(cfg.oscRawParam, cfg.oscRawType, cfg.oscRawType === 'i' ? Math.round(bpm) : bpm);
+  }
+  if (cfg.oscNormalizedEnabled) {
+    if (!Number.isFinite(cfg.oscMinBpm) || !Number.isFinite(cfg.oscMaxBpm) ||
+        cfg.oscMinBpm < 0 || cfg.oscMaxBpm <= cfg.oscMinBpm) {
+      throw new Error('Normalized maximum BPM must exceed minimum BPM; minimum must be zero or higher.');
+    }
+    const normalized = (bpm - cfg.oscMinBpm) / (cfg.oscMaxBpm - cfg.oscMinBpm);
+    add(cfg.oscNormalizedParam, 'f', Math.max(0, Math.min(1, normalized)));
+  }
+  if (cfg.oscBoolEnabled) {
+    if (typeof cfg.oscBoolValue !== 'boolean') throw new Error('Boolean value must be True or False.');
+    add(cfg.oscBoolParam, cfg.oscBoolValue ? 'T' : 'F', cfg.oscBoolValue);
+  }
+  if (cfg.oscLegacyEnabled) {
+    add('onesHR', 'f', (bpm % 10) / 10);
+    add('tensHR', 'f', (Math.floor(bpm / 10) % 10) / 10);
+    add('hundredsHR', 'f', Math.floor(bpm / 100) / 10);
+  }
+  return packets;
+}
+
+function sendHeartRateOsc(bpm, settings = loadStore(), test = false) {
+  const store = oscSettings(settings);
+  if (!test && !store.oscEnabled) return;
+  // Do not send invalid BPM samples over OSC.
+  if (!Number.isFinite(bpm) || bpm < 0 || bpm > 2147483647) return;
+  try {
+    const packets = avatarHeartRatePackets(store, bpm);
+    if (store.oscChatbox && (test || Date.now() - _chatboxLastSent >= 2000)) {
+      const text = (store.oscChatboxFormat || '♥ {bpm} BPM').replace('{bpm}', bpm);
+      packets.push({ address: '/chatbox/input', args: [{ t:'s', v: text }, { t:'T' }, { t:'F' }] });
+      if (!test) _chatboxLastSent = Date.now();
+    }
+    for (const { address, args } of packets) oscSend(store.oscHost, store.oscPort, address, args);
+    return { ok: true };
+  } catch (error) {
+    console.error('[OSC] Invalid output settings:', error.message);
+    return { ok: false, error: error.message };
   }
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -964,21 +1018,27 @@ ipcMain.handle('set-overlay-all-spaces', (_, value) => {
   applyOverlaySpaces(enabled);
 });
 
-ipcMain.handle('load-settings', () => ({ ...loadStore(), version: VERSION, scaleFactor: scaleFactor(), hotkey: hotkeyInfo() }));
+ipcMain.handle('load-settings', () => ({ ...oscSettings(loadStore()), version: VERSION, scaleFactor: scaleFactor(), hotkey: hotkeyInfo() }));
 
-// OSC test — sends a dummy BPM of 72 to verify the connection
-ipcMain.handle('test-osc', (_, { host, port, param, chatbox, chatboxFormat }) => {
+ipcMain.handle('save-osc-settings', (_, data) => {
   try {
-    oscSend(host, parseInt(port) || 9000, `/avatar/parameters/${param}`, [{ t:'i', v: 72 }]);
-    if (chatbox) {
-      const text = (chatboxFormat || '♥ {bpm} BPM').replace('{bpm}', 72);
-      oscSend(host, parseInt(port) || 9000, '/chatbox/input', [{ t:'s', v: text }, { t:'T' }, { t:'F' }]);
-    }
+    const keys = [...Object.keys(OSC_OUTPUT_DEFAULTS), 'oscEnabled', 'oscChatbox', 'oscChatboxFormat'];
+    const updates = Object.fromEntries(keys.filter(key => Object.prototype.hasOwnProperty.call(data, key)).map(key => [key, data[key]]));
+    const store = { ...oscSettings(loadStore()), ...updates };
+    // Always allow the master switch to stop output, even while a field is invalid.
+    if (store.oscEnabled) avatarHeartRatePackets(store, 72);
+    // Replace only after the full write succeeds, so failed saves preserve settings.
+    fs.writeFileSync(STORE_PATH + '.tmp', JSON.stringify(store, null, 2), 'utf8');
+    fs.renameSync(STORE_PATH + '.tmp', STORE_PATH);
     return { ok: true };
-  } catch(e) {
-    return { ok: false, error: e.message };
+  } catch (error) {
+    try { fs.unlinkSync(STORE_PATH + '.tmp'); } catch {}
+    return { ok: false, error: error.message };
   }
 });
+
+// OSC test — sends a dummy BPM of 72 to verify the connection
+ipcMain.handle('test-osc', (_, settings) => sendHeartRateOsc(72, settings, true));
 ipcMain.on('save-settings', (_, data) => {
   const store = loadStore();
   const previousHrId = String(store.hrId || '').trim();
