@@ -151,6 +151,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onBpmUpdate:       (cb) => ipcRenderer.on('bpm-update',       (_, d) => cb(d)),
   onConfigUpdate:    (cb) => ipcRenderer.on('config-update',    (_, d) => cb(d)),
   onHeartRateUpdate: (cb) => ipcRenderer.on('heart-rate-update',(_, d) => cb(d)),
+  onHeartRateLost:   (cb) => ipcRenderer.on('heart-rate-lost',  () => cb()),
   onScaleFactor:     (cb) => ipcRenderer.on('scale-factor',     (_, d) => cb(d)),
   onOverlayDragging: (cb) => ipcRenderer.on('overlay-dragging', (_, d) => cb(d)),
   onOverlayCursor:   (cb) => ipcRenderer.on('overlay-cursor',   (_, d) => cb(d)),
@@ -179,6 +180,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onBleDeviceFound:   (cb)            => ipcRenderer.on('ble-device-found', (_, d) => cb(d)),
   onBleStatus:        (cb)            => ipcRenderer.on('ble-status',       (_, d) => cb(d)),
+  bleGetState:        ()              => ipcRenderer.invoke('ble-get-state'),
+  bleCopyDiagnostics: ()              => ipcRenderer.invoke('ble-copy-diagnostics'),
 
   wowEnable:          (opts)    => ipcRenderer.send('wow-enable', opts),
   wowDisable:         ()        => ipcRenderer.send('wow-disable'),
