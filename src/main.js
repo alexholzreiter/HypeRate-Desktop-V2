@@ -1256,13 +1256,19 @@ function cardAssets() {
   return dir;
 }
 
-ipcMain.handle('sessions-card', async (_, startedAt) => {
+// Renders a session's share card to an image (1920x1080). The last one is kept, so showing it,
+// saving it and copying it do not render three times.
+let lastCard = null;   // { startedAt, image }
+async function renderCard(startedAt) {
+  const lang = loadStore().lang || 'en';
+  // reused for a minute: long enough for show, save and copy, short enough not to go stale
+  if (lastCard?.startedAt === startedAt && lastCard.lang === lang && Date.now() - lastCard.at < 60000) return lastCard.image;
   const session = sessions.read(startedAt);
   if (!session) return null;
 
   const dir = cardAssets();
   const seite = path.join(dir, 'card.html');
-  fs.writeFileSync(seite, sessionCard.build(session, loadStore().lang || 'en',
+  fs.writeFileSync(seite, sessionCard.build(session, lang,
     { icon: 'icon.png', alegreya: 'Alegreya.ttf' }));
 
   // Halbe Fenstergröße bei doppelter Pixeldichte ergibt genau 1920x1080
@@ -1274,21 +1280,47 @@ ipcMain.handle('sessions-card', async (_, startedAt) => {
     await win.loadFile(seite);
     win.webContents.setZoomFactor(0.5);
     await new Promise(r => setTimeout(r, 1500));               // Schriften und Layout
-    const img = await win.webContents.capturePage();
-    // Ortszeit im Dateinamen, sonst passt er nicht zu den Uhrzeiten auf dem Bild
-    const d = new Date(startedAt);
-    const zwei = (n) => String(n).padStart(2, '0');
-    const name = `HypeRate-${d.getFullYear()}-${zwei(d.getMonth() + 1)}-${zwei(d.getDate())}-${zwei(d.getHours())}-${zwei(d.getMinutes())}.png`;
-    const ziel = path.join(app.getPath('pictures'), name);
-    fs.writeFileSync(ziel, img.resize({ width: sessionCard.W, height: sessionCard.H }).toPNG());
-    shell.showItemInFolder(ziel);
-    return ziel;
+    const image = (await win.webContents.capturePage()).resize({ width: sessionCard.W, height: sessionCard.H });
+    lastCard = { startedAt, lang, at: Date.now(), image };
+    return image;
   } catch (err) {
     console.error('[session card]', err.message);
     return null;
   } finally {
     if (!win.isDestroyed()) win.destroy();
   }
+}
+
+function saveCard(startedAt, image) {
+  // Ortszeit im Dateinamen, sonst passt er nicht zu den Uhrzeiten auf dem Bild
+  const d = new Date(startedAt);
+  const zwei = (n) => String(n).padStart(2, '0');
+  const name = `HypeRate-${d.getFullYear()}-${zwei(d.getMonth() + 1)}-${zwei(d.getDate())}-${zwei(d.getHours())}-${zwei(d.getMinutes())}.png`;
+  const ziel = path.join(app.getPath('pictures'), name);
+  fs.writeFileSync(ziel, image.toPNG());
+  shell.showItemInFolder(ziel);
+  return ziel;
+}
+
+// The previous window: render and save in one go
+ipcMain.handle('sessions-card', async (_, startedAt) => {
+  const image = await renderCard(startedAt);
+  return image ? saveCard(startedAt, image) : null;
+});
+// The new window: show it first, then save or copy
+ipcMain.handle('sessions-card-preview', async (_, startedAt) => {
+  const image = await renderCard(startedAt);
+  return image ? image.resize({ width: 960 }).toDataURL() : null;
+});
+ipcMain.handle('sessions-card-save', async (_, startedAt) => {
+  const image = await renderCard(startedAt);
+  return image ? saveCard(startedAt, image) : null;
+});
+ipcMain.handle('sessions-card-copy', async (_, startedAt) => {
+  const image = await renderCard(startedAt);
+  if (!image) return false;
+  clipboard.writeImage(image);
+  return true;
 });
 
 ipcMain.on('sessions-set-options', (_, data = {}) => {

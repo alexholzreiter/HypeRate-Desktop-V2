@@ -23,7 +23,7 @@ const state = {
   mqtt: { state: null },
   mqttPassword: 'none',  // 'ok' | 'lost' | 'none': is a broker password stored and readable
   hyperaid: { state: 'off' },
-  sessions: { list: [], selected: null, detail: null, card: null, confirmDelete: false },
+  sessions: { list: [], selected: null, detail: null, share: null, confirmDelete: false },
   autostart: null,      // null until asked
   update: { state: 'idle' },   // 'idle' | 'checking' | 'current' | 'available' | 'error'
   news: null,           // null = not loaded, [] = none, or [{ title, url, date }]
@@ -402,12 +402,24 @@ export const sessions = {
     await api.sessionsDelete();
     await sessions.refresh();
   },
-  async makeCard(startedAt) {
-    state.sessions.card = { startedAt, state: 'working' };
+  // The share view: the card is rendered once, shown, then saved or copied
+  async openShare(startedAt) {
+    state.sessions.share = { startedAt, state: 'loading' };
     changed();
-    const saved = await api.sessionsCard(startedAt).catch(() => null);
-    state.sessions.card = { startedAt, state: saved ? 'saved' : 'failed' };
+    const url = await api.sessionsCardPreview(startedAt).catch(() => null);
+    if (state.sessions.share?.startedAt !== startedAt) return;   // closed meanwhile
+    state.sessions.share = url ? { startedAt, state: 'ready', url } : { startedAt, state: 'error' };
     changed();
+  },
+  closeShare() { state.sessions.share = null; changed(); },
+  async shareAction(kind) {
+    const share = state.sessions.share;
+    if (!share || share.state !== 'ready') return;
+    share.busy = kind; share.result = null; changed();
+    const ok = kind === 'save' ? !!(await api.sessionsCardSave(share.startedAt).catch(() => null))
+      : await api.sessionsCardCopy(share.startedAt).catch(() => false);
+    if (state.sessions.share !== share) return;
+    share.busy = null; share.result = ok ? kind : 'failed'; changed();
   },
 };
 

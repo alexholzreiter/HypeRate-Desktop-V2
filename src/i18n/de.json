@@ -232,7 +232,7 @@
     "bosses": "Bosse",
     "deaths": "Tode",
     "moments": "Momente",
-    "tagline": "Kostenloses Puls-Overlay · macOS · Windows · Linux",
+    "tagline": "Live-Puls-Overlay · macOS · Windows · Linux",
     "titles": {
       "boss": "Boss besiegt",
       "death": "Gestorben",
@@ -245,7 +245,11 @@
       "objective": "Ziel gesichert",
       "multikill": "Multikill",
       "ace": "Ace",
-      "intense": "Härtester Gegner"
+      "intense": "Härtester Gegner",
+      "peak": "Höchster Puls",
+      "streak": "Killserie",
+      "closest": "Knappster Moment",
+      "nemesis": "Erzfeind"
     },
     "plainSessionName": "Puls-Sitzung"
   },
@@ -453,7 +457,7 @@
     "sess_avg": "Schnitt",
     "sess_peak": "Spitze",
     "sess_moments": "Momente",
-    "sess_image": "Bild zum Teilen erzeugen",
+    "sess_image": "Bild zum Teilen",
     "sess_saved": "In „Bilder\" gespeichert",
     "sess_failed": "Hat nicht geklappt",
     "sess_live_wait": "Die Kurve erscheint innerhalb einer halben Minute.",
@@ -574,6 +578,11 @@
     "set_dock": "Symbol im Dock zeigen",
     "set_dock_sub": "Der Puls bleibt so oder so in der Menüleiste.",
     "set_taskbar": "In der Taskleiste zeigen",
-    "set_taskbar_sub": "HypeRate bleibt so oder so im Infobereich."
+    "set_taskbar_sub": "HypeRate bleibt so oder so im Infobereich.",
+    "sess_share_title": "Bild zum Teilen",
+    "sess_share_alt": "Bild der Sitzung zum Teilen",
+    "sess_copy": "Kopieren",
+    "sess_save": "In „Bilder\" speichern",
+    "sess_copied": "Kopiert. Füg es in Discord, X oder sonst wo ein."
   }
 }

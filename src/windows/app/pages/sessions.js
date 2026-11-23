@@ -15,7 +15,8 @@ export function render(s) {
       h('div', {}, h('h1', { class: 'h1' }, t('nav_sessions')), h('p', { class: 'sub' }, t('sess_sub'))),
       h('div', { class: 'row' }, h('span', {}, t('sessions_toggle')), toggle(on, v => sessions.save({ sessionsEnabled: v }), t('sessions_toggle')))),
     ss.list.length ? h('div', { class: 'sess-layout' }, list(s), detail(s)) : empty(on),
-    settings(s, on));
+    settings(s, on),
+    ss.share ? shareView(s) : null);
 }
 
 // ── Nothing recorded yet ──
@@ -50,17 +51,12 @@ function detail(s) {
   if (!item) return null;
   const d = ss.detail?.startedAt === item.startedAt ? ss.detail : null;
   const events = d?.events || [];
-  const card = ss.card?.startedAt === item.startedAt ? ss.card : null;
   return h('div', { class: 'card stack sess-detail' },
     h('div', { class: 'row between', style: { flexWrap: 'wrap', gap: '12px' } },
       h('div', {},
         h('p', { class: 'label' }, item.live ? t('sessions_live') : t('sess_session')),
         h('p', { class: 'h1', style: { fontSize: '22px', margin: '4px 0 0' } }, longDate(item.startedAt, item.endedAt, s.lang))),
-      item.live ? null : h('div', { class: 'row', style: { gap: '10px' } },
-        card && card.state !== 'working' ? h('span', { class: 'small ' + (card.state === 'saved' ? 'ok-text' : 'bad-text'), role: 'status' },
-          t(card.state === 'saved' ? 'sess_saved' : 'sess_failed')) : null,
-        h('button', { class: 'btn', disabled: card?.state === 'working' ? true : null, onclick: () => sessions.makeCard(item.startedAt) },
-          t(card?.state === 'working' ? 'sessions_working' : 'sess_image')))),
+      item.live ? null : h('button', { class: 'btn', onclick: () => sessions.openShare(item.startedAt) }, t('sess_image'))),
     h('div', { class: 'sess-stats' },
       stat(t('sess_duration'), duration(item.minutes)),
       stat(t('sess_avg'), item.avg + ' BPM'),
@@ -76,6 +72,30 @@ function detail(s) {
         e.detail ? h('span', { class: 'muted' }, e.detail) : null,
         e.bpm ? h('span', { class: 'num', style: { marginLeft: 'auto' } }, e.bpm + ' BPM') : null))) : null);
 }
+
+// ── Share view: the card as it will look, to save or to paste somewhere ──
+function shareView(s) {
+  const share = s.sessions.share;
+  const item = s.sessions.list.find(x => x.startedAt === share.startedAt);
+  const resultText = { save: t('sess_saved'), copy: t('sess_copied'), failed: t('sess_failed') }[share.result];
+  return h('div', { class: 'modal-backdrop', onclick: e => { if (e.target === e.currentTarget) sessions.closeShare(); } },
+    h('div', { class: 'card modal stack', role: 'dialog', 'aria-modal': 'true', 'aria-label': t('sess_share_title') },
+      h('div', { class: 'row between' },
+        h('div', {}, h('p', { class: 'label' }, t('sess_share_title')),
+          item ? h('p', { class: 'small muted', style: { margin: '4px 0 0' } }, longDate(item.startedAt, item.endedAt, s.lang)) : null),
+        h('button', { class: 'win-btn', 'aria-label': t('close'), onclick: () => sessions.closeShare() }, '×')),
+      h('div', { class: 'share-frame' },
+        share.state === 'ready' ? h('img', { src: share.url, alt: t('sess_share_alt') })
+          : h('p', { class: 'small muted' }, share.state === 'error' ? t('sess_failed') : t('sessions_working'))),
+      h('div', { class: 'row between', style: { flexWrap: 'wrap', gap: '10px' } },
+        h('span', { class: 'small ' + (share.result === 'failed' ? 'bad-text' : 'ok-text'), role: 'status' }, resultText || ''),
+        h('div', { class: 'row', style: { gap: '10px' } },
+          h('button', { class: 'btn', disabled: share.state !== 'ready' || share.busy ? true : null, onclick: () => sessions.shareAction('copy') }, t('sess_copy')),
+          h('button', { class: 'btn primary', disabled: share.state !== 'ready' || share.busy ? true : null, onclick: () => sessions.shareAction('save') }, t('sess_save'))))));
+}
+
+// Escape closes the share view
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('.modal-backdrop')) sessions.closeShare(); });
 
 function stat(label, value, color) {
   return h('div', {}, h('p', { class: 'label', style: { margin: 0 } }, label), h('p', { class: 'num', style: { margin: '4px 0 0', fontSize: '22px', fontWeight: 600, color } }, value));
