@@ -320,7 +320,8 @@ const OSC_OUTPUT_DEFAULTS = {
   oscHost: '127.0.0.1', oscPort: 9000,
   oscRawEnabled: false, oscRawParam: 'HR', oscRawType: 'i',
   oscNormalizedEnabled: false, oscNormalizedParam: 'VRCOSC/Heartrate/Normalised', oscMinBpm: 0, oscMaxBpm: 240,
-  oscBoolEnabled: false, oscBoolParam: 'HR', oscBoolValue: true,
+  // Not 'HR': that is the raw output's default, and two outputs may not share a name
+  oscBoolEnabled: false, oscBoolParam: 'HRActive', oscBoolValue: true,
   oscLegacyEnabled: false,
 };
 
