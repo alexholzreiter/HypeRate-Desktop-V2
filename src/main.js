@@ -1253,6 +1253,9 @@ function cardAssets() {
     const nach = path.join(dir, name);
     if (!fs.existsSync(nach)) fs.copyFileSync(von, nach);
   }
+  // The fonts ship with the app (assets/fonts); copied as a whole, they are small
+  const fonts = path.join(dir, 'fonts');
+  if (!fs.existsSync(path.join(fonts, 'fonts.css'))) fs.cpSync(path.join(__dirname, '..', 'assets', 'fonts'), fonts, { recursive: true });
   return dir;
 }
 
@@ -1269,7 +1272,7 @@ async function renderCard(startedAt) {
   const dir = cardAssets();
   const seite = path.join(dir, 'card.html');
   fs.writeFileSync(seite, sessionCard.build(session, lang,
-    { icon: 'icon.png', alegreya: 'Alegreya.ttf' }));
+    { icon: 'icon.png', alegreya: 'Alegreya.ttf', fonts: 'fonts/fonts.css' }));
 
   // Halbe Fenstergröße bei doppelter Pixeldichte ergibt genau 1920x1080
   const win = new BrowserWindow({

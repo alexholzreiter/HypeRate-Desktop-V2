@@ -109,8 +109,7 @@ function bauen(sitzung, sprache = 'de', mittel = {}) {
   const datum = new Date(sitzung.startedAt).toLocaleDateString(loc, { day: 'numeric', month: 'long', year: 'numeric' });
 
   return `<!doctype html><html><head><meta charset="utf-8">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+${mittel.fonts ? `<link href="${mittel.fonts}" rel="stylesheet">` : ''}
 <style>@font-face{font-family:'Alegreya';src:url('${mittel.alegreya}') format('truetype');font-weight:400 900;}</style>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
