@@ -23,7 +23,7 @@
   "dependencies": {
     "@abandonware/noble": "^1.9.2-15",
     "mqtt": "^5.16.0",
-    "ws": "^8.16.0"
+    "ws": "^8.22.2"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.2.1",

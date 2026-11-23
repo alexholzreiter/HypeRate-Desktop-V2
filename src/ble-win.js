@@ -12,6 +12,7 @@ const RECONNECT_HELPER_RESTART_AFTER = 3; // restart helper process after this m
 let helper = null;
 let helperBuffer = '';
 let helperStopping = false;
+let helperRestarting = false; // a restart we asked for: not an error worth showing
 let logPath = null;
 
 let onDeviceFound = null;
@@ -124,12 +125,17 @@ function ensureHelper() {
 
   helper.on('exit', (code, signal) => {
     const wasStopping = helperStopping;
+    const wasRestarting = helperRestarting;
     helper = null;
     helperBuffer = '';
     helperStopping = false;
+    helperRestarting = false;
     connected = false;
 
-    if (!wasStopping) {
+    if (wasRestarting) {
+      // The next connect starts a fresh helper; the connection manager decides when.
+      writeLog('Windows BLE helper stopped for a planned restart.');
+    } else if (!wasStopping) {
       const reason = signal
         ? `Windows BLE helper stopped (${signal}).`
         : `Windows BLE helper exited (${code ?? 'unknown'}).`;
@@ -219,10 +225,12 @@ function handleStatus(message) {
   } else if (state === 'connect-error') {
     connected = false;
     consecutiveFailures++;
+    // A helper that keeps failing gets a fresh start, but only every few failures: restarting
+    // it after every single one from the third on kept it from ever settling.
+    if (!manualDisconnect && consecutiveFailures % RECONNECT_HELPER_RESTART_AFTER === 0) {
+      restartHelper();
+    }
     if (!manualDisconnect && autoReconnect && lastConnected) {
-      if (consecutiveFailures >= RECONNECT_HELPER_RESTART_AFTER) {
-        restartHelper();
-      }
       scheduleReconnect();
     }
   } else if (state === 'ble-unavailable') {
@@ -252,7 +260,7 @@ function scheduleReconnect() {
 function restartHelper() {
   if (!helper || helper.killed) return;
   writeLog('Restarting Windows BLE helper after repeated connection failures.');
-  // helperStopping stays false so the exit handler triggers a reconnect
+  helperRestarting = true;
   try { helper.stdin.write(JSON.stringify({ cmd: 'shutdown' }) + '\n'); } catch {}
   setTimeout(() => {
     if (helper && !helper.killed) {

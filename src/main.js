@@ -3,7 +3,7 @@
 process.stdout.on('error', () => {});
 process.stderr.on('error', () => {});
 
-const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell, dialog, safeStorage, Notification, powerMonitor } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell, dialog, safeStorage, Notification, powerMonitor, clipboard } = require('electron');
 
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-experimental-web-platform-features');
@@ -17,6 +17,7 @@ const fs     = require('fs');
 const dgram  = require('dgram');
 const { WebSocket } = require('ws');
 const ble     = require('./ble');
+const { createBleManager } = require('./ble-manager');
 const discord = require('./discord');
 const moments = require('./moments');
 const wow     = require('./games/wow');
@@ -806,6 +807,14 @@ app.whenReady().then(() => {
   setInterval(() => checkForUpdate(), UPDATE_EVERY_MS);
   powerMonitor.on('resume', () => checkForUpdate());   // ein Notebook schläft auch mal drei Tage
 
+  // Bluetooth: connect the remembered strap again, and check it after sleep or unlock,
+  // because a connection can die during sleep without the driver ever reporting it.
+  if (process.platform !== 'linux') {
+    bleManager.start();
+    powerMonitor.on('resume', () => bleManager.onResume());
+    powerMonitor.on('unlock-screen', () => bleManager.onResume());
+  }
+
   if (IS_AUTOSTART) {
     // Started via autostart — stay in tray, don't show settings window
   } else if (IS_FIRST_RUN) {
@@ -1136,9 +1145,42 @@ ipcMain.handle('check-update', () => (newRelease
   : checkForUpdate({ notify: false })));
 
 // ── BLE ──────────────────────────────────────────────────────────────────────
-ble.init({
+// The drivers in ble.js / ble-win.js only talk to the device; how a connection is kept alive
+// (remembering the strap, reconnecting, noticing silence, waking up) is ble-manager.js.
+const BLE_LOG_PATH = path.join(app.getPath('userData'), 'ble.log');
+function writeBleLog(line) {
+  try {
+    if (fs.existsSync(BLE_LOG_PATH) && fs.statSync(BLE_LOG_PATH).size > 1024 * 1024) {
+      fs.renameSync(BLE_LOG_PATH, BLE_LOG_PATH + '.1');
+    }
+    fs.appendFileSync(BLE_LOG_PATH, line + '\n', 'utf8');
+  } catch {}
+}
+
+const bleManager = createBleManager({
+  driver: ble,
+  store: {
+    get: () => {
+      const s = loadStore();
+      return { device: s.bleLastDevice, active: s.bleLastDevice?.active, autoReconnect: s.bleAutoReconnect };
+    },
+    set: (patch) => {
+      const s = loadStore();
+      if ('device' in patch || 'active' in patch) {
+        s.bleLastDevice = { ...(s.bleLastDevice || {}), ...(patch.device || {}), ...('active' in patch ? { active: patch.active } : {}) };
+      }
+      if ('autoReconnect' in patch) s.bleAutoReconnect = patch.autoReconnect;
+      saveStore(s);
+    },
+  },
+  meta: { platform: `${process.platform} ${process.arch}`, version: app.getVersion() },
+  writeLog: writeBleLog,
   onDeviceFound: (id, name, rssi) => sendToSettings('ble-device-found', { id, name, rssi }),
-  onStatus: (state, extra = {}) => {
+  onSignalLost: () => {
+    sendToOverlay('heart-rate-lost');
+    if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle(' --');
+  },
+  emit: (state, extra = {}) => {
     sendToSettings('ble-status', { state, ...extra });
     if (state === 'connected') {
       bleConnected = true;
@@ -1146,25 +1188,36 @@ ble.init({
       if (ws) wsDisconnect();
       if (process.platform === 'darwin' && tray) tray.setContextMenu(buildMenu());
     }
-    if (state === 'disconnected' || state === 'connect-error' || state === 'idle') {
-      bleConnected = false;
-    }
-    if (state === 'disconnected' || state === 'idle') {
+    // A drop now goes straight to "reconnecting" instead of passing through "disconnected"
+    const gone = ['disconnected', 'connect-error', 'idle', 'reconnecting', 'ble-unavailable'].includes(state);
+    if (gone) bleConnected = false;
+    if (gone && state !== 'connect-error') {
       if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle('');
       discord.clearPresence();
     }
+    if (state === 'signal-lost' || state === 'no-contact') discord.clearPresence();
   },
   onBpm: (bpm) => broadcastBpm(bpm, 'ble'),
 });
 
-ipcMain.on('ble-scan-start',        ()              => ble.startScan());
-ipcMain.on('ble-scan-stop',         ()              => ble.stopScan());
+ipcMain.on('ble-scan-start',        ()              => bleManager.startScan());
+ipcMain.on('ble-scan-stop',         ()              => bleManager.stopScan());
 ipcMain.on('ble-connect', (_, { id, name }) => {
   if (ws) wsDisconnect();
-  ble.connect(id, name);
+  bleManager.connect(id, name);
 });
-ipcMain.on('ble-disconnect',        ()              => { ble.disconnect(); sessions.close(); });
-ipcMain.on('ble-set-auto-reconnect',(_, enabled)   => ble.setAutoReconnect(enabled));
+ipcMain.on('ble-disconnect',        ()              => { bleManager.disconnect(); sessions.close(); });
+ipcMain.on('ble-set-auto-reconnect',(_, enabled)   => {
+  if (process.platform !== 'linux') bleManager.setAutoReconnect(enabled);
+});
+ipcMain.handle('ble-get-state', () => (process.platform === 'linux' ? null : bleManager.snapshot()));
+ipcMain.handle('ble-copy-diagnostics', () => {
+  const text = process.platform === 'linux'
+    ? 'Bluetooth on Linux runs in the settings window; no diagnostics are collected here yet.'
+    : bleManager.diagnostics();
+  clipboard.writeText(text);
+  return true;
+});
 
 ipcMain.on('ble-web-status', (_, { state, ...extra }) => {
   if (process.platform !== 'linux') return;

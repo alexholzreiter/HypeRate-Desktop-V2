@@ -833,6 +833,12 @@
     // Re-apply zone color immediately if we already have a BPM
   });
   window.electronAPI.onHeartRateUpdate(d => updateBpm(d.bpm));
+  // The strap is connected but has gone quiet: show that, instead of a frozen number
+  window.electronAPI.onHeartRateLost?.(() => {
+    currentBpm = null;
+    bpmNum.textContent = '--';
+    if (theme) theme.bpm.textContent = '--';
+  });
   window.electronAPI.onGameMoment(showMoment);
 
   // DPI: if on a high-DPI display, the Electron window is already in logical

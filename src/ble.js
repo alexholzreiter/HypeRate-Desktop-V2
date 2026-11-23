@@ -19,6 +19,8 @@ const WIN_DISCOVERY_RETRY_DELAY = 1500;
 let noble = null;
 let nobleError = null;
 
+let scanWhenReady = false;   // a scan was asked for before Bluetooth was on
+
 function getNobile() {
   if (nobleError) throw nobleError;
   if (!noble) {
@@ -28,6 +30,17 @@ function getNobile() {
       nobleError = err;
       throw err;
     }
+    // One listener for the whole lifetime. Bluetooth being switched off and on again is
+    // reported, so a connection can be rebuilt as soon as the adapter is back.
+    noble.on('stateChange', (state) => {
+      if (state === 'poweredOn') {
+        onStatus?.('ble-ready');
+        if (scanWhenReady) { scanWhenReady = false; _beginScan(noble); }
+      } else if (state !== 'unknown' && state !== 'resetting') {
+        scanWhenReady = false;
+        onStatus?.('ble-unavailable', { reason: state });
+      }
+    });
   }
   return noble;
 }
@@ -43,11 +56,13 @@ const peripheralCache = new Map(); // id -> peripheral, populated during scan
 let onDeviceFound = null; // cb(id, name, rssi)
 let onStatus      = null; // cb(state, extra?)
 let onBpm         = null; // cb(bpm)
+let onPacket      = null; // cb({ bpm, contact }) for every measurement, valid or not
 
 function init(callbacks) {
   onDeviceFound = callbacks.onDeviceFound;
   onStatus      = callbacks.onStatus;
   onBpm         = callbacks.onBpm;
+  onPacket      = callbacks.onPacket;
 }
 
 function setAutoReconnect(enabled) {
@@ -71,10 +86,7 @@ function startScan() {
   if (n.state === 'poweredOn') {
     _beginScan(n);
   } else {
-    n.once('stateChange', (state) => {
-      if (state === 'poweredOn') _beginScan(n);
-      else onStatus?.('ble-unavailable', { reason: state });
-    });
+    scanWhenReady = true;   // started by the stateChange listener in getNobile
   }
 }
 
@@ -128,6 +140,13 @@ async function _connect(peripheralId, deviceName, { retriedDiscovery }) {
   await disconnect(true);
 
   onStatus?.('connecting');
+
+  // Right after launch the adapter is not on yet; say so instead of "device not found".
+  // The connection manager tries again as soon as the stateChange listener reports it ready.
+  if (n.state !== 'poweredOn') {
+    onStatus?.('connect-error', { reason: `Bluetooth is not ready yet (${n.state}).` });
+    return;
+  }
 
   const peripheral = await _findPeripheral(n, peripheralId);
   if (!peripheral) {
@@ -238,29 +257,39 @@ function _scheduleReconnect(force = false) {
   }, RECONNECT_DELAY);
 }
 
+const FIND_TIMEOUT = 10000;
+
 function _findPeripheral(n, id) {
   // Use the peripheral object from the scan — required on Windows WinRT
   if (peripheralCache.has(id)) {
     return Promise.resolve(peripheralCache.get(id));
   }
-  // Fallback: short re-scan in case cache was cleared
+  if (n.state !== 'poweredOn') return Promise.resolve(null);
+
+  // Fallback: short re-scan in case cache was cleared. It must not end a scan the user started
+  // in the meantime, and its timeout must not fire after the device was already found: that
+  // used to stop whatever scan was running ten seconds later.
   return new Promise((resolve) => {
+    let done = false;
+    const finish = (peripheral) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      n.removeListener('discover', onDisc);
+      if (!scanning) n.stopScanning();
+      resolve(peripheral);
+    };
     const onDisc = (p) => {
       if (p.id === id) {
         peripheralCache.set(p.id, p);
-        n.removeListener('discover', onDisc);
-        n.stopScanning();
-        resolve(p);
+        finish(p);
       }
     };
+    const timer = setTimeout(() => finish(null), FIND_TIMEOUT);
     n.on('discover', onDisc);
-    n.startScanning([HR_SERVICE], false, (err) => {
-      if (err) {
-        n.removeListener('discover', onDisc);
-        resolve(null);
-      }
-    });
-    setTimeout(() => { n.removeListener('discover', onDisc); n.stopScanning(); resolve(null); }, 10000);
+    if (!scanning) {
+      n.startScanning([HR_SERVICE], false, (err) => { if (err) finish(null); });
+    }
   });
 }
 
@@ -268,6 +297,11 @@ function _onHrData(data) {
   const flag    = data[0];
   const is16bit = (flag & 0x01) !== 0;
   const bpm     = is16bit ? data.readUInt16LE(1) : data[1];
+  // Heart Rate Measurement flags: bit 2 = the strap can tell skin contact, bit 1 = it has it.
+  // A strap without contact keeps sending, typically with 0 BPM, so the link is alive even
+  // though there is nothing to show.
+  const contactSupported = (flag & 0x04) !== 0;
+  onPacket?.({ bpm, contact: contactSupported ? (flag & 0x02) !== 0 : null });
   if (bpm > 0 && bpm < 300) onBpm?.(bpm);
 }
 
