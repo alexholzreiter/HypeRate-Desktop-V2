@@ -1,6 +1,6 @@
 // HypeRate Desktop v2 — main window: title bar, sidebar, and whichever page is open.
 
-import { h, svg, icon, heart } from './lib/dom.js';
+import { h, svg, icon, heart, morph } from './lib/dom.js';
 import { t } from './lib/i18n.js';
 import * as store from './lib/state.js';
 import * as live from './pages/live.js';
@@ -10,6 +10,7 @@ import * as gamesPage from './pages/games.js';
 import * as integrations from './pages/integrations.js';
 import * as sessionsPage from './pages/sessions.js';
 import * as settingsPage from './pages/settings.js';
+import * as welcome from './pages/welcome.js';
 
 const api = window.electronAPI;
 
@@ -64,19 +65,30 @@ function titlebar(s) {
 
 function sidebar(s) {
   const conn = store.connection(s);
-  return h('nav', { class: 'sidebar', 'aria-label': t('nav_label') },
+  const narrow = !!s.settings.sidebarCollapsed;
+  const who = s.ble.name || (s.cloud.status === 'connected' ? t('source_cloud') : t('no_source'));
+  const keys = (s.settings.hotkey?.keys || ['Ctrl', 'Shift', 'H']).join(' + ');
+  return h('nav', { class: 'sidebar' + (narrow ? ' narrow' : ''), 'aria-label': t('nav_label') },
+    h('button', { class: 'nav side-toggle', 'aria-expanded': String(!narrow), title: t(narrow ? 'side_expand' : 'side_collapse'), 'aria-label': t(narrow ? 'side_expand' : 'side_collapse'),
+      onclick: () => store.setSidebarCollapsed(!narrow) }, icon(narrow ? 'expand' : 'collapse')),
     NAV.map(item => item.group
-      ? h('p', { class: 'nav-group' }, t(item.group))
-      : h('button', { class: 'nav', 'aria-current': item.id === current ? 'page' : null, onclick: () => go(item.id) },
-          icon(item.icon), t(item.label))),
-    h('div', { class: 'side-status' },
-      h('div', { class: 'who' },
-        h('span', { class: 'icon-tile', style: { width: '34px', height: '34px', borderRadius: '10px' } }, icon(s.source === 'cloud' ? 'cloud' : 'source', 16)),
-        h('div', {},
-          h('p', { class: 'name', style: { margin: 0 } }, s.ble.name || (s.cloud.status === 'connected' ? t('source_cloud') : t('no_source'))),
-          h('p', { class: 'sub', style: { margin: '1px 0 0', color: conn === 'on' ? 'var(--ok-text)' : 'var(--dim)' } }, t('conn_' + conn)))),
-      h('button', { class: 'btn primary', style: { width: '100%' }, onclick: () => store.showOverlay() }, t('overlay_show')),
-      h('p', { class: 'small muted', style: { margin: 0, textAlign: 'center' } }, (s.settings.hotkey?.keys || ['Ctrl', 'Shift', 'H']).join(' + '))));
+      ? h('p', { class: 'nav-group' }, h('span', { class: 'nav-text' }, t(item.group)))
+      : h('button', { class: 'nav', 'aria-current': item.id === current ? 'page' : null, title: narrow ? t(item.label) : null, 'aria-label': narrow ? t(item.label) : null, onclick: () => go(item.id) },
+          icon(item.icon), h('span', { class: 'nav-text' }, t(item.label)))),
+    narrow
+      ? h('div', { class: 'side-status' },
+          h('span', { class: 'icon-tile side-who', title: who + ' · ' + t('conn_' + conn) },
+            icon(s.source === 'cloud' ? 'cloud' : 'source', 16), h('span', { class: 'dot ' + (conn === 'on' ? 'live' : conn === 'none' ? '' : 'warn') })),
+          h('button', { class: 'btn icon-only' + (s.overlayOpen ? '' : ' primary'), title: t(s.overlayOpen ? 'overlay_hide' : 'overlay_show') + ' (' + keys + ')', 'aria-label': t(s.overlayOpen ? 'overlay_hide' : 'overlay_show'), 'aria-pressed': String(s.overlayOpen), onclick: () => store.toggleOverlay() }, icon('overlay', 18)))
+      : h('div', { class: 'side-status' },
+          h('div', { class: 'who' },
+            h('span', { class: 'icon-tile', style: { width: '34px', height: '34px', borderRadius: '10px' } }, icon(s.source === 'cloud' ? 'cloud' : 'source', 16)),
+            h('div', {},
+              h('p', { class: 'name', style: { margin: 0 } }, who),
+              h('p', { class: 'sub', style: { margin: '1px 0 0', color: conn === 'on' ? 'var(--ok-text)' : 'var(--dim)' } }, t('conn_' + conn)))),
+          // One button that shows or hides, like the hotkey under it
+          h('button', { class: 'btn' + (s.overlayOpen ? '' : ' primary'), style: { width: '100%' }, 'aria-pressed': String(s.overlayOpen), onclick: () => store.toggleOverlay() }, t(s.overlayOpen ? 'overlay_hide' : 'overlay_show')),
+          h('p', { class: 'small muted', style: { margin: 0, textAlign: 'center' } }, keys)));
 }
 
 const root = document.getElementById('app');
@@ -93,18 +105,30 @@ function render() {
   queued = false;
   const s = store.get();
   document.documentElement.lang = s.lang;
+  // First start: the wizard takes the whole window until it is finished or skipped
+  if (s.settings.onboarded !== true) {
+    const el = document.activeElement;
+    if (el?.closest?.('.welcome') && el.tagName === 'INPUT') return;
+    update(defs(), welcome.render(s));
+    return;
+  }
   const item = NAV.find(n => n.id === current) || NAV[1];
   const content = document.querySelector('.content');
   if (content && typing()) {
-    document.querySelector('.titlebar').replaceWith(titlebar(s));
-    document.querySelector('.sidebar').replaceWith(sidebar(s));
+    morph(document.querySelector('.titlebar'), titlebar(s));
+    morph(document.querySelector('.sidebar'), sidebar(s));
     return;
   }
-  const scroll = content ? content.scrollTop : 0;
-  root.replaceChildren(defs(), h('div', { class: 'app' },
+  update(defs(), h('div', { class: 'app' },
     titlebar(s),
     h('div', { class: 'body' }, sidebar(s), h('main', { class: 'content' }, item.page.render(s, go)))));
-  document.querySelector('.content').scrollTop = scroll;
+}
+
+// The screen is patched, not rebuilt: see morph() in lib/dom.js
+function update(...nodes) {
+  const live = [...root.childNodes];
+  nodes.forEach((node, i) => { if (live[i]) morph(live[i], node); else root.appendChild(node); });
+  for (let i = nodes.length; i < live.length; i++) live[i].remove();
 }
 
 function schedule() { if (!queued) { queued = true; requestAnimationFrame(render); } }

@@ -99,9 +99,9 @@ function gamePage(s, key, go) {
         h('span', { class: 'ctl-label' }, t('bar_size')),
         h('div', { class: 'ctl-input' },
           h('input', { type: 'range', min: 30, max: 80, step: 5, value: scale, style: { flex: 1 }, 'aria-label': t('bar_size'),
-            oninput: e => { e.target.nextSibling.textContent = e.target.value + '%'; sizeNote.textContent = barSize(Number(e.target.value)); games.syncThemes({ [g.scaleKey]: Number(e.target.value) }); } }),
+            oninput: e => { e.target.nextSibling.textContent = e.target.value + '%'; e.target.closest('.card').querySelector('.size-note').textContent = barSize(Number(e.target.value)); games.syncThemes({ [g.scaleKey]: Number(e.target.value) }); } }),
           h('span', { class: 'num range-value' }, scale + '%'))),
-      sizeNote = h('p', { class: 'small muted', style: { margin: 0 } }, barSize(scale))),
+      h('p', { class: 'small muted size-note', style: { margin: 0 } }, barSize(scale))),
 
     h('div', { class: 'split' },
       h('div', { class: 'card stack' },
@@ -129,7 +129,6 @@ function gamePage(s, key, go) {
       h('span', { class: 'small', style: { color: 'var(--accent-text)', fontWeight: 600 } }, t('open') + ' →')) : null);
 }
 
-let sizeNote = null;
 function barSize(pct) {
   const f = pct / 100;
   return t('bar_size_px', { idle: Math.round(500 * f), open: Math.round(1540 * f), h: Math.round(190 * f) });

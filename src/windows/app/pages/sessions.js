@@ -92,27 +92,34 @@ function curve(d) {
   const pts = [];
   for (let i = 0; i < values.length; i += step) {
     const slice = values.slice(i, i + step).filter(v => v != null);
-    pts.push(slice.length ? { i, v: slice.reduce((a, b) => a + b, 0) / slice.length } : null);
+    if (slice.length) pts.push({ i, v: slice.reduce((a, b) => a + b, 0) / slice.length });
   }
-  const real = pts.filter(Boolean).map(p => p.v);
+  const real = pts.map(p => p.v);
   const lo = Math.min(...real) - 8, hi = Math.max(...real) + 8;
   const n = Math.max(1, values.length - 1);
   const x = i => (i / n) * W;
   const y = v => H - ((v - lo) / (hi - lo)) * H;
+  // The HypeRate app does not send every second, so short holes are bridged; only a real
+  // stretch without signal (over GAP_S seconds) breaks the line
+  const GAP_S = 15;
   const lines = [];
   let run = [];
-  for (const p of pts) {
-    if (p) run.push(`${x(p.i).toFixed(1)},${y(p.v).toFixed(1)}`);
-    else if (run.length) { lines.push(run); run = []; }
+  for (let k = 0; k < pts.length; k++) {
+    if (k && pts[k].i - pts[k - 1].i > GAP_S) { lines.push(run); run = []; }
+    run.push(`${x(pts[k].i).toFixed(1)},${y(pts[k].v).toFixed(1)}`);
   }
-  if (run.length) lines.push(run);
+  lines.push(run);
   const peakIdx = values.indexOf(Math.max(...values.filter(v => v != null)));
   return h('div', { class: 'stack', style: { gap: '6px' } },
-    svg('svg', { class: 'spark', viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', role: 'img', 'aria-label': t('sess_curve_label') },
-      [34, 68, 102, 136].map(yy => svg('line', { x1: 0, y1: yy, x2: W, y2: yy, stroke: 'rgba(255,255,255,.06)', 'stroke-dasharray': '3 5' })),
-      (d.events || []).map(e => svg('line', { x1: x(e.t), y1: 0, x2: x(e.t), y2: H, stroke: markColor(e.style), 'stroke-opacity': .55, 'stroke-width': 1.5, 'vector-effect': 'non-scaling-stroke' })),
-      lines.map(l => svg('polyline', { points: l.join(' '), fill: 'none', stroke: 'url(#hr-line)', 'stroke-width': 2.2, 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke' })),
-      peakIdx >= 0 ? svg('circle', { cx: x(peakIdx), cy: y(values[peakIdx]), r: 4, fill: '#ffb3a0' }) : null),
+    h('div', { class: 'sess-curve' },
+      svg('svg', { class: 'spark', viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', role: 'img', 'aria-label': t('sess_curve_label') },
+        [34, 68, 102, 136].map(yy => svg('line', { x1: 0, y1: yy, x2: W, y2: yy, stroke: 'rgba(255,255,255,.06)', 'stroke-dasharray': '3 5' })),
+        (d.events || []).map(e => svg('line', { x1: x(e.t), y1: 0, x2: x(e.t), y2: H, stroke: markColor(e.style), 'stroke-opacity': .55, 'stroke-width': 1.5, 'vector-effect': 'non-scaling-stroke' })),
+        lines.map(l => l.length === 1
+          ? svg('line', { x1: l[0].split(',')[0], y1: l[0].split(',')[1], x2: l[0].split(',')[0], y2: l[0].split(',')[1], stroke: '#7fb0ff', 'stroke-width': 3, 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke' })
+          : svg('polyline', { points: l.join(' '), fill: 'none', stroke: 'url(#hr-line)', 'stroke-width': 2.2, 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke' }))),
+      // A round dot in HTML: inside the stretched SVG a circle would come out as an egg
+      peakIdx >= 0 ? h('span', { class: 'sess-peak-dot', title: values[peakIdx] + ' BPM', style: { left: (x(peakIdx) / W * 100) + '%', top: (y(values[peakIdx]) / H * 100) + '%' } }) : null),
     h('div', { class: 'row between', style: { fontSize: '11px', color: 'var(--label)' } },
       h('span', {}, time(d.startedAt)), h('span', {}, time(d.endedAt))));
 }

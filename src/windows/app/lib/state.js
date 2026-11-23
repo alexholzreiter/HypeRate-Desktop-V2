@@ -49,7 +49,8 @@ export function connection(s = state) {
   if (ble === 'signal-lost' || ble === 'no-contact') return 'quiet';
   if (ble === 'connected' || s.cloud.status === 'connected') return 'on';
   if (ble === 'reconnecting' || ble === 'connecting' || ble === 'ble-unavailable') return 'lost';
-  if (s.cloud.status === 'closed' || s.cloud.status === 'error') return 'lost';
+  // The cloud connection is not retried on its own, so a drop is "dropped", not "reconnecting"
+  if (s.cloud.status === 'closed' || s.cloud.status === 'error') return 'dropped';
   return 'none';
 }
 
@@ -118,6 +119,8 @@ export async function start() {
   });
 
   api.onWsStatus(({ status, sessionId, message }) => {
+    // Disconnecting on purpose also ends in "closed"; that is off, not a problem
+    if ((status === 'closed' || status === 'error') && !state.settings.cloudAutoConnect) status = 'idle';
     state.cloud = { status, sessionId, message };
     changed();
   });
@@ -130,6 +133,8 @@ export async function start() {
   api.onWowStatus(({ state: s, ...extra }) => { state.wow = { state: s, ...extra }; changed(); });
   api.onLolStatus(({ state: s, ...extra }) => { state.lol = { state: s, ...extra }; changed(); });
   api.onOverlayState(({ open }) => { state.overlayOpen = !!open; changed(); });
+  // The overlay may already be up when this window opens
+  api.overlayIsOpen?.().then(open => { state.overlayOpen = !!open; changed(); }).catch(() => {});
   api.onDiscordStatus(({ state: s, reason }) => { if (state.settings.discordEnabled) state.discord = { state: s, reason }; changed(); });
   api.onMqttStatus(({ state: s, ...extra }) => { if (state.settings.mqttEnabled) state.mqtt = { state: s, ...extra }; changed(); });
   api.onMqttPasswordLost(() => { state.mqttPassword = 'lost'; changed(); });
@@ -441,7 +446,22 @@ export const app = {
   },
 };
 
+// The sidebar can shrink to its icons; remembered across starts
+export function setSidebarCollapsed(on) {
+  state.settings.sidebarCollapsed = on;
+  api.saveSettings({ sidebarCollapsed: on });
+  changed();
+}
+
+// The first-start wizard is done (or skipped): never show it again
+export function finishWelcome() {
+  state.settings.onboarded = true;
+  api.ftueComplete();
+  changed();
+}
+
 // The overlay needs the whole config: a partial one (say, only the game settings on a fresh
 // install) leaves it without colours and it fails. Always send it complete.
 export const overlayConfig = () => withDefaults(state.settings.config);
 export function showOverlay() { api.launchOverlay(overlayConfig()); }
+export function toggleOverlay() { if (state.overlayOpen) api.closeOverlay(); else showOverlay(); }

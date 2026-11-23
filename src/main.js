@@ -886,6 +886,9 @@ app.whenReady().then(() => {
 
   if (IS_AUTOSTART) {
     // Started via autostart — stay in tray, don't show settings window
+  } else if (IS_FIRST_RUN && settingsWindowKind() === 'next') {
+    // The new window brings its own first-start wizard
+    settingsWindow.show();
   } else if (IS_FIRST_RUN) {
     // First launch — show settings window, then FTUE on top
     settingsWindow.show();
@@ -909,8 +912,10 @@ ipcMain.on('ws-connect', (_, id) => {
 });
 ipcMain.on('ws-disconnect', () => { wsDisconnect(); sessions.close(); });
 
+ipcMain.handle('overlay-is-open', () => overlayIsOpen());
 ipcMain.on('launch-overlay', (_, config) => {
   if (!overlayWindow) createOverlayWindow();
+  else if (!overlayWindow.isDestroyed() && !overlayWindow.isVisible()) overlayWindow.show();   // hidden by the hotkey or the tray
   setTimeout(() => { if (overlayWindow) overlayWindow.webContents.send('config-update', config); }, 400);
   notifyOverlayState();
 });

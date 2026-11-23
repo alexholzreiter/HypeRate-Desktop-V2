@@ -10,7 +10,6 @@ export const id = 'overlay';
 
 const api = window.electronAPI;
 let tab = 'heart';
-let preview = null;       // the widget element in the preview
 let saveTimer = null;
 let displays = null;      // { displays, selected, supportsSpaces, allSpaces }
 let systemFonts = null;
@@ -21,7 +20,9 @@ function change(patch) {
   const s = get();
   const next = { ...config(), ...patch };
   s.settings.config = next;
-  if (preview) drawPreview(preview, next, s.bpm);
+  // The element on screen, not the last rendered one: the window patches the screen from renders
+  const shown = document.querySelector('.scene .preview-widget');
+  if (shown) drawPreview(shown, next, s.bpm);
   api.updateConfig(next);   // reaches the overlay if it is open
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => api.saveSettings({ config: next }), 500);
@@ -47,7 +48,7 @@ export function render(s) {
 
 // ── Preview ──
 function scene(c, bpm) {
-  preview = h('div', { class: 'preview-widget' },
+  const preview = h('div', { class: 'preview-widget' },
     h('div', { class: 'ph' }),
     h('div', { class: 'pv-num' }, h('div', { class: 'pn num' }), h('div', { class: 'pl' }, 'BPM')));
   drawPreview(preview, c, bpm);
