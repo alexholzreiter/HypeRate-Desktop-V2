@@ -22,11 +22,16 @@ export function render(s) {
         row(t('set_language'), h('div', { class: 'tabs', role: 'radiogroup', 'aria-label': t('set_language') },
           LANGS.map(([code, name]) => h('button', { class: 'tab' + (s.lang === code ? ' on' : ''), role: 'radio', 'aria-checked': String(s.lang === code), onclick: () => setLang(code) }, name)))),
         row(t('set_autostart'), s.autostart == null ? null : toggle(s.autostart, v => app.setAutostart(v), t('set_autostart'))),
+        dockRow(s),
         h('hr', { class: 'divider' }),
         row(t('set_hotkey'), h('div', { class: 'row', style: { gap: '6px' } },
           (s.settings.hotkey?.keys || ['Ctrl', 'Shift', 'H']).map((k, i) => [i ? h('span', { class: 'muted' }, '+') : null, h('span', { class: 'kbd' }, k)]))),
         s.settings.hotkey && s.settings.hotkey.registered === false ? h('p', { class: 'small warn-text', style: { margin: 0 } }, t('set_hotkey_taken')) : null),
       updates(s)),
+    h('div', { class: 'card stack' },
+      h('p', { class: 'label' }, t('set_privacy')),
+      row(t('set_analytics'), toggle(s.settings.analyticsEnabled === true, v => app.setAnalytics(v), t('set_analytics'))),
+      h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('set_analytics_text'))),
     h('div', { class: 'split' },
       news(s),
       h('div', { class: 'card stack' },
@@ -71,6 +76,16 @@ function news(s) {
     items.map(n => h('button', { class: 'news-row', onclick: () => window.electronAPI.openExternal(n.url) },
       h('b', {}, n.title),
       isNaN(n.date) ? null : h('span', { class: 'small muted' }, n.date.toLocaleDateString(lang, { day: 'numeric', month: 'short', year: 'numeric' })))));
+}
+
+// macOS: Dock, Windows: taskbar. Linux desktops differ too much, so not there.
+function dockRow(s) {
+  const platform = window.electronAPI.platform;
+  if (platform !== 'darwin' && platform !== 'win32') return null;
+  const label = t(platform === 'darwin' ? 'set_dock' : 'set_taskbar');
+  return h('div', { class: 'stack', style: { gap: '4px' } },
+    row(label, toggle(s.settings.showInDock === true, v => app.setDockIcon(v), label)),
+    h('p', { class: 'small muted', style: { margin: 0 } }, t(platform === 'darwin' ? 'set_dock_sub' : 'set_taskbar_sub')));
 }
 
 function row(label, control) {

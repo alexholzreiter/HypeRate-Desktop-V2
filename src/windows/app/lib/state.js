@@ -415,6 +415,10 @@ export const sessions = {
 
 export const app = {
   setAutostart(on) { state.autostart = on; api.setAutostart(on); changed(); },
+  // Show the app in the Dock (macOS) or the taskbar (Windows) besides the menu bar / tray
+  setDockIcon(on) { state.settings.showInDock = !!on; api.dockSet(!!on); changed(); },
+  // Anonymous usage count, off until the user agrees
+  setAnalytics(on) { state.settings.analyticsEnabled = !!on; api.analyticsSet(!!on); changed(); },
   async checkUpdate() {
     if (state.update.state === 'available') return;
     state.update = { state: 'checking' };

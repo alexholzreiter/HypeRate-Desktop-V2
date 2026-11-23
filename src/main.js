@@ -3,7 +3,7 @@
 process.stdout.on('error', () => {});
 process.stderr.on('error', () => {});
 
-const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell, dialog, safeStorage, Notification, powerMonitor, clipboard, protocol } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell, dialog, safeStorage, Notification, powerMonitor, clipboard, protocol, session } = require('electron');
 
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-experimental-web-platform-features');
@@ -28,6 +28,7 @@ const sessions = require('./sessions');
 const sessionCard = require('./session-card');
 const systemFonts = require('./system-fonts');
 const customAssets = require('./custom-assets');
+const usageStats = require('./usage-stats');
 const { fetchLatestRelease } = require('./desktop-update');
 const { fitOverlay, restoreOverlayPlacement, overlayPlacementPreferences } = require('./overlay-placement');
 const crypto = require('crypto');
@@ -554,7 +555,8 @@ function createSettingsWindow() {
     width:kind.width, height:kind.height, minWidth:kind.minWidth, minHeight:kind.minHeight,
     frame:false, transparent:false, backgroundColor:'#080810',
     show: false, // shown explicitly after ready (or not at all on autostart)
-    skipTaskbar: process.platform === 'win32', // Windows: only live in tray
+    // Windows: only in the tray, unless the user wants it in the taskbar too (see applyDockIcon)
+    skipTaskbar: process.platform === 'win32' && loadStore().showInDock !== true,
     webPreferences:{ nodeIntegration:false, contextIsolation:true, preload:path.join(__dirname,'preload.js') },
     icon: path.join(__dirname,'../assets/icon.png'),
     title:edition.name,
@@ -907,6 +909,51 @@ ipcMain.handle('assets-remove', (_, kind, file) => {
   return store[ASSET_LIST[kind]];
 });
 
+// ── Dock (macOS) or taskbar (Windows) icon ───────────────────────────────────
+// The app lives in the menu bar / tray; showing it in the Dock or the taskbar as well is a choice.
+function applyDockIcon(show) {
+  if (process.platform === 'darwin') {
+    if (show) {
+      app.dock.show();
+      // A packaged build has its icon in the bundle; a dev run would show Electron's otherwise
+      if (!app.isPackaged) app.dock.setIcon(nativeImage.createFromPath(path.join(__dirname, '../assets/icon-mac.png')));
+    } else app.dock.hide();
+    // Hiding the Dock icon makes macOS drop the app's focus; keep the window the user is in
+    if (settingsWindow && !settingsWindow.isDestroyed() && settingsWindow.isVisible()) setTimeout(() => settingsWindow.focus(), 50);
+    applyOverlaySpaces(loadStore().overlayAllSpaces === true);
+  } else if (process.platform === 'win32' && settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.setSkipTaskbar(!show);
+  }
+}
+ipcMain.handle('dock-set', (_, on) => {
+  const store = loadStore();
+  store.showInDock = on === true;
+  saveStore(store);
+  applyDockIcon(store.showInDock);
+  return store.showInDock;
+});
+// A click on the Dock icon opens the window
+app.on('activate', () => {
+  if (settingsWindow && !settingsWindow.isDestroyed()) { settingsWindow.show(); settingsWindow.focus(); }
+});
+
+// ── Anonymous usage count (opt-in, see usage-stats.js) ───────────────────────
+let usageCounted = false;   // once per start
+function countVisit() {
+  if (usageCounted || loadStore().analyticsEnabled !== true) return;
+  usageCounted = true;
+  const { width, height } = screen.getPrimaryDisplay().size;
+  usageStats.sendVisit({ enabled: true, language: app.getLocale(), screen: `${width}x${height}`, userAgent: session.defaultSession.getUserAgent() })
+    .then(r => { if (!r.sent) usageCounted = false; });
+}
+ipcMain.handle('analytics-set', (_, on) => {
+  const store = loadStore();
+  store.analyticsEnabled = on === true;
+  saveStore(store);
+  if (store.analyticsEnabled) countVisit();
+  return store.analyticsEnabled;
+});
+
 // ── App ready ──
 app.whenReady().then(() => {
   protocol.handle('hr-asset', (request) => {
@@ -920,9 +967,10 @@ app.whenReady().then(() => {
     hyperaid.configure({ enabled: true, folder: settings.hyperaidFolder || settings.wowPath }).catch(() => {});
   }
   hyperaidTimer = setInterval(() => hyperaid.tick(), 500);
-  if (process.platform === 'darwin') app.dock.hide();
+  applyDockIcon(loadStore().showInDock === true);
 
   createSettingsWindow();
+  countVisit();
   createTray();
   registerHotkey();
   for (const event of ['display-added', 'display-removed', 'display-metrics-changed']) {

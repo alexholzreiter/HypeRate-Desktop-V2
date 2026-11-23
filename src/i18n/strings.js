@@ -570,7 +570,15 @@
       "zones_turn_off": "Turn zones off",
       "zones_edit": "Edit zones",
       "bg_color_from": "First colour",
-      "bg_color_to": "Second colour"
+      "bg_color_to": "Second colour",
+      "set_privacy": "Privacy",
+      "set_analytics": "Count my use anonymously",
+      "set_analytics_text": "Helps us see which languages and countries use HypeRate Desktop. Once per start the app tells HypeRate's own analytics (Umami, hosted by HypeRate) that it was opened, with its language and screen size. The country is worked out from the connection; no IP address, no cookie and nothing about your heart rate is stored. Off unless you switch it on.",
+      "welcome_analytics_sub": "One anonymous count per start, with language and screen size. Helps us decide which languages to add. You can change this later under Settings.",
+      "set_dock": "Show icon in the Dock",
+      "set_dock_sub": "The heart rate stays in the menu bar either way.",
+      "set_taskbar": "Show in the taskbar",
+      "set_taskbar_sub": "HypeRate stays in the tray either way."
     }
   },
   "de": {
@@ -1141,7 +1149,15 @@
       "zones_turn_off": "Zonen ausschalten",
       "zones_edit": "Zonen bearbeiten",
       "bg_color_from": "Erste Farbe",
-      "bg_color_to": "Zweite Farbe"
+      "bg_color_to": "Zweite Farbe",
+      "set_privacy": "Datenschutz",
+      "set_analytics": "Nutzung anonym mitzählen",
+      "set_analytics_text": "Hilft uns zu sehen, in welchen Sprachen und Ländern HypeRate Desktop genutzt wird. Einmal pro Start meldet die App der eigenen Statistik von HypeRate (Umami, von HypeRate selbst betrieben), dass sie geöffnet wurde, mit Sprache und Bildschirmgröße. Das Land wird aus der Verbindung abgeleitet; gespeichert werden keine IP-Adresse, kein Cookie und nichts über deinen Puls. Aus, solange du es nicht einschaltest.",
+      "welcome_analytics_sub": "Ein anonymer Zähler pro Start, mit Sprache und Bildschirmgröße. Hilft uns zu entscheiden, welche Sprachen wir ergänzen. Später unter Einstellungen änderbar.",
+      "set_dock": "Symbol im Dock zeigen",
+      "set_dock_sub": "Der Puls bleibt so oder so in der Menüleiste.",
+      "set_taskbar": "In der Taskleiste zeigen",
+      "set_taskbar_sub": "HypeRate bleibt so oder so im Infobereich."
     }
   }
 };

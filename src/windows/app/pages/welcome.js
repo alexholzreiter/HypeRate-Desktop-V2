@@ -13,6 +13,7 @@ let step = 0;
 let source = 'ble';
 let style = null;            // null = keep what the config has
 let autostart = true;
+let analytics = false;   // asked, never assumed
 let sessionId = '';
 const rerender = () => window.dispatchEvent(new Event('hr-rerender'));
 const goto = n => { step = Math.max(0, Math.min(STEPS.length - 1, n)); rerender(); };
@@ -64,6 +65,7 @@ function finish(s, launch) {
   }
   if (launch) {
     app.setAutostart(autostart);
+    app.setAnalytics(analytics);
     showOverlay();
   }
   finishWelcome();
@@ -176,7 +178,11 @@ function done(s) {
       h('hr', { class: 'divider' }),
       h('div', { class: 'row between' },
         h('div', {}, h('b', {}, t('set_autostart')), h('p', { class: 'small muted', style: { margin: '2px 0 0' } }, t('welcome_autostart_sub'))),
-        h('button', { class: 'toggle' + (autostart ? ' on' : ''), role: 'switch', 'aria-checked': String(autostart), 'aria-label': t('set_autostart'), onclick: () => { autostart = !autostart; rerender(); } }, h('span')))));
+        h('button', { class: 'toggle' + (autostart ? ' on' : ''), role: 'switch', 'aria-checked': String(autostart), 'aria-label': t('set_autostart'), onclick: () => { autostart = !autostart; rerender(); } }, h('span'))),
+      h('hr', { class: 'divider' }),
+      h('div', { class: 'row between' },
+        h('div', { style: { maxWidth: '440px' } }, h('b', {}, t('set_analytics')), h('p', { class: 'small muted', style: { margin: '2px 0 0' } }, t('welcome_analytics_sub'))),
+        h('button', { class: 'toggle' + (analytics ? ' on' : ''), role: 'switch', 'aria-checked': String(analytics), 'aria-label': t('set_analytics'), onclick: () => { analytics = !analytics; rerender(); } }, h('span')))));
 }
 
 function head(title, sub) {

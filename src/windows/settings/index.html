@@ -262,9 +262,11 @@
     }
   </style>
 
-  <!-- Umami Analytics -->
+  <!-- Umami Analytics. In the beta the main process counts the start, and only after the user
+       agreed (Settings › Privacy in the new window), so this window does not count on its own. -->
   <script>
     (function () {
+      if (window.electronAPI?.analyticsSet) return;   // a build with the opt-in counts in main
       var s = document.createElement('script');
       s.src = 'https://analytics.hyperate.io/script.js';
       s.defer = true;
