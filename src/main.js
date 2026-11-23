@@ -1046,9 +1046,12 @@ app.whenReady().then(() => {
     screen.on(event, refreshOverlayDisplays);
   }
 
-  setTimeout(() => checkForUpdate(), 8000);            // nicht gleich in den Startvorgang hinein
-  setInterval(() => checkForUpdate(), UPDATE_EVERY_MS);
-  powerMonitor.on('resume', () => checkForUpdate());   // ein Notebook schläft auch mal drei Tage
+  // Steam updates the app itself and does not allow a second updater; only the GitHub build looks
+  if (!edition.isSteam) {
+    setTimeout(() => checkForUpdate(), 8000);            // nicht gleich in den Startvorgang hinein
+    setInterval(() => checkForUpdate(), UPDATE_EVERY_MS);
+    powerMonitor.on('resume', () => checkForUpdate());   // ein Notebook schläft auch mal drei Tage
+  }
 
   // Bluetooth: connect the remembered strap again, and check it after sleep or unlock,
   // because a connection can die during sleep without the driver ever reporting it.
@@ -1245,7 +1248,7 @@ ipcMain.handle('set-overlay-all-spaces', (_, value) => {
   applyOverlaySpaces(enabled);
 });
 
-ipcMain.handle('load-settings', () => ({ ...oscSettings(loadStore()), version: VERSION, scaleFactor: scaleFactor(), hotkey: hotkeyInfo() }));
+ipcMain.handle('load-settings', () => ({ ...oscSettings(loadStore()), version: VERSION, distribution: edition.distribution, scaleFactor: scaleFactor(), hotkey: hotkeyInfo() }));
 
 ipcMain.handle('save-osc-settings', (_, data) => {
   try {
@@ -1420,7 +1423,9 @@ const UPDATE_EVERY_MS = 6 * 60 * 60 * 1000;
 let newRelease = null;                 // { version, url } while something newer is out
 
 async function checkForUpdate({ notify = true } = {}) {
-  const result = await fetchLatestRelease(VERSION);
+  if (edition.isSteam) return { hasUpdate: false, steam: true };
+  // A beta also looks at prereleases, so testers get the next beta (and then the release)
+  const result = await fetchLatestRelease(VERSION, { prereleases: edition.isBeta });
   if (!result.hasUpdate) return result;
 
   newRelease = { version: result.latestVersion, url: result.downloadUrl };

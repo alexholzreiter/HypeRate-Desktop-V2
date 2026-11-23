@@ -486,7 +486,7 @@
     "set_update_error": "Updates konnten nicht geprüft werden.",
     "set_update_check": "Jetzt prüfen",
     "set_update_download": "Herunterladen",
-    "set_beta_note": "Das ist eine Beta. Neue Betas werden hier noch nicht gemeldet; du findest sie auf GitHub.",
+    "set_beta_note": "Das ist eine Beta. Sie sucht auf GitHub nach neueren Betas und sagt dir Bescheid, wenn eine da ist.",
     "set_news": "Neuigkeiten",
     "set_news_all": "Alle Neuigkeiten",
     "set_news_loading": "Wird geladen…",
@@ -591,6 +591,7 @@
     "inapp_done": "Fertig",
     "inapp_voting": "Wird gesendet…",
     "inapp_vote_failed": "Deine Stimme konnte nicht gesendet werden. Versuch es später noch einmal.",
-    "inapp_votes": "Bisher {n} Stimmen"
+    "inapp_votes": "Bisher {n} Stimmen",
+    "set_update_steam": "Steam hält HypeRate Desktop aktuell. Neue Versionen kommen von selbst, sobald sie erscheinen."
   }
 }

@@ -11,14 +11,16 @@
   "scripts": {
     "start": "electron .",
     "postinstall": "electron-builder install-app-deps",
-    "rebuild": "electron-rebuild -f -w @abandonware/noble",    "build": "electron-builder",
+    "rebuild": "electron-rebuild -f -w @abandonware/noble",
+    "build": "electron-builder",
     "build:mac": "electron-builder --mac",
     "build:mac:arm64": "electron-builder --mac --arm64",
     "build:win": "electron-builder --win",
     "build:linux": "electron-builder --linux",
     "test": "node test/run.js",
     "hearts": "node tools/build-hearts.js",
-    "i18n": "node tools/build-i18n.js"
+    "i18n": "node tools/build-i18n.js",
+    "build:steam": "electron-builder --dir -c.extraMetadata.hyperateDistribution=steam -c.directories.output=dist-steam"
   },
   "dependencies": {
     "@abandonware/noble": "^1.9.2-15",

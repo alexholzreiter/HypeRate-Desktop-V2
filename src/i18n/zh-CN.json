@@ -486,7 +486,7 @@
     "set_update_error": "无法检查更新。",
     "set_update_check": "立即检查",
     "set_update_download": "下载",
-    "set_beta_note": "这是测试版。新的测试版暂时不会在这里提示，请到 GitHub 查看。",
+    "set_beta_note": "这是测试版。它会在 GitHub 上查找更新的测试版，有新版本时会提示你。",
     "set_news": "新闻",
     "set_news_all": "所有新闻",
     "set_news_loading": "加载中…",
@@ -591,6 +591,7 @@
     "inapp_done": "完成",
     "inapp_voting": "正在发送…",
     "inapp_vote_failed": "无法提交你的投票。请稍后再试。",
-    "inapp_votes": "目前共 {n} 票"
+    "inapp_votes": "目前共 {n} 票",
+    "set_update_steam": "Steam 会让 HypeRate Desktop 保持最新。新版本一发布就会自动更新。"
   }
 }

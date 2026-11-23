@@ -45,6 +45,13 @@ export function render(s) {
 function updates(s) {
   const u = s.update;
   const version = s.settings.version ? 'v' + s.settings.version : '';
+  // The Steam build is kept up to date by Steam; no own check, no link elsewhere
+  if (s.settings.distribution === 'steam') {
+    return h('div', { class: 'card stack' },
+      h('p', { class: 'label' }, t('set_updates')),
+      h('p', { style: { margin: 0, fontWeight: 600 } }, 'HypeRate Desktop ' + version),
+      h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('set_update_steam')));
+  }
   const status = {
     checking: t('set_update_checking'),
     current: t('set_update_current'),

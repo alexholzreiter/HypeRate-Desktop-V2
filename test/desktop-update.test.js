@@ -2,12 +2,12 @@ const assert = require('node:assert/strict');
 const https = require('node:https');
 const { EventEmitter } = require('node:events');
 const { Readable } = require('node:stream');
-const { fetchLatestRelease } = require('../src/desktop-update');
+const { fetchLatestRelease, compareVersions } = require('../src/desktop-update');
 
 const api = 'https://api.github.com/repos/alexholzreiter/HypeRate-Desktop-V2/releases/latest';
 const newReleasePage = 'https://github.com/HypeRate/HypeRate-Desktop-V2/releases/tag/v1.0.14';
 
-async function check(name, responses, version, expected, urls) {
+async function check(name, responses, version, expected, urls, options) {
   const originalGet = https.get;
   const requests = [];
   https.get = (url, options, onResponse) => {
@@ -26,7 +26,7 @@ async function check(name, responses, version, expected, urls) {
     return request;
   };
   try {
-    assert.deepEqual(await fetchLatestRelease(version), expected);
+    assert.deepEqual(await fetchLatestRelease(version, options), expected);
     assert.deepEqual(requests, urls);
     console.log('PASS ' + name);
   } finally {
@@ -55,6 +55,22 @@ async function run() {
     Array(6).fill({ code: 301, location: api }), '1.0.13', { hasUpdate: false }, Array(6).fill(api));
   await check('handles an unsuccessful GitHub response', [{ ...release, code: 404 }],
     '1.0.13', { hasUpdate: false }, [api]);
+
+  // Betas look at the release list, prereleases included
+  const list = 'https://api.github.com/repos/alexholzreiter/HypeRate-Desktop-V2/releases?per_page=20';
+  const rel = (tag, extra = {}) => ({ tag_name: tag, html_url: 'https://github.com/x/releases/tag/' + tag, ...extra });
+  const releases = (items) => ({ code: 200, body: JSON.stringify(items) });
+  await check('a beta finds a newer beta', [releases([rel('v1.0.15'), rel('v2.0.0-beta.2', { prerelease: true }), rel('v2.0.0-beta.1', { prerelease: true })])],
+    '2.0.0-beta.1', { hasUpdate: true, latestVersion: '2.0.0-beta.2', downloadUrl: 'https://github.com/x/releases/tag/v2.0.0-beta.2' }, [list], { prereleases: true });
+  await check('a beta is not offered v1, nor a draft', [releases([rel('v1.0.15'), rel('v2.0.0-beta.3', { draft: true }), rel('v2.0.0-beta.2', { prerelease: true })])],
+    '2.0.0-beta.2', { hasUpdate: false, latestVersion: '2.0.0-beta.2', downloadUrl: 'https://github.com/x/releases/tag/v2.0.0-beta.2' }, [list], { prereleases: true });
+  await check('a beta is offered the stable release once it is out', [releases([rel('v2.0.0'), rel('v2.0.0-beta.4', { prerelease: true })])],
+    '2.0.0-beta.4', { hasUpdate: true, latestVersion: '2.0.0', downloadUrl: 'https://github.com/x/releases/tag/v2.0.0' }, [list], { prereleases: true });
+
+  const order = ['1.0.13', '1.0.14', '1.10.0', '2.0.0-alpha', '2.0.0-beta.1', '2.0.0-beta.2', '2.0.0-beta.10', '2.0.0-rc.1', '2.0.0', '2.0.1'];
+  for (let i = 0; i < order.length - 1; i++) assert.ok(compareVersions(order[i], order[i + 1]) < 0, `${order[i]} < ${order[i + 1]}`);
+  assert.equal(compareVersions('2.0.0', '2.0.0'), 0);
+  console.log('PASS versions sort the semver way, prereleases before their release');
 }
 
 run().catch(error => {

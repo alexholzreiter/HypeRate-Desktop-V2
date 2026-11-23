@@ -490,7 +490,7 @@
       "set_update_error": "Could not check for updates.",
       "set_update_check": "Check now",
       "set_update_download": "Download",
-      "set_beta_note": "This is a beta. New betas are not announced here yet; you find them on GitHub.",
+      "set_beta_note": "This is a beta. It looks for newer betas on GitHub and tells you when one is out.",
       "set_news": "News",
       "set_news_all": "All news",
       "set_news_loading": "Loading…",
@@ -595,7 +595,8 @@
       "inapp_done": "Done",
       "inapp_voting": "Sending…",
       "inapp_vote_failed": "Your vote could not be sent. Try again later.",
-      "inapp_votes": "{n} votes so far"
+      "inapp_votes": "{n} votes so far",
+      "set_update_steam": "Steam keeps HypeRate Desktop up to date. New versions arrive on their own as soon as they are out."
     }
   },
   "de": {
@@ -1086,7 +1087,7 @@
       "set_update_error": "Updates konnten nicht geprüft werden.",
       "set_update_check": "Jetzt prüfen",
       "set_update_download": "Herunterladen",
-      "set_beta_note": "Das ist eine Beta. Neue Betas werden hier noch nicht gemeldet; du findest sie auf GitHub.",
+      "set_beta_note": "Das ist eine Beta. Sie sucht auf GitHub nach neueren Betas und sagt dir Bescheid, wenn eine da ist.",
       "set_news": "Neuigkeiten",
       "set_news_all": "Alle Neuigkeiten",
       "set_news_loading": "Wird geladen…",
@@ -1191,7 +1192,8 @@
       "inapp_done": "Fertig",
       "inapp_voting": "Wird gesendet…",
       "inapp_vote_failed": "Deine Stimme konnte nicht gesendet werden. Versuch es später noch einmal.",
-      "inapp_votes": "Bisher {n} Stimmen"
+      "inapp_votes": "Bisher {n} Stimmen",
+      "set_update_steam": "Steam hält HypeRate Desktop aktuell. Neue Versionen kommen von selbst, sobald sie erscheinen."
     }
   },
   "zh-CN": {
@@ -1682,7 +1684,7 @@
       "set_update_error": "无法检查更新。",
       "set_update_check": "立即检查",
       "set_update_download": "下载",
-      "set_beta_note": "这是测试版。新的测试版暂时不会在这里提示，请到 GitHub 查看。",
+      "set_beta_note": "这是测试版。它会在 GitHub 上查找更新的测试版，有新版本时会提示你。",
       "set_news": "新闻",
       "set_news_all": "所有新闻",
       "set_news_loading": "加载中…",
@@ -1787,7 +1789,8 @@
       "inapp_done": "完成",
       "inapp_voting": "正在发送…",
       "inapp_vote_failed": "无法提交你的投票。请稍后再试。",
-      "inapp_votes": "目前共 {n} 票"
+      "inapp_votes": "目前共 {n} 票",
+      "set_update_steam": "Steam 会让 HypeRate Desktop 保持最新。新版本一发布就会自动更新。"
     }
   }
 };
