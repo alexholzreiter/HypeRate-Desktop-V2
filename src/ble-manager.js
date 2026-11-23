@@ -320,6 +320,9 @@ function createBleManager({
 
     snapshot() { return { state, ...stateExtra }; },
 
+    // The latest log lines, newest last, for the connection log in the window
+    recentLog(count = 20) { return lines.slice(-count); },
+
     diagnostics() {
       const quiet = lastBpm != null ? Math.round((timers.now() - lastBpmAt) / 1000) + 's ago' : 'none received';
       return [

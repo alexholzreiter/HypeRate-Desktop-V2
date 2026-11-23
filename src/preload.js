@@ -183,6 +183,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onBleDeviceFound:   (cb)            => ipcRenderer.on('ble-device-found', (_, d) => cb(d)),
   onBleStatus:        (cb)            => ipcRenderer.on('ble-status',       (_, d) => cb(d)),
   bleGetState:        ()              => ipcRenderer.invoke('ble-get-state'),
+  bleGetLog:          (count)         => ipcRenderer.invoke('ble-get-log', count),
   bleCopyDiagnostics: ()              => ipcRenderer.invoke('ble-copy-diagnostics'),
 
   wowEnable:          (opts)    => ipcRenderer.send('wow-enable', opts),

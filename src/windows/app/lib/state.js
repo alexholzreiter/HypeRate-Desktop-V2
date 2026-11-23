@@ -12,6 +12,8 @@ const state = {
   history: [],          // [{ t, bpm }] for the last ten minutes
   source: null,         // 'ble' | 'cloud' | null
   ble: { state: 'idle' },
+  bleLog: [],           // recent lines of the Bluetooth connection log
+  scan: { active: false, error: null, devices: new Map() },
   cloud: { status: 'idle' },
 };
 
@@ -86,8 +88,19 @@ export async function start() {
   });
 
   api.onBleStatus(({ state: bleState, ...extra }) => {
-    state.ble = { state: bleState, ...extra };
+    // A scan runs next to whatever connection there is, so it is tracked on its own
+    if (bleState === 'scanning') { state.scan.active = true; state.scan.error = null; changed(); return; }
+    if (bleState === 'scan-error') { state.scan.active = false; state.scan.error = extra.reason || 'error'; changed(); return; }
+    if (bleState === 'connected' || bleState === 'connecting') { state.scan.active = false; state.scan.devices.clear(); }
+    if (bleState === 'idle') state.scan.active = false;
+    state.ble = { state: bleState, ...extra, name: extra.name || (bleState === 'idle' ? undefined : state.ble.name) };
     if (bleState === 'signal-lost' || bleState === 'no-contact') state.bpm = null;
+    refreshLog();
+    changed();
+  });
+
+  api.onBleDeviceFound(({ id, name, rssi }) => {
+    state.scan.devices.set(id, { id, name: name || 'HR Monitor', rssi });
     changed();
   });
 
@@ -99,5 +112,50 @@ export async function start() {
   // The app may already be connected (or reconnecting) when this window opens
   const ble = await api.bleGetState?.();
   if (ble?.state) state.ble = ble;
+  await refreshLog();
+
+  // The cloud connection is started by the window, as in the previous one
+  if (state.settings.cloudAutoConnect && state.settings.hrId) cloud.connect(state.settings.hrId);
   changed();
 }
+
+async function refreshLog() {
+  try { state.bleLog = (await api.bleGetLog?.(8)) || []; } catch { state.bleLog = []; }
+  changed();
+}
+
+// ── Actions the pages call ──
+
+export const bluetooth = {
+  scan() { state.scan.devices.clear(); state.scan.active = true; api.bleScanStart(); changed(); },
+  stopScan() { state.scan.active = false; api.bleScanStop(); changed(); },
+  connect(id, name) { api.bleConnect(id, name); state.ble = { state: 'connecting', name }; changed(); },
+  disconnect() { api.bleDisconnect(); state.ble = { state: 'disconnected' }; changed(); },
+  setAutoReconnect(on) {
+    state.settings.bleAutoReconnect = on;
+    api.bleSetAutoReconnect(on);
+    api.saveSettings({ bleAutoReconnect: on });
+    changed();
+  },
+  copyDiagnostics: () => api.bleCopyDiagnostics(),
+};
+
+export const cloud = {
+  connect(id) {
+    const sessionId = String(id || '').trim();
+    if (!sessionId) return;
+    state.settings.hrId = sessionId;
+    state.settings.cloudAutoConnect = true;
+    api.saveSettings({ hrId: sessionId, cloudAutoConnect: true });
+    state.cloud = { status: 'connecting', sessionId };
+    api.wsConnect(sessionId);
+    changed();
+  },
+  disconnect() {
+    state.settings.cloudAutoConnect = false;
+    api.saveSettings({ cloudAutoConnect: false });
+    api.wsDisconnect();
+    state.cloud = { status: 'idle' };
+    changed();
+  },
+};

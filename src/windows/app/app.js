@@ -4,6 +4,7 @@ import { h, svg, icon, heart } from './lib/dom.js';
 import { t } from './lib/i18n.js';
 import * as store from './lib/state.js';
 import * as live from './pages/live.js';
+import * as source from './pages/source.js';
 import { placeholder } from './pages/placeholder.js';
 
 const api = window.electronAPI;
@@ -14,7 +15,7 @@ const NAV = [
   { id: 'sessions', icon: 'sessions', label: 'nav_sessions', page: placeholder('sessions', 'nav_sessions') },
   { group: 'nav_setup' },
   { id: 'overlay', icon: 'overlay', label: 'nav_overlay', page: placeholder('overlay', 'nav_overlay') },
-  { id: 'source', icon: 'source', label: 'nav_source', page: placeholder('source', 'nav_source') },
+  { id: 'source', icon: 'source', label: 'nav_source', page: source },
   { id: 'games', icon: 'games', label: 'nav_games', page: placeholder('games', 'nav_games') },
   { id: 'integrations', icon: 'integrations', label: 'nav_integrations', page: placeholder('integrations', 'nav_integrations') },
   { id: 'settings', icon: 'settings', label: 'nav_settings', page: placeholder('settings', 'nav_settings') },
@@ -76,12 +77,24 @@ function sidebar(s) {
 const root = document.getElementById('app');
 let queued = false;
 
+// While someone types in a field, the page is left alone: heart rate updates arrive every
+// second and would otherwise rebuild the field under the cursor. Title bar and sidebar still update.
+function typing() {
+  const el = document.activeElement;
+  return !!el && el.closest?.('.content') && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT');
+}
+
 function render() {
   queued = false;
   const s = store.get();
   document.documentElement.lang = s.lang;
   const item = NAV.find(n => n.id === current) || NAV[1];
   const content = document.querySelector('.content');
+  if (content && typing()) {
+    document.querySelector('.titlebar').replaceWith(titlebar(s));
+    document.querySelector('.sidebar').replaceWith(sidebar(s));
+    return;
+  }
   const scroll = content ? content.scrollTop : 0;
   root.replaceChildren(defs(), h('div', { class: 'app' },
     titlebar(s),
@@ -89,5 +102,19 @@ function render() {
   document.querySelector('.content').scrollTop = scroll;
 }
 
-store.subscribe(() => { if (!queued) { queued = true; requestAnimationFrame(render); } });
+function schedule() { if (!queued) { queued = true; requestAnimationFrame(render); } }
+store.subscribe(schedule);
+window.addEventListener('hr-rerender', schedule);
+// Leaving a field lets the page catch up with what changed meanwhile
+document.addEventListener('focusout', () => setTimeout(schedule, 0));
+
+// Links to the web open in the browser. Inline handlers are blocked by this window's CSP,
+// so translated texts mark them with data-external instead.
+document.addEventListener('click', (e) => {
+  const link = e.target.closest?.('a[data-external]');
+  if (!link) return;
+  e.preventDefault();
+  api.openExternal(link.dataset.external);
+});
+
 store.start().then(render);

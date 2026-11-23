@@ -1298,6 +1298,7 @@ ipcMain.on('ble-set-auto-reconnect',(_, enabled)   => {
   if (process.platform !== 'linux') bleManager.setAutoReconnect(enabled);
 });
 ipcMain.handle('ble-get-state', () => (process.platform === 'linux' ? null : bleManager.snapshot()));
+ipcMain.handle('ble-get-log', (_, count) => (process.platform === 'linux' ? [] : bleManager.recentLog(Math.min(100, Number(count) || 20))));
 ipcMain.handle('ble-copy-diagnostics', () => {
   const text = process.platform === 'linux'
     ? 'Bluetooth on Linux runs in the settings window; no diagnostics are collected here yet.'
@@ -1487,7 +1488,14 @@ ipcMain.handle('mqtt-has-password', () => {
   return readableSecret(store) ? 'ok' : 'lost';
 });
 
-ipcMain.on('open-external', (_, url) => shell.openExternal(url));
+// Only web pages and mail links: a window must not be able to make the system open a local
+// file or another program's URL scheme.
+ipcMain.on('open-external', (_, url) => {
+  try {
+    const { protocol } = new URL(String(url));
+    if (protocol === 'https:' || protocol === 'mailto:') shell.openExternal(String(url));
+  } catch {}
+});
 
 ipcMain.handle('fetch-news', () => new Promise((resolve) => {
   const https = require('https');
