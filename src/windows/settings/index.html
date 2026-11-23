@@ -408,25 +408,58 @@
           <span class="tl" data-i18n="osc_toggle">Send to VRChat</span>
           <label class="tog"><input type="checkbox" id="oscEnabled" onchange="oscToggle()" /><span class="ts"></span></label>
         </div>
+        <div id="oscSaveStatus" role="status" aria-live="polite" style="font-size:11px;display:none;"></div>
         <div id="oscBody" style="display:none;flex-direction:column;gap:9px;">
           <div style="display:flex;gap:7px;">
             <div class="field" style="flex:1;">
-              <label>Host</label>
-              <input type="text" id="oscHost" value="127.0.0.1" oninput="saveOsc()" style="font-size:12px;padding:6px 9px;" />
+              <label for="oscHost">Host</label>
+              <input type="text" id="oscHost" value="127.0.0.1" onchange="saveOsc()" style="font-size:12px;padding:6px 9px;" />
             </div>
             <div class="field" style="width:68px;">
-              <label>Port</label>
-              <input type="text" id="oscPort" value="9000" oninput="saveOsc()" style="font-size:12px;padding:6px 9px;" />
+              <label for="oscPort">Port</label>
+              <input type="number" id="oscPort" min="1" max="65535" value="9000" onchange="saveOsc()" style="font-size:12px;padding:6px 9px;" />
             </div>
           </div>
-          <div class="field">
-            <label data-i18n="osc_param">Parameter Name</label>
-            <input type="text" id="oscParam" value="HR" oninput="saveOsc()" style="font-size:12px;padding:6px 9px;" />
-          </div>
-          <div style="font-size:11px;color:var(--text-dim);line-height:1.5;background:var(--surface);border-radius:7px;padding:8px 10px;" data-i18n-html="osc_info_html">
-            Sends <code style="color:var(--accent3);font-size:10.5px;">/avatar/parameters/HR</code> (int) +
-            <code style="color:var(--accent3);font-size:10.5px;">onesHR / tensHR / hundredsHR</code> (float) every heartbeat.
+          <div style="font-size:11px;color:var(--text-dim);line-height:1.5;background:var(--surface);border-radius:7px;padding:8px 10px;" data-i18n-html="osc_enable_html">
             Enable OSC in VRChat: <strong>Settings → OSC → Enable</strong>
+          </div>
+          <div style="font-size:11px;color:var(--text-dim);line-height:1.5;" data-i18n-html="osc_outputs_hint_html">
+            Only enabled outputs are sent. Enter parameter names without <code>/avatar/parameters/</code>. Each enabled output needs a different name.
+          </div>
+          <div class="trow">
+            <label class="tl" for="oscNormalizedEnabled" data-i18n="osc_normalized">Normalized · Float 0–1</label>
+            <label class="tog"><input type="checkbox" id="oscNormalizedEnabled" onchange="saveOsc()" aria-label="Enable normalized output" /><span class="ts"></span></label>
+          </div>
+          <div id="oscNormalizedFields" style="display:flex;flex-direction:column;gap:7px;">
+            <div class="field"><label for="oscNormalizedParam" data-i18n="osc_param_short">Parameter</label><input id="oscNormalizedParam" type="text" maxlength="256" value="VRCOSC/Heartrate/Normalised" onchange="saveOsc()" /></div>
+            <div style="display:flex;gap:7px;">
+              <div class="field" style="flex:1;min-width:0;"><label for="oscMinBpm" data-i18n="osc_min_bpm">Minimum BPM</label><input id="oscMinBpm" type="number" min="0" value="0" onchange="saveOsc()" /></div>
+              <div class="field" style="flex:1;min-width:0;"><label for="oscMaxBpm" data-i18n="osc_max_bpm">Maximum BPM</label><input id="oscMaxBpm" type="number" min="0" value="240" onchange="saveOsc()" /></div>
+            </div>
+          </div>
+          <div class="trow">
+            <label class="tl" for="oscRawEnabled" data-i18n="osc_raw">Raw BPM</label>
+            <label class="tog"><input type="checkbox" id="oscRawEnabled" onchange="saveOsc()" aria-label="Enable raw BPM output" /><span class="ts"></span></label>
+          </div>
+          <div id="oscRawFields" style="display:flex;flex-direction:column;gap:7px;">
+            <div class="field"><label for="oscRawParam" data-i18n="osc_param_short">Parameter</label><input id="oscRawParam" type="text" maxlength="256" value="HR" onchange="saveOsc()" /></div>
+            <div class="field"><label for="oscRawType" data-i18n="osc_type">Type</label><select id="oscRawType" onchange="saveOsc()"><option value="i" data-i18n="osc_type_int">Int · whole BPM</option><option value="f" data-i18n="osc_type_float">Float · raw BPM</option></select></div>
+          </div>
+          <div class="trow">
+            <label class="tl" for="oscBoolEnabled" data-i18n="osc_bool">Boolean value</label>
+            <label class="tog"><input type="checkbox" id="oscBoolEnabled" onchange="saveOsc()" aria-label="Enable boolean output" /><span class="ts"></span></label>
+          </div>
+          <div id="oscBoolFields" style="display:flex;flex-direction:column;gap:7px;">
+            <div class="field"><label for="oscBoolParam" data-i18n="osc_param_short">Parameter</label><input id="oscBoolParam" type="text" maxlength="256" value="HRActive" onchange="saveOsc()" /></div>
+            <div class="field"><label for="oscBoolValue" data-i18n="osc_bool_value">Value</label><select id="oscBoolValue" onchange="saveOsc()"><option value="true">True</option><option value="false">False</option></select></div>
+            <div style="font-size:11px;color:var(--text-dim);" data-i18n="osc_bool_hint">Sent with each BPM update. No automatic False on disconnect or when disabled.</div>
+          </div>
+          <div class="trow">
+            <label class="tl" for="oscLegacyEnabled" data-i18n="osc_legacy">Legacy digits</label>
+            <label class="tog"><input type="checkbox" id="oscLegacyEnabled" onchange="saveOsc()" aria-label="Enable legacy digit outputs" /><span class="ts"></span></label>
+          </div>
+          <div style="font-size:11px;color:var(--text-dim);" data-i18n-html="osc_legacy_hint_html">
+            <code>onesHR</code>, <code>tensHR</code>, <code>hundredsHR</code> as floats. Leave off unless your avatar needs them.
           </div>
           <div style="height:1px;background:var(--border);margin:2px 0;"></div>
           <div class="trow">
@@ -436,7 +469,7 @@
           <div id="oscChatboxBody" style="display:none;flex-direction:column;gap:9px;">
             <div class="field">
               <label data-i18n="osc_chatbox_format">Message Format</label>
-              <input type="text" id="oscChatboxFormat" value="♥ {bpm} BPM" oninput="saveOsc()" style="font-size:12px;padding:6px 9px;" />
+              <input type="text" id="oscChatboxFormat" value="♥ {bpm} BPM" onchange="saveOsc()" style="font-size:12px;padding:6px 9px;" />
             </div>
             <div style="font-size:11px;color:var(--text-dim);line-height:1.5;background:var(--surface);border-radius:7px;padding:8px 10px;" data-i18n-html="osc_chatbox_info_html">
               Sends your BPM to <code style="color:var(--accent3);font-size:10.5px;">/chatbox/input</code> — shown as text above your avatar's head. Use <code style="color:var(--accent3);font-size:10.5px;">{bpm}</code> as placeholder.
@@ -1728,15 +1761,44 @@
     saveOsc();
   }
 
-  function saveOsc() {
-    window.electronAPI.saveSettings({
-      oscEnabled:       cb('oscEnabled'),
-      oscHost:          $('oscHost').value.trim()  || '127.0.0.1',
-      oscPort:          parseInt($('oscPort').value) || 9000,
-      oscParam:         $('oscParam').value.trim() || 'HR',
-      oscChatbox:       cb('oscChatbox'),
-      oscChatboxFormat: $('oscChatboxFormat').value.trim() || '♥ {bpm} BPM',
-    });
+  const oscInputs = document.querySelectorAll('#oscEnabled, #oscBody input, #oscBody select');
+  function readOscSettings() {
+    const settings = {};
+    for (const input of oscInputs) {
+      if (input.type === 'checkbox') settings[input.id] = input.checked;
+      else if (input.type === 'number') settings[input.id] = input.valueAsNumber;
+      else settings[input.id] = input.value.trim();
+    }
+    settings.oscBoolValue = settings.oscBoolValue === 'true';
+    return settings;
+  }
+
+  function syncOscOutputControls() {
+    for (const name of ['Normalized', 'Raw', 'Bool']) {
+      const enabled = cb(`osc${name}Enabled`);
+      $(`osc${name}Fields`).querySelectorAll('input, select').forEach(input => { input.disabled = !enabled; });
+      $(`osc${name}Fields`).style.opacity = enabled ? '1' : '0.5';
+    }
+  }
+
+  let oscSaveRevision = 0;
+  async function saveOsc() {
+    syncOscOutputControls();
+    const revision = ++oscSaveRevision;
+    const status = $('oscSaveStatus');
+    status.style.display = 'block';
+    status.textContent = t('osc_saving');
+    try {
+      const result = await window.electronAPI.saveOscSettings(readOscSettings());
+      if (!result.ok) throw new Error(result.error);
+      if (revision !== oscSaveRevision) return;
+      status.style.color = 'var(--text-dim)';
+      status.textContent = t('osc_saved');
+    } catch (error) {
+      if (revision !== oscSaveRevision) return;
+      status.style.color = '#ef4444';
+      status.textContent = t('osc_not_saved').replace('{error}', error.message);
+    }
   }
 
   async function testOsc() {
@@ -1745,13 +1807,7 @@
     btn.disabled = true;
     btn.textContent = t('osc_sending');
     try {
-      const res = await window.electronAPI.testOsc({
-        host:          $('oscHost').value.trim()  || '127.0.0.1',
-        port:          parseInt($('oscPort').value) || 9000,
-        param:         $('oscParam').value.trim() || 'HR',
-        chatbox:       cb('oscChatbox'),
-        chatboxFormat: $('oscChatboxFormat').value.trim() || '♥ {bpm} BPM',
-      });
+      const res = await window.electronAPI.testOsc(readOscSettings());
       st.style.display = 'block';
       if (res.ok) {
         st.style.background = 'rgba(34,197,94,.15)';
@@ -1774,19 +1830,15 @@
   }
 
   function applyOscSettings(s) {
-    if (s.oscEnabled !== undefined) {
-      $('oscEnabled').checked = !!s.oscEnabled;
-      $('oscBody').style.display = s.oscEnabled ? 'flex' : 'none';
-      syncHeadDot('oscHeadDot', 'connected', !!s.oscEnabled);
+    for (const input of oscInputs) {
+      if (s[input.id] === undefined) continue;
+      if (input.type === 'checkbox') input.checked = !!s[input.id];
+      else input.value = String(s[input.id]);
     }
-    if (s.oscHost)  $('oscHost').value  = s.oscHost;
-    if (s.oscPort)  $('oscPort').value  = s.oscPort;
-    if (s.oscParam) $('oscParam').value = s.oscParam;
-    if (s.oscChatbox !== undefined) {
-      $('oscChatbox').checked = !!s.oscChatbox;
-      $('oscChatboxBody').style.display = s.oscChatbox ? 'flex' : 'none';
-    }
-    if (s.oscChatboxFormat) $('oscChatboxFormat').value = s.oscChatboxFormat;
+    $('oscBody').style.display = cb('oscEnabled') ? 'flex' : 'none';
+    $('oscChatboxBody').style.display = cb('oscChatbox') ? 'flex' : 'none';
+    syncHeadDot('oscHeadDot', 'connected', cb('oscEnabled'));
+    syncOscOutputControls();
   }
 
   // ── World of Warcraft ──
