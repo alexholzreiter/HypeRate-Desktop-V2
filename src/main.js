@@ -407,6 +407,27 @@ const STORE_PATH = path.join(app.getPath('userData'), 'settings.json');
 function loadStore()     { try { return JSON.parse(fs.readFileSync(STORE_PATH,'utf8')); } catch { return {}; } }
 function saveStore(data) { try { fs.writeFileSync(STORE_PATH, JSON.stringify(data,null,2),'utf8'); } catch(e) { console.error('store save:',e); } }
 
+// One instance per edition. The lock lives in the data folder, so v1 and the beta can still run
+// side by side, but starting the same one twice only brings its window forward: two instances
+// meant two hearts in the menu bar and both reaching for the same strap.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+  return;   // CommonJS: ends this module, nothing below is set up for the second instance
+}
+app.on('second-instance', () => {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    if (settingsWindow.isMinimized()) settingsWindow.restore();
+    settingsWindow.show();
+    settingsWindow.focus();
+  }
+});
+
+// A plain "please quit" from the system (an installer, a Steam update, kill) ends the app the
+// same way the tray's Quit does, so the current session is written first.
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, () => { app.isQuitting = true; app.quit(); });
+}
+
 // The beta lives in its own data folder; on its first start it takes over what v1 has.
 if (edition.isBeta) {
   const copied = storeMigration.importFromStableInstall({
