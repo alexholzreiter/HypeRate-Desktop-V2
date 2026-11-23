@@ -144,6 +144,18 @@ document.fonts.addEventListener('loadingdone', schedule);
 // Leaving a field lets the page catch up with what changed meanwhile
 document.addEventListener('focusout', () => setTimeout(schedule, 0));
 
+// Where the pointer is, for the cards' spotlight (see .card::before/::after in app.css).
+// At most one update per frame, on the page root, so redrawing the cards does not reset it.
+let pointer = null;
+document.addEventListener('pointermove', (e) => {
+  if (!pointer) requestAnimationFrame(() => {
+    document.documentElement.style.setProperty('--mx', pointer.x + 'px');
+    document.documentElement.style.setProperty('--my', pointer.y + 'px');
+    pointer = null;
+  });
+  pointer = { x: e.clientX, y: e.clientY };
+}, { passive: true });
+
 // Links to the web open in the browser. Inline handlers are blocked by this window's CSP,
 // so translated texts mark them with data-external instead.
 document.addEventListener('click', (e) => {
