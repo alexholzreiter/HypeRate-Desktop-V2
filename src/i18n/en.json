@@ -251,7 +251,9 @@
       "closest": "Closest call",
       "nemesis": "Nemesis"
     },
-    "plainSessionName": "Heart rate session"
+    "plainSessionName": "Heart rate session",
+    "minutes": "{m} min",
+    "hoursMinutes": "{h} h {m} min"
   },
   "app": {
     "nav_label": "Sections",

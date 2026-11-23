@@ -255,7 +255,9 @@
         "closest": "Closest call",
         "nemesis": "Nemesis"
       },
-      "plainSessionName": "Heart rate session"
+      "plainSessionName": "Heart rate session",
+      "minutes": "{m} min",
+      "hoursMinutes": "{h} h {m} min"
     },
     "app": {
       "nav_label": "Sections",
@@ -849,7 +851,9 @@
         "closest": "Knappster Moment",
         "nemesis": "Erzfeind"
       },
-      "plainSessionName": "Puls-Sitzung"
+      "plainSessionName": "Puls-Sitzung",
+      "minutes": "{m} min",
+      "hoursMinutes": "{h} h {m} min"
     },
     "app": {
       "nav_label": "Bereiche",
@@ -1443,7 +1447,9 @@
         "closest": "最险一刻",
         "nemesis": "宿敌"
       },
-      "plainSessionName": "心率记录"
+      "plainSessionName": "心率记录",
+      "minutes": "{m} 分钟",
+      "hoursMinutes": "{h} 小时 {m} 分钟"
     },
     "app": {
       "nav_label": "分区",

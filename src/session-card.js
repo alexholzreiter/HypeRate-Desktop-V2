@@ -58,7 +58,11 @@ function bauen(sitzung, sprache = 'de', mittel = {}) {
   const zaehle = (typ) => sitzung.events.filter(e => (e.style || e.type) === typ).length;
 
   const uhr = (ms) => new Date(ms).toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
-  const dauer = (m) => m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min` : `${m} min`;
+  // Units come from the language file ("1 h 05 min", "1 小时 05 分钟")
+  const minuten = (m) => (t.minutes || '{m} min').replace('{m}', m);
+  const dauer = (m) => m >= 60
+    ? (t.hoursMinutes || '{h} h {m} min').replace('{h}', Math.floor(m / 60)).replace('{m}', String(m % 60).padStart(2, '0'))
+    : minuten(m);
 
   // ── Kurve ──
   const minY = tiefster - 6, maxY = spitze + 10;
@@ -91,7 +95,7 @@ function bauen(sitzung, sprache = 'de', mittel = {}) {
   const legende = (mitSpiel
     ? [...gezeigt.map(typ => ({ farbe: FARBEN[typ] || '#9aa4bf', text: `${t.titles[typ] || typ} · ${zaehle(typ)}` })),
        ...(rest ? [{ farbe: '#55607e', text: `+${rest}` }] : [])]
-    : zonenZeit.map(z => ({ farbe: z.color, text: `${z.name} · ${z.minuten} min` }))
+    : zonenZeit.map(z => ({ farbe: z.color, text: `${z.name} · ${minuten(z.minuten)}` }))
   ).map(l => `<span class="lg"><i style="background:${l.farbe}"></i>${l.text}</span>`).join('');
 
   const kpi = (wert, titel, farbe) =>
@@ -101,11 +105,11 @@ function bauen(sitzung, sprache = 'de', mittel = {}) {
   const stark = typen.slice(0, 2);
   const kennzahlen = mitSpiel
     ? [kpi(schnitt, t.avg), kpi(spitze, t.peakL, FARBEN.peak),
-       obenZone ? kpi(obenZone.minuten + ' min', `${t.inZone} ${obenZone.name}`, obenZone.color) : '',
+       obenZone ? kpi(minuten(obenZone.minuten), `${t.inZone} ${obenZone.name}`, obenZone.color) : '',
        ...stark.map(typ => kpi(zaehle(typ), t.titles[typ] || typ, FARBEN[typ])),
        kpi(sitzung.events.length, t.moments)]
     : [kpi(schnitt, t.avg), kpi(spitze, t.peakL, FARBEN.peak), kpi(tiefster, t.low, '#22c55e'),
-       obenZone ? kpi(obenZone.minuten + ' min', `${t.inZone} ${obenZone.name}`, obenZone.color) : ''];
+       obenZone ? kpi(minuten(obenZone.minuten), `${t.inZone} ${obenZone.name}`, obenZone.color) : ''];
 
   const datum = new Date(sitzung.startedAt).toLocaleDateString(loc, { day: 'numeric', month: 'long', year: 'numeric' });
 

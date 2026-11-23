@@ -251,7 +251,9 @@
       "closest": "Knappster Moment",
       "nemesis": "Erzfeind"
     },
-    "plainSessionName": "Puls-Sitzung"
+    "plainSessionName": "Puls-Sitzung",
+    "minutes": "{m} min",
+    "hoursMinutes": "{h} h {m} min"
   },
   "app": {
     "nav_label": "Bereiche",

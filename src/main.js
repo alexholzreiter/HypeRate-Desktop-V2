@@ -100,7 +100,8 @@ async function registerDesktopPush() {
   const payload = {
     installationId,
     platform: desktopPushPlatform(),
-    deviceModel: require('os').hostname(),
+    // Not the computer name: it often carries the owner's first name ("Alex-MacBook-Pro")
+    deviceModel: `${{ darwin: 'macOS', win32: 'Windows', linux: 'Linux' }[process.platform] || process.platform} ${process.arch}`,
     osVersion: require('os').release(),
     appVersion: VERSION,
     appBuild: VERSION,

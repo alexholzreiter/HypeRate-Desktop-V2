@@ -251,7 +251,9 @@
       "closest": "最险一刻",
       "nemesis": "宿敌"
     },
-    "plainSessionName": "心率记录"
+    "plainSessionName": "心率记录",
+    "minutes": "{m} 分钟",
+    "hoursMinutes": "{h} 小时 {m} 分钟"
   },
   "app": {
     "nav_label": "分区",
