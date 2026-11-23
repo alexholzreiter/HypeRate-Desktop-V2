@@ -139,7 +139,7 @@ check('a drop goes straight to reconnecting, without a "disconnected" in between
   assert.equal(t.driver.connects(), 2);
 });
 
-check('failed attempts wait longer each time, up to 30 seconds', () => {
+check('failed attempts wait longer each time, up to 15 seconds', () => {
   const t = setup();
   t.manager.connect(strap.id, strap.name);
   t.driver.accept();
@@ -153,7 +153,7 @@ check('failed attempts wait longer each time, up to 30 seconds', () => {
     t.driver.refuse();
     at = t.timers.now();
   }
-  assert.deepEqual(waits, [3000, 6000, 12000, 24000, 30000, 30000, 30000]);
+  assert.deepEqual(waits, [3000, 6000, 12000, 15000, 15000, 15000, 15000]);
 });
 
 check('a good connection resets the waiting time', () => {
@@ -334,7 +334,7 @@ check('connections that keep delivering nothing back off instead of hammering th
     while (t.driver.connects() === before) t.timers.advance(500);
     waits.push(t.timers.now() - at);
   }
-  assert.deepEqual(waits, [3000, 6000, 12000, 24000]);
+  assert.deepEqual(waits, [3000, 6000, 12000, 15000]);
 });
 
 check('measurements without skin contact show "no contact" and keep the connection', () => {

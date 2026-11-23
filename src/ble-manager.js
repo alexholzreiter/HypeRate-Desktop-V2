@@ -14,7 +14,9 @@
 // not go through this module.
 
 const DEFAULTS = {
-  backoffMs: [3000, 6000, 12000, 24000, 30000], // wait before attempt 1, 2, 3 … (last value repeats)
+  // Wait before attempt 1, 2, 3 … (the last value repeats). Capped at 15s: a strap carried back
+  // into range should not wait half a minute for the next try.
+  backoffMs: [3000, 6000, 12000, 15000],
   startDelayMs: 1500,      // give the Bluetooth stack a moment after launch
   resumeDelayMs: 2000,     // and after waking up
   watchdogEveryMs: 5000,
