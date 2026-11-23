@@ -513,9 +513,23 @@ function applyOverlaySpaces(enabled) {
 }
 
 // ── Settings window ──
+// v2 is building a new main window page by page. Until it covers everything, the previous
+// settings window stays the default and the new one is switched on per install (uiV2) or for
+// a run with HYPERATE_NEW_UI=1.
+const SETTINGS_WINDOWS = {
+  previous: { file: 'windows/settings/index.html', width: 820, height: 870, minWidth: 760, minHeight: 780 },
+  next:     { file: 'windows/app/index.html',      width: 1180, height: 820, minWidth: 940, minHeight: 640 },
+};
+function settingsWindowKind() {
+  if (process.env.HYPERATE_NEW_UI === '1') return 'next';
+  if (process.env.HYPERATE_NEW_UI === '0') return 'previous';
+  return loadStore().uiV2 === true ? 'next' : 'previous';
+}
+
 function createSettingsWindow() {
+  const kind = SETTINGS_WINDOWS[settingsWindowKind()];
   settingsWindow = new BrowserWindow({
-    width:820, height:870, minWidth:760, minHeight:780,
+    width:kind.width, height:kind.height, minWidth:kind.minWidth, minHeight:kind.minHeight,
     frame:false, transparent:false, backgroundColor:'#080810',
     show: false, // shown explicitly after ready (or not at all on autostart)
     skipTaskbar: process.platform === 'win32', // Windows: only live in tray
@@ -556,7 +570,7 @@ function createSettingsWindow() {
     });
   }
 
-  settingsWindow.loadFile(path.join(__dirname,'windows/settings/index.html'));
+  settingsWindow.loadFile(path.join(__dirname, kind.file));
 
   // Hide to tray instead of quitting when the window is closed
   settingsWindow.on('close', (e) => {
@@ -903,6 +917,18 @@ ipcMain.on('launch-overlay', (_, config) => {
 ipcMain.on('close-overlay',     ()       => { if (overlayWindow) { overlayWindow.close(); overlayWindow=null; notifyOverlayState(); } });
 ipcMain.on('update-config',     (_, cfg) => { if (overlayWindow) overlayWindow.webContents.send('config-update', cfg); });
 ipcMain.on('minimize-settings', () => { if (settingsWindow) settingsWindow.minimize(); });
+// Switch between the previous settings window and the new v2 window, and remember the choice
+ipcMain.on('switch-ui', (_, useNext) => {
+  const store = loadStore();
+  store.uiV2 = !!useNext;
+  saveStore(store);
+  if (!settingsWindow || settingsWindow.isDestroyed()) return;
+  const kind = SETTINGS_WINDOWS[useNext ? 'next' : 'previous'];
+  settingsWindow.setMinimumSize(kind.minWidth, kind.minHeight);
+  settingsWindow.setSize(kind.width, kind.height);
+  settingsWindow.center();
+  settingsWindow.loadFile(path.join(__dirname, kind.file));
+});
 ipcMain.on('close-settings',    () => { if (settingsWindow) settingsWindow.hide(); });
 ipcMain.on('close-ftue',        ()       => { if (ftueWindow) ftueWindow.close(); });
 
