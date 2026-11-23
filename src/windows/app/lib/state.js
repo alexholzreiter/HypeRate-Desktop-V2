@@ -1,6 +1,8 @@
 // One place that listens to the main process and keeps what the pages show.
 // Pages subscribe and re-render; nothing else talks to window.electronAPI for live data.
 
+import { withDefaults } from './overlay-config.js';
+
 const api = window.electronAPI;
 const HISTORY_MS = 10 * 60 * 1000;   // the Live graph shows the last ten minutes
 
@@ -15,6 +17,9 @@ const state = {
   bleLog: [],           // recent lines of the Bluetooth connection log
   scan: { active: false, error: null, devices: new Map() },
   cloud: { status: 'idle' },
+  wow: { state: null },
+  lol: { state: null },
+  overlayOpen: false,
 };
 
 const listeners = new Set();
@@ -114,8 +119,14 @@ export async function start() {
   if (ble?.state) state.ble = ble;
   await refreshLog();
 
-  // The cloud connection is started by the window, as in the previous one
+  api.onWowStatus(({ state: s, ...extra }) => { state.wow = { state: s, ...extra }; changed(); });
+  api.onLolStatus(({ state: s, ...extra }) => { state.lol = { state: s, ...extra }; changed(); });
+  api.onOverlayState(({ open }) => { state.overlayOpen = !!open; changed(); });
+
+  // The cloud connection and the game readers are started by the window, as in the previous one
   if (state.settings.cloudAutoConnect && state.settings.hrId) cloud.connect(state.settings.hrId);
+  if (state.settings.wowEnabled) api.wowEnable(games.wowOptions());
+  if (state.settings.lolEnabled) api.lolEnable(games.lolOptions());
   changed();
 }
 
@@ -159,3 +170,76 @@ export const cloud = {
     changed();
   },
 };
+
+// ── Games: the overlay's game bars and the readers behind them ──
+
+export const WOW_CARDS = ['boss', 'close', 'death', 'intense', 'peak', 'closest', 'nemesis', 'streak'];
+export const LOL_CARDS = ['deaths', 'closeCalls', 'multikills', 'kills', 'firstBlood', 'objectives', 'steals', 'ace', 'matchResult'];
+const LOL_OFF_BY_DEFAULT = ['kills'];
+
+function cards(saved, keys, offByDefault = []) {
+  return Object.fromEntries(keys.map(k => [k, saved?.[k] ?? !offByDefault.includes(k)]));
+}
+
+export const games = {
+  wowCards: () => cards(state.settings.wowCards, WOW_CARDS),
+  lolCards: () => cards(state.settings.lolCards, LOL_CARDS, LOL_OFF_BY_DEFAULT),
+  wowOptions: () => ({ path: state.settings.wowPath || '', closeCallPct: state.settings.wowCloseCallPct || 10, cards: games.wowCards() }),
+  lolOptions: () => ({ closeCallPct: state.settings.lolCloseCallPct || 10, cards: games.lolCards() }),
+
+  async setWow(on) {
+    if (on && !state.settings.wowPath) state.settings.wowPath = await api.wowDefaultPath();
+    state.settings.wowEnabled = on;
+    api.saveSettings({ wowEnabled: on, wowPath: state.settings.wowPath || '' });
+    if (on) api.wowEnable(games.wowOptions()); else { api.wowDisable(); state.wow = { state: null }; }
+    games.syncThemes();
+  },
+  saveWow(patch) {
+    Object.assign(state.settings, patch);
+    api.saveSettings({ wowPath: state.settings.wowPath || '', wowCloseCallPct: state.settings.wowCloseCallPct || 10, wowCards: games.wowCards() });
+    if (state.settings.wowEnabled) api.wowSetOptions(games.wowOptions());
+    changed();
+  },
+  async detectWow() { games.saveWow({ wowPath: await api.wowDefaultPath() }); },
+  async pickWow() { const p = await api.wowPickFolder(state.settings.wowPath || ''); if (p) games.saveWow({ wowPath: p }); },
+
+  setLol(on) {
+    state.settings.lolEnabled = on;
+    api.saveSettings({ lolEnabled: on });
+    if (on) api.lolEnable(games.lolOptions()); else { api.lolDisable(); state.lol = { state: null }; }
+    games.syncThemes();
+  },
+  saveLol(patch) {
+    Object.assign(state.settings, patch);
+    api.saveSettings({ lolCloseCallPct: state.settings.lolCloseCallPct || 10, lolCards: games.lolCards() });
+    if (state.settings.lolEnabled) api.lolSetOptions(games.lolOptions());
+    changed();
+  },
+
+  // The overlay picks its look from the config: which game bars are on, and how big they are
+  syncThemes(patch = {}) {
+    const config = { ...overlayConfig(), ...patch };
+    config.gameThemes = [state.settings.wowEnabled && 'wow', state.settings.lolEnabled && 'lol'].filter(Boolean);
+    config.theme = state.settings.wowEnabled ? 'wow' : 'default';   // older overlay builds read this
+    config.wowScale = config.wowScale ?? 50;
+    config.lolScale = config.lolScale ?? 50;
+    state.settings.config = config;
+    api.updateConfig(config);
+    api.saveSettings({ config });
+    changed();
+  },
+
+  // Shows a sample card in the real overlay; opens the overlay first if needed
+  test(game, type) {
+    const send = () => (game === 'wow' ? api.wowTest(type) : api.lolTest(type));
+    if (state.overlayOpen) { send(); return; }
+    showOverlay();
+    setTimeout(send, 1200);
+  },
+  diagnostics: () => api.wowShowDiagnostics(),
+};
+
+// The overlay needs the whole config: a partial one (say, only the game settings on a fresh
+// install) leaves it without colours and it fails. Always send it complete.
+export const overlayConfig = () => withDefaults(state.settings.config);
+export function showOverlay() { api.launchOverlay(overlayConfig()); }

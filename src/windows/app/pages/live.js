@@ -2,7 +2,7 @@
 
 import { h, svg, icon, heart } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
-import { connection, stats, zones, zoneFor } from '../lib/state.js';
+import { connection, stats, zones, zoneFor, showOverlay } from '../lib/state.js';
 
 export const id = 'live';
 
@@ -137,6 +137,6 @@ function overlayCard(s, go) {
     h('div', { class: 'row between' }, h('p', { class: 'label' }, t('overlay_label')), h('a', { onclick: () => go('overlay') }, t('customize'))),
     h('p', { class: 'small muted', style: { margin: 0 } }, t('overlay_hint')),
     h('div', { class: 'row' },
-      h('button', { class: 'btn small', onclick: () => window.electronAPI.launchOverlay(s.settings.config) }, t('overlay_show')),
+      h('button', { class: 'btn small', onclick: () => showOverlay() }, t('overlay_show')),
       h('button', { class: 'btn small', onclick: () => window.electronAPI.closeOverlay() }, t('overlay_hide'))));
 }

@@ -267,6 +267,33 @@ input[type="range"] { accent-color: var(--accent); }
 .zone-row .field { min-height: 40px; font-size: 14px; }
 .kbd { font-size: 12px; font-weight: 600; color: var(--text-2); background: #16182e; border-radius: 6px; padding: 4px 8px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1), inset 0 -2px 0 rgba(0, 0, 0, .35); }
 
+/* ── Games ── */
+.game-card { padding: 0; overflow: hidden; border: 0; cursor: pointer; text-align: left; font: inherit; color: inherit; display: flex; flex-direction: column; }
+.game-card:hover { filter: brightness(1.08); }
+.game-banner { height: 108px; position: relative; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 18px 14px 22px; }
+.game-card.wow .game-banner, .game-hero.wow { background: radial-gradient(90% 160% at 85% 0%, #6b4515 0%, #2a1a08 45%, #121428 100%); }
+.game-card.lol .game-banner, .game-hero.lol { background: radial-gradient(90% 160% at 85% 0%, #0b5a6a 0%, #06202c 45%, #121428 100%); }
+.game-banner .pill { position: absolute; top: 14px; right: 16px; }
+.game-body { padding: 18px 22px 20px; display: flex; flex-direction: column; gap: 8px; }
+.game-mono { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex: none; font-family: var(--font-num); font-weight: 700; font-size: 15px; color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), 0 0 0 4px rgba(18, 20, 40, .8); }
+.wow .game-mono { background: linear-gradient(160deg, #b8893a, #6b4a14); }
+.lol .game-mono { background: linear-gradient(160deg, #17a3b0, #0b5560); }
+.game-mono.big { width: 64px; height: 64px; font-size: 18px; }
+.game-mono.small-mono { width: 40px; height: 40px; font-size: 13px; background: linear-gradient(160deg, #d8a84a, #7a5014); color: #1a1206; }
+.game-hero { display: flex; flex-direction: column; gap: 16px; }
+.game-hero a { color: #e6d3a8; }
+.game-hero.lol a { color: #a9d6dc; }
+.game-title { font-size: 30px; }
+.wow .game-title { font-family: Georgia, 'Times New Roman', serif; color: #f8e7b8; }
+.lol .game-title { font-family: Georgia, 'Times New Roman', serif; letter-spacing: .03em; color: #f0e6d2; }
+.note.warn { background: rgba(245, 165, 36, .08); box-shadow: inset 0 0 0 1px rgba(245, 165, 36, .3); color: var(--warn-text); }
+.moment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.moment { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 11px; cursor: pointer; font: inherit; font-size: 14px; color: var(--text); text-align: left; background: var(--field); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.moment .box { width: 18px; height: 18px; border-radius: 6px; flex: none; box-shadow: inset 0 0 0 1.5px #4a4e72; }
+.moment.on { background: #18214a; box-shadow: inset 0 0 0 1px rgba(127, 176, 255, .35); }
+.moment.on .box { background: var(--accent); box-shadow: none; }
+.hint-link { border: 0; cursor: pointer; font: inherit; color: inherit; text-align: left; display: flex; align-items: center; gap: 14px; background: linear-gradient(90deg, rgba(184, 137, 58, .12), rgba(184, 137, 58, .04)); box-shadow: inset 0 0 0 1px rgba(184, 137, 58, .35); }
+
 /* ── Placeholder pages ── */
 .todo { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
 

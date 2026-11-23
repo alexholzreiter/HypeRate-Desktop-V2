@@ -6,6 +6,7 @@ import * as store from './lib/state.js';
 import * as live from './pages/live.js';
 import * as source from './pages/source.js';
 import * as overlay from './pages/overlay.js';
+import * as gamesPage from './pages/games.js';
 import { placeholder } from './pages/placeholder.js';
 
 const api = window.electronAPI;
@@ -17,7 +18,7 @@ const NAV = [
   { group: 'nav_setup' },
   { id: 'overlay', icon: 'overlay', label: 'nav_overlay', page: overlay },
   { id: 'source', icon: 'source', label: 'nav_source', page: source },
-  { id: 'games', icon: 'games', label: 'nav_games', page: placeholder('games', 'nav_games') },
+  { id: 'games', icon: 'games', label: 'nav_games', page: gamesPage },
   { id: 'integrations', icon: 'integrations', label: 'nav_integrations', page: placeholder('integrations', 'nav_integrations') },
   { id: 'settings', icon: 'settings', label: 'nav_settings', page: placeholder('settings', 'nav_settings') },
 ];
@@ -71,7 +72,7 @@ function sidebar(s) {
         h('div', {},
           h('p', { class: 'name', style: { margin: 0 } }, s.ble.name || (s.cloud.status === 'connected' ? t('source_cloud') : t('no_source'))),
           h('p', { class: 'sub', style: { margin: '1px 0 0', color: conn === 'on' ? 'var(--ok-text)' : 'var(--dim)' } }, t('conn_' + conn)))),
-      h('button', { class: 'btn primary', style: { width: '100%' }, onclick: () => api.launchOverlay(s.settings.config) }, t('overlay_show')),
+      h('button', { class: 'btn primary', style: { width: '100%' }, onclick: () => store.showOverlay() }, t('overlay_show')),
       h('p', { class: 'small muted', style: { margin: 0, textAlign: 'center' } }, (s.settings.hotkey?.keys || ['Ctrl', 'Shift', 'H']).join(' + '))));
 }
 
