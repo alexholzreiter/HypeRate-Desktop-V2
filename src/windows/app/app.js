@@ -1,6 +1,6 @@
 // HypeRate Desktop v2 — main window: title bar, sidebar, and whichever page is open.
 
-import { h, svg, icon, heart, morph } from './lib/dom.js';
+import { h, svg, icon, heart, logo, morph } from './lib/dom.js';
 import { t } from './lib/i18n.js';
 import * as store from './lib/state.js';
 import * as live from './pages/live.js';
@@ -53,7 +53,7 @@ function defs() {
 function titlebar(s) {
   const conn = store.connection(s);
   return h('header', { class: 'titlebar' },
-    heart({ size: 22 }),
+    logo({ size: 21 }),
     h('span', { class: 'brand' }, 'HypeRate Desktop'),
     h('span', { class: 'version' }, s.settings.version ? 'v' + s.settings.version : ''),
     h('div', { class: 'spacer' }),

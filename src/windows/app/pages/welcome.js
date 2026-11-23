@@ -3,7 +3,7 @@
 //
 //   welcome → where the heart rate comes from → connect → pick a look → done
 
-import { h, icon, heart } from '../lib/dom.js';
+import { h, icon, heart, logo } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
 import { bluetooth, cloud, connection, overlayConfig, showOverlay, app, finishWelcome } from '../lib/state.js';
 import { drawPreview } from '../lib/overlay-config.js';
@@ -31,7 +31,7 @@ export function render(s) {
   const body = { welcome, source: pickSource, connect, style: pickStyle, done }[name](s);
   return h('div', { class: 'welcome' },
     h('header', { class: 'welcome-top' },
-      heart({ size: 22 }), h('span', { class: 'brand' }, 'HypeRate Desktop'),
+      logo({ size: 21 }), h('span', { class: 'brand' }, 'HypeRate Desktop'),
       h('span', { class: 'small muted', style: { marginLeft: 'auto' } }, t('welcome_step', { n: step + 1, of: STEPS.length, name: t('welcome_label_' + name) })),
       h('button', { class: 'win-btn close', 'aria-label': t('close'), onclick: () => window.electronAPI.closeSettings() }, icon('close', 16))),
     h('div', { class: 'welcome-dots' }, STEPS.map((_, i) => h('span', { class: i <= step ? 'on' : '' }))),

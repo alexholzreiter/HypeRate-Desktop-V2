@@ -115,7 +115,15 @@ export function icon(name, size = 20) {
     svg('path', { d: ICONS[name] }));
 }
 
-export const HEART_PATH = 'M12 20.5C7 16.8 3 13.4 3 9.3 3 6.6 5.1 4.5 7.7 4.5c1.7 0 3.3.9 4.3 2.3 1-1.4 2.6-2.3 4.3-2.3 2.6 0 4.7 2.1 4.7 4.8 0 4.1-4 7.5-9 11.2z';
+// The HypeRate logo without its dark app-icon tile: the red heart and the white pulse line,
+// redrawn from assets/icon.png so it stays sharp at any size
+export function logo({ size = 24, className } = {}) {
+  return svg('svg', { viewBox: '150 215 724 610', width: size, height: Math.round(size * 610 / 724), class: className, role: 'img', 'aria-label': 'HypeRate' },
+    svg('path', { d: 'M507 812 L238 540 C158 460 172 326 268 262 C350 208 452 228 507 290 C562 228 664 208 746 262 C842 326 856 460 776 540 Z', fill: '#e2203f' }),
+    svg('path', { d: 'M167 471 H281 L438 336 V640 L528 527 C548 500 590 506 590 540 V606 L744 471 H857', fill: 'none', stroke: '#fff', 'stroke-width': 31, 'stroke-linejoin': 'miter', 'stroke-miterlimit': 10 }));
+}
+
+export const HEART_PATH ='M12 20.5C7 16.8 3 13.4 3 9.3 3 6.6 5.1 4.5 7.7 4.5c1.7 0 3.3.9 4.3 2.3 1-1.4 2.6-2.3 4.3-2.3 2.6 0 4.7 2.1 4.7 4.8 0 4.1-4 7.5-9 11.2z';
 
 export function heart({ size = 24, fill = 'url(#hr-gradient)', stroke, className } = {}) {
   return svg('svg', { viewBox: '0 0 24 24', width: size, height: size, class: className, 'aria-hidden': 'true' },
