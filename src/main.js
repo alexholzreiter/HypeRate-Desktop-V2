@@ -9,7 +9,9 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-experimental-web-platform-features');
 }
 
-app.setAppUserModelId('io.hyperate.desktop');
+const edition = require('./edition');
+const storeMigration = require('./store-migration');
+app.setAppUserModelId(edition.appId);
 const path   = require('path');
 const fs     = require('fs');
 const dgram  = require('dgram');
@@ -348,6 +350,20 @@ const STORE_PATH = path.join(app.getPath('userData'), 'settings.json');
 function loadStore()     { try { return JSON.parse(fs.readFileSync(STORE_PATH,'utf8')); } catch { return {}; } }
 function saveStore(data) { try { fs.writeFileSync(STORE_PATH, JSON.stringify(data,null,2),'utf8'); } catch(e) { console.error('store save:',e); } }
 
+// The beta lives in its own data folder; on its first start it takes over what v1 has.
+if (edition.isBeta) {
+  const copied = storeMigration.importFromStableInstall({
+    fromDir: path.join(app.getPath('appData'), 'HypeRate Desktop'),
+    toDir: app.getPath('userData'),
+  });
+  if (copied.length) console.log('Imported from HypeRate Desktop:', copied.join(', '));
+}
+{
+  const stored = loadStore();
+  const migrated = storeMigration.migrateStore(stored);
+  if (migrated !== stored) saveStore(migrated);
+}
+
 const HYPERAID_TRACE = process.env.HYPERAID_TRACE === '1';
 const HYPERAID_TRACE_PATH = path.join(path.dirname(STORE_PATH), 'hyperaid-diagnostics.log');
 function tracePulse(component, event, detail = {}) {
@@ -449,7 +465,7 @@ function createSettingsWindow() {
     skipTaskbar: process.platform === 'win32', // Windows: only live in tray
     webPreferences:{ nodeIntegration:false, contextIsolation:true, preload:path.join(__dirname,'preload.js') },
     icon: path.join(__dirname,'../assets/icon.png'),
-    title:'HypeRate Desktop',
+    title:edition.name,
   });
   if (process.platform === 'linux') {
     let selectBluetoothCallback = null;
@@ -496,13 +512,9 @@ function createSettingsWindow() {
 }
 
 // ── Tray / Menu-bar icon ──
-const TRAY_LABELS = {
-  en: { settings:'Open Settings', overlayHide:'Hide Overlay', overlayShow:'Show Overlay', bpmHide:'Hide BPM in menu bar', bpmShow:'Show BPM in menu bar', quit:'Quit',
-        updateMenu:'↑ Update to %s', updateTitle:'HypeRate Desktop %s is out', updateBody:'Click to open the release notes.' },
-  de: { settings:'Einstellungen öffnen', overlayHide:'Overlay verstecken', overlayShow:'Overlay anzeigen', bpmHide:'BPM in Menüleiste ausblenden', bpmShow:'BPM in Menüleiste anzeigen', quit:'Beenden',
-        updateMenu:'↑ Auf %s aktualisieren', updateTitle:'HypeRate Desktop %s ist da', updateBody:'Zum Öffnen der Versionshinweise klicken.' },
-};
-function tl(key) { const lang = loadStore().lang || 'en'; return (TRAY_LABELS[lang] || TRAY_LABELS.en)[key]; }
+// Texts live in src/i18n/*.json; a key missing in a language falls back to English.
+const STRINGS = require('./i18n/strings');
+function tl(key) { const lang = loadStore().lang || 'en'; return STRINGS[lang]?.tray?.[key] ?? STRINGS.en.tray[key]; }
 
 function buildMenu() {
   return Menu.buildFromTemplate([
@@ -549,7 +561,7 @@ function createTray() {
   }
 
   tray = new Tray(img);
-  tray.setToolTip('HypeRate Desktop');
+  tray.setToolTip(edition.name);
 
   tray.setContextMenu(buildMenu());
 

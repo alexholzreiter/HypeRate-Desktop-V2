@@ -21,22 +21,13 @@ const SPIELE = {
 const RANG = ['penta', 'win', 'boss', 'steal', 'multikill', 'ace', 'close', 'firstblood', 'death', 'objective', 'intense', 'lose'];
 const nachRang = (a, b) => (RANG.indexOf(a) + 1 || 99) - (RANG.indexOf(b) + 1 || 99);
 
-const OHNE_SPIEL = { name: { de: 'Puls-Sitzung', en: 'Heart rate session' }, akzent: '#6f9dff', glanz: 'rgba(90,140,235,.14)' };
+// Die Texte stehen in src/i18n/*.json (Abschnitt sessionCard).
+const STRINGS = require('./i18n/strings');
+const proSprache = (wert) => Object.fromEntries(Object.entries(STRINGS).map(([sprache, s]) => [sprache, wert(s.sessionCard)]));
 
-const TEXTE = {
-  de: { straight: 'am Stück.', peak: 'Spitze', avg: 'Durchschnitt', peakL: 'Spitze', low: 'Ruhigster',
-        inZone: 'in', bosses: 'Bosse', deaths: 'Tode', moments: 'Momente',
-        tagline: 'Kostenloses Puls-Overlay · macOS · Windows · Linux',
-        titles: { boss: 'Boss besiegt', death: 'Gestorben', close: 'Knapp überlebt', penta: 'Pentakill',
-                  win: 'Sieg', lose: 'Niederlage', firstblood: 'First Blood', steal: 'Ziel geklaut',
-                  objective: 'Ziel gesichert', multikill: 'Multikill', ace: 'Ace', intense: 'Härtester Gegner' } },
-  en: { straight: 'straight.', peak: 'Peak', avg: 'Average', peakL: 'Peak', low: 'Calmest',
-        inZone: 'in', bosses: 'Bosses', deaths: 'Deaths', moments: 'Moments',
-        tagline: 'Free heart rate overlay · macOS · Windows · Linux',
-        titles: { boss: 'Boss Defeated', death: 'You Died', close: 'Close Call', penta: 'Pentakill',
-                  win: 'Victory', lose: 'Defeat', firstblood: 'First Blood', steal: 'Objective Stolen',
-                  objective: 'Objective', multikill: 'Multikill', ace: 'Ace', intense: 'Most Intense Enemy' } },
-};
+const OHNE_SPIEL = { name: proSprache((t) => t.plainSessionName), akzent: '#6f9dff', glanz: 'rgba(90,140,235,.14)' };
+
+const TEXTE = proSprache((t) => t);
 
 // Der Verlauf der Schlagzeile war fest auf Gold gerechnet und wurde mit jeder anderen
 // Akzentfarbe schlammig. Jetzt wird er aus dem Akzent gemischt.
