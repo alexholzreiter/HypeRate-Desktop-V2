@@ -129,6 +129,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimizeSettings: ()   => ipcRenderer.send('minimize-settings'),
   closeSettings:  ()     => ipcRenderer.send('close-settings'),
   overlayIsOpen:  ()     => ipcRenderer.invoke('overlay-is-open'),
+  assetsPick:     (kind) => ipcRenderer.invoke('assets-pick', kind),
+  assetsRemove:   (kind, file) => ipcRenderer.invoke('assets-remove', kind, file),
   switchUi:       (useNext) => ipcRenderer.send('switch-ui', !!useNext),
   getOverlayPosition:   ()       => ipcRenderer.invoke('get-overlay-position'),
   getOverlayDisplays:   ()       => ipcRenderer.invoke('get-overlay-displays'),

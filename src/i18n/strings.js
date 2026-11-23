@@ -551,7 +551,26 @@
       "live_sub_dropped": "The connection to the HypeRate app has ended",
       "empty_dropped_text": "The connection to the HypeRate app has ended. Connect again under Heart rate source once the app is sending.",
       "side_collapse": "Collapse sidebar",
-      "side_expand": "Expand sidebar"
+      "side_expand": "Expand sidebar",
+      "own_hearts": "Your own hearts",
+      "own_hearts_formats": "PNG, GIF, WebP, SVG · up to 2 MB",
+      "upload_heart": "Upload an image",
+      "upload_font": "Upload a font",
+      "own_heart_color_note": "The image is shown as it is: colour and zone colours do not apply, the glow does.",
+      "own_font_tag": "your own",
+      "own_font_note": "TTF, OTF, WOFF or WOFF2, up to 8 MB. Only use fonts whose licence allows it.",
+      "upload_type": "This file type is not supported. Allowed: {detail}",
+      "upload_size": "The file is too big (up to {detail}).",
+      "upload_empty": "The file is empty.",
+      "upload_error": "The file could not be added.",
+      "remove": "Remove",
+      "own_heart_tint": "Tint the image",
+      "own_heart_tint_on": "The image takes the heart colour as a silhouette, zone colours too. Turn this off for colourful images.",
+      "zone_now_color": "Zone colours are on. At {bpm} BPM the zone \"{zone}\" sets the colour, so a change here only shows without a heart rate or with zones off.",
+      "zones_turn_off": "Turn zones off",
+      "zones_edit": "Edit zones",
+      "bg_color_from": "First colour",
+      "bg_color_to": "Second colour"
     }
   },
   "de": {
@@ -1103,7 +1122,26 @@
       "live_sub_dropped": "Die Verbindung zur HypeRate-App ist beendet",
       "empty_dropped_text": "Die Verbindung zur HypeRate-App ist beendet. Verbinde dich unter Herzfrequenz-Quelle neu, sobald die App sendet.",
       "side_collapse": "Seitenleiste einklappen",
-      "side_expand": "Seitenleiste ausklappen"
+      "side_expand": "Seitenleiste ausklappen",
+      "own_hearts": "Eigene Herzen",
+      "own_hearts_formats": "PNG, GIF, WebP, SVG · bis 2 MB",
+      "upload_heart": "Bild hochladen",
+      "upload_font": "Schrift hochladen",
+      "own_heart_color_note": "Das Bild wird so gezeigt, wie es ist: Farbe und Zonenfarben wirken nicht darauf, das Leuchten schon.",
+      "own_font_tag": "eigene",
+      "own_font_note": "TTF, OTF, WOFF oder WOFF2, bis 8 MB. Nutze nur Schriften, deren Lizenz das erlaubt.",
+      "upload_type": "Dieser Dateityp geht nicht. Erlaubt: {detail}",
+      "upload_size": "Die Datei ist zu groß (bis {detail}).",
+      "upload_empty": "Die Datei ist leer.",
+      "upload_error": "Die Datei konnte nicht hinzugefügt werden.",
+      "remove": "Entfernen",
+      "own_heart_tint": "Bild einfärben",
+      "own_heart_tint_on": "Das Bild nimmt als Silhouette die Herzfarbe an, auch die Zonenfarben. Für bunte Bilder schalte das aus.",
+      "zone_now_color": "Zonenfarben sind an. Bei {bpm} BPM bestimmt die Zone „{zone}\" die Farbe, eine Änderung hier siehst du deshalb nur ohne Puls oder mit ausgeschalteten Zonen.",
+      "zones_turn_off": "Zonen ausschalten",
+      "zones_edit": "Zonen bearbeiten",
+      "bg_color_from": "Erste Farbe",
+      "bg_color_to": "Zweite Farbe"
     }
   }
 };

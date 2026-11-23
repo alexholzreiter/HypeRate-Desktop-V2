@@ -547,6 +547,25 @@
     "live_sub_dropped": "The connection to the HypeRate app has ended",
     "empty_dropped_text": "The connection to the HypeRate app has ended. Connect again under Heart rate source once the app is sending.",
     "side_collapse": "Collapse sidebar",
-    "side_expand": "Expand sidebar"
+    "side_expand": "Expand sidebar",
+    "own_hearts": "Your own hearts",
+    "own_hearts_formats": "PNG, GIF, WebP, SVG · up to 2 MB",
+    "upload_heart": "Upload an image",
+    "upload_font": "Upload a font",
+    "own_heart_color_note": "The image is shown as it is: colour and zone colours do not apply, the glow does.",
+    "own_font_tag": "your own",
+    "own_font_note": "TTF, OTF, WOFF or WOFF2, up to 8 MB. Only use fonts whose licence allows it.",
+    "upload_type": "This file type is not supported. Allowed: {detail}",
+    "upload_size": "The file is too big (up to {detail}).",
+    "upload_empty": "The file is empty.",
+    "upload_error": "The file could not be added.",
+    "remove": "Remove",
+    "own_heart_tint": "Tint the image",
+    "own_heart_tint_on": "The image takes the heart colour as a silhouette, zone colours too. Turn this off for colourful images.",
+    "zone_now_color": "Zone colours are on. At {bpm} BPM the zone \"{zone}\" sets the colour, so a change here only shows without a heart rate or with zones off.",
+    "zones_turn_off": "Turn zones off",
+    "zones_edit": "Edit zones",
+    "bg_color_from": "First colour",
+    "bg_color_to": "Second colour"
   }
 }

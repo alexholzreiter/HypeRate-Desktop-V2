@@ -3,7 +3,7 @@
 process.stdout.on('error', () => {});
 process.stderr.on('error', () => {});
 
-const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell, dialog, safeStorage, Notification, powerMonitor, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell, dialog, safeStorage, Notification, powerMonitor, clipboard, protocol } = require('electron');
 
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-experimental-web-platform-features');
@@ -27,6 +27,7 @@ const mqtt    = require('./mqtt');
 const sessions = require('./sessions');
 const sessionCard = require('./session-card');
 const systemFonts = require('./system-fonts');
+const customAssets = require('./custom-assets');
 const { fetchLatestRelease } = require('./desktop-update');
 const { fitOverlay, restoreOverlayPlacement, overlayPlacementPreferences } = require('./overlay-placement');
 const crypto = require('crypto');
@@ -855,8 +856,43 @@ function hotkeyInfo() {
   };
 }
 
+// ── Hearts and fonts the user brings along ───────────────────────────────────
+// Served as hr-asset://a/<file> from one folder only; see custom-assets.js
+const ASSET_DIR = path.join(app.getPath('userData'), 'custom-assets');
+protocol.registerSchemesAsPrivileged([{ scheme: 'hr-asset', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
+
+const ASSET_LIST = { heart: 'customHearts', font: 'customFonts' };
+ipcMain.handle('assets-pick', async (_, kind) => {
+  if (!ASSET_LIST[kind]) return { ok: false, code: 'kind' };
+  const exts = customAssets.KINDS[kind].exts.map(e => e.slice(1));
+  const res = await dialog.showOpenDialog(settingsWindow, { properties: ['openFile'], filters: [{ name: kind === 'heart' ? 'Images' : 'Fonts', extensions: exts }] });
+  if (res.canceled || !res.filePaths[0]) return { ok: false, code: 'canceled' };
+  try {
+    const asset = customAssets.importAsset({ kind, source: res.filePaths[0], dir: ASSET_DIR });
+    const store = loadStore();
+    store[ASSET_LIST[kind]] = [...(store[ASSET_LIST[kind]] || []), asset];
+    saveStore(store);
+    return { ok: true, asset, list: store[ASSET_LIST[kind]] };
+  } catch (error) {
+    return { ok: false, code: error.code || 'error', detail: error.detail };
+  }
+});
+ipcMain.handle('assets-remove', (_, kind, file) => {
+  if (!ASSET_LIST[kind]) return [];
+  const store = loadStore();
+  store[ASSET_LIST[kind]] = (store[ASSET_LIST[kind]] || []).filter(a => a.file !== file);
+  saveStore(store);
+  customAssets.removeAsset({ file, dir: ASSET_DIR });
+  return store[ASSET_LIST[kind]];
+});
+
 // ── App ready ──
 app.whenReady().then(() => {
+  protocol.handle('hr-asset', (request) => {
+    const found = customAssets.resolveAsset({ url: request.url, dir: ASSET_DIR });
+    if (!found) return new Response('Not found', { status: 404 });
+    return new Response(fs.readFileSync(found.path), { headers: { 'content-type': found.type, 'x-content-type-options': 'nosniff', 'access-control-allow-origin': '*' } });
+  });
   startDesktopPush();
   const settings = loadStore();
   if (settings.hyperaidEnabled) {

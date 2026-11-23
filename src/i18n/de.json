@@ -547,6 +547,25 @@
     "live_sub_dropped": "Die Verbindung zur HypeRate-App ist beendet",
     "empty_dropped_text": "Die Verbindung zur HypeRate-App ist beendet. Verbinde dich unter Herzfrequenz-Quelle neu, sobald die App sendet.",
     "side_collapse": "Seitenleiste einklappen",
-    "side_expand": "Seitenleiste ausklappen"
+    "side_expand": "Seitenleiste ausklappen",
+    "own_hearts": "Eigene Herzen",
+    "own_hearts_formats": "PNG, GIF, WebP, SVG · bis 2 MB",
+    "upload_heart": "Bild hochladen",
+    "upload_font": "Schrift hochladen",
+    "own_heart_color_note": "Das Bild wird so gezeigt, wie es ist: Farbe und Zonenfarben wirken nicht darauf, das Leuchten schon.",
+    "own_font_tag": "eigene",
+    "own_font_note": "TTF, OTF, WOFF oder WOFF2, bis 8 MB. Nutze nur Schriften, deren Lizenz das erlaubt.",
+    "upload_type": "Dieser Dateityp geht nicht. Erlaubt: {detail}",
+    "upload_size": "Die Datei ist zu groß (bis {detail}).",
+    "upload_empty": "Die Datei ist leer.",
+    "upload_error": "Die Datei konnte nicht hinzugefügt werden.",
+    "remove": "Entfernen",
+    "own_heart_tint": "Bild einfärben",
+    "own_heart_tint_on": "Das Bild nimmt als Silhouette die Herzfarbe an, auch die Zonenfarben. Für bunte Bilder schalte das aus.",
+    "zone_now_color": "Zonenfarben sind an. Bei {bpm} BPM bestimmt die Zone „{zone}\" die Farbe, eine Änderung hier siehst du deshalb nur ohne Puls oder mit ausgeschalteten Zonen.",
+    "zones_turn_off": "Zonen ausschalten",
+    "zones_edit": "Zonen bearbeiten",
+    "bg_color_from": "Erste Farbe",
+    "bg_color_to": "Zweite Farbe"
   }
 }

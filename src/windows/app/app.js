@@ -11,6 +11,7 @@ import * as integrations from './pages/integrations.js';
 import * as sessionsPage from './pages/sessions.js';
 import * as settingsPage from './pages/settings.js';
 import * as welcome from './pages/welcome.js';
+import { setKnownHearts } from './lib/overlay-config.js';
 
 const api = window.electronAPI;
 
@@ -98,13 +99,15 @@ let queued = false;
 // second and would otherwise rebuild the field under the cursor. Title bar and sidebar still update.
 function typing() {
   const el = document.activeElement;
-  return !!el && el.closest?.('.content') && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT');
+  // Menus are not typed into, and patching keeps their choice, so they do not hold the page back
+  return !!el && el.closest?.('.content') && ((el.tagName === 'INPUT' && !['range', 'color', 'checkbox'].includes(el.type)) || el.tagName === 'TEXTAREA');
 }
 
 function render() {
   queued = false;
   const s = store.get();
   document.documentElement.lang = s.lang;
+  setKnownHearts(s.settings.customHearts);
   // First start: the wizard takes the whole window until it is finished or skipped
   if (s.settings.onboarded !== true) {
     const el = document.activeElement;
@@ -134,6 +137,8 @@ function update(...nodes) {
 function schedule() { if (!queued) { queued = true; requestAnimationFrame(render); } }
 store.subscribe(schedule);
 window.addEventListener('hr-rerender', schedule);
+// The preview measures fonts; once one has loaded, measure again
+document.fonts.addEventListener('loadingdone', schedule);
 // Leaving a field lets the page catch up with what changed meanwhile
 document.addEventListener('focusout', () => setTimeout(schedule, 0));
 

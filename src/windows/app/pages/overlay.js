@@ -4,7 +4,7 @@
 import { h, svg } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
 import { get } from '../lib/state.js';
-import { withDefaults, heartShapes, drawPreview, DEFAULT_ZONES } from '../lib/overlay-config.js';
+import { withDefaults, heartShapes, drawPreview, DEFAULT_ZONES, customFile, assetUrl, fontFor } from '../lib/overlay-config.js';
 
 export const id = 'overlay';
 
@@ -13,6 +13,31 @@ let tab = 'heart';
 let saveTimer = null;
 let displays = null;      // { displays, selected, supportsSpaces, allSpaces }
 let systemFonts = null;
+let uploadError = null;   // { kind, text } after a refused upload
+
+// ── Uploaded hearts and fonts ──
+async function upload(kind) {
+  uploadError = null;
+  const res = await api.assetsPick(kind);
+  if (!res?.ok) {
+    if (res?.code && res.code !== 'canceled') uploadError = { kind, text: t('upload_' + (['type', 'size', 'empty'].includes(res.code) ? res.code : 'error'), { detail: res.detail || '' }) };
+    rerender();
+    return;
+  }
+  get().settings[kind === 'heart' ? 'customHearts' : 'customFonts'] = res.list;
+  change(kind === 'heart' ? { heartStyle: 'custom:' + res.asset.file } : { fontStyle: 'custom:' + res.asset.file });
+  rerender();
+}
+
+async function removeUpload(kind, file) {
+  const s = get();
+  s.settings[kind === 'heart' ? 'customHearts' : 'customFonts'] = await api.assetsRemove(kind, file);
+  // whatever used it falls back to the default
+  const c = config();
+  if (kind === 'heart' && c.heartStyle === 'custom:' + file) change({ heartStyle: 'filled' });
+  else if (kind === 'font' && c.fontStyle === 'custom:' + file) change({ fontStyle: 'mono' });
+  rerender();
+}
 
 const config = () => withDefaults(get().settings.config);
 
@@ -76,16 +101,19 @@ function field(label, control, extra) {
 
 function select(key, options) {
   const c = config();
-  return h('select', { class: 'field select', onchange: e => change({ [key]: e.target.value }) },
+  // Some choices bring their own fields (a colour for "Gradient"), so draw the page again at once
+  return h('select', { class: 'field select', onchange: e => { change({ [key]: e.target.value }); rerender(); } },
     options.map(([value, label]) => h('option', { value, selected: c[key] === value ? true : null }, label)));
 }
 
 function color(key) {
   const c = config();
+  // The partner field is found from the event: the window patches the screen from fresh renders,
+  // so an element kept from this render may not be the one on screen
   const hex = h('input', { class: 'field hex', value: c[key], maxlength: 7, spellcheck: 'false', 'aria-label': key,
-    onchange: e => { const v = e.target.value.trim(); if (/^#[0-9a-f]{6}$/i.test(v)) { swatch.value = v; change({ [key]: v }); } else e.target.value = config()[key]; } });
+    onchange: e => { const v = e.target.value.trim(); if (/^#[0-9a-f]{6}$/i.test(v)) { e.target.previousSibling.value = v; change({ [key]: v }); } else e.target.value = config()[key]; } });
   const swatch = h('input', { type: 'color', class: 'swatch', value: c[key], 'aria-label': key,
-    oninput: e => { hex.value = e.target.value; change({ [key]: e.target.value }); } });
+    oninput: e => { e.target.nextSibling.value = e.target.value; change({ [key]: e.target.value }); } });
   return h('div', { class: 'row', style: { gap: '8px' } }, swatch, hex);
 }
 
@@ -94,7 +122,7 @@ function range(key, min, max, unit) {
   const out = h('span', { class: 'num range-value' }, `${c[key]}${unit}`);
   return h('div', { class: 'row', style: { gap: '12px', flex: 1 } },
     h('input', { type: 'range', min, max, value: c[key], 'aria-label': key, style: { flex: 1 },
-      oninput: e => { out.textContent = `${e.target.value}${unit}`; change({ [key]: Number(e.target.value) }); } }),
+      oninput: e => { e.target.nextSibling.textContent = `${e.target.value}${unit}`; change({ [key]: Number(e.target.value) }); } }),
     out);
 }
 
@@ -120,16 +148,47 @@ function heartTab(c) {
         class: 'shape' + (c.heartStyle === sh.id ? ' on' : ''), title: sh.label, 'aria-label': sh.label, 'aria-pressed': String(c.heartStyle === sh.id),
         onclick: () => { change({ heartStyle: sh.id }); rerender(); },
       }, shapeIcon(sh, c.heartStyle === sh.id ? c.heartColor : '#c9cde8')))),
-      h('p', { class: 'small muted', style: { margin: 0 } }, shapes.find(sh => sh.id === c.heartStyle)?.label || '')),
+      h('p', { class: 'small muted', style: { margin: 0 } }, shapes.find(sh => sh.id === c.heartStyle)?.label
+        || (get().settings.customHearts || []).find(a => 'custom:' + a.file === c.heartStyle)?.name || ''),
+      h('hr', { class: 'divider' }),
+      h('div', { class: 'row between' }, h('p', { class: 'label' }, t('own_hearts')), h('span', { class: 'small muted' }, t('own_hearts_formats'))),
+      h('div', { class: 'shape-grid' },
+        (get().settings.customHearts || []).map(a => h('div', { class: 'shape-wrap' },
+          h('button', { class: 'shape' + (c.heartStyle === 'custom:' + a.file ? ' on' : ''), title: a.name, 'aria-label': a.name, 'aria-pressed': String(c.heartStyle === 'custom:' + a.file),
+            onclick: () => { change({ heartStyle: 'custom:' + a.file }); rerender(); } },
+            // a light silhouette like the built-in shapes, so a dark image still shows on the dark tile
+            h('span', { class: 'shape-img', style: { '--mask': `url(${assetUrl(a.file)})`, background: c.heartStyle === 'custom:' + a.file ? c.heartColor : '#c9cde8' } })),
+          h('button', { class: 'shape-remove', title: t('remove'), 'aria-label': t('remove') + ': ' + a.name, onclick: () => removeUpload('heart', a.file) }, '×'))),
+        h('button', { class: 'shape upload', title: t('upload_heart'), 'aria-label': t('upload_heart'), onclick: () => upload('heart') }, '+')),
+      uploadError?.kind === 'heart' ? h('p', { class: 'small bad-text', role: 'status', style: { margin: 0 } }, uploadError.text) : null,
+      ownHeartInUse(c) ? switchRow('heartTint', t('own_heart_tint')) : null,
+      ownHeartInUse(c) ? h('p', { class: 'small muted', style: { margin: 0 } }, t(c.heartTint !== false ? 'own_heart_tint_on' : 'own_heart_color_note')) : null),
     h('div', { class: 'card stack' },
       field(t('anim'), select('heartAnim', [['pulse', t('anim_pulse')], ['beat', t('anim_beat')], ['bounce', t('anim_bounce')], ['shake', t('anim_shake')], ['glow', t('anim_glow')], ['none', t('anim_none')]])),
       field(t('color'), color('heartColor')),
-      c.zonesEnabled ? h('p', { class: 'small', style: { margin: 0, color: 'var(--warn-text)' } }, t('zone_replaces_color')) : null,
+      c.zonesEnabled ? zoneNote(c) : null,
       field(t('size'), range('heartSize', 24, 80, 'px')),
       h('hr', { class: 'divider' }),
       switchRow('heartGlow', t('glow_effect')),
       c.heartGlow ? field(t('glow_color'), color('glowColor')) : null,
       c.heartGlow || c.heartAnim === 'glow' ? field(t('glow_opacity'), range('heartGlowOpacity', 0, 100, '%')) : null));
+}
+
+// An uploaded heart is chosen and still exists
+const ownHeartInUse = c => (get().settings.customHearts || []).some(a => 'custom:' + a.file === c.heartStyle);
+
+// With zones on, the zone colour wins while a heart rate comes in. Say which one is showing right
+// now, and offer the two ways out, so a colour change that "does nothing" is not a mystery.
+function zoneNote(c) {
+  const bpm = get().bpm;
+  const zone = bpm == null ? null : (c.zones || []).find(z => bpm >= z.min && bpm <= z.max);
+  return h('div', { class: 'note warn stack', style: { gap: '10px', padding: '12px 14px', fontSize: '13px' } },
+    h('div', { class: 'row', style: { gap: '8px', alignItems: 'flex-start' } },
+      zone ? h('span', { class: 'zone-chip', style: { background: zone.color } }) : null,
+      h('span', {}, zone ? t('zone_now_color', { zone: zone.name, bpm }) : t('zone_replaces_color'))),
+    h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
+      h('button', { class: 'btn small', onclick: () => { change({ zonesEnabled: false }); rerender(); } }, t('zones_turn_off')),
+      h('button', { class: 'btn small', onclick: () => { tab = 'zones'; rerender(); } }, t('zones_edit'))));
 }
 
 function shapeIcon(sh, fill) {
@@ -146,10 +205,21 @@ function fontTab(c) {
   }
   return h('div', { class: 'split' },
     h('div', { class: 'card stack' },
-      field(t('font_style'), select('fontStyle', [['mono', 'Space Mono'], ['sans', 'DM Sans'], ['serif', 'Playfair Display'], ['display', 'Bebas Neue'], ['retro', 'VT323'], ['system', t('font_system')]])),
+      field(t('font_style'), select('fontStyle', [['mono', 'Space Mono'], ['sans', 'DM Sans'], ['serif', 'Playfair Display'], ['display', 'Bebas Neue'], ['retro', 'VT323'], ['system', t('font_system')],
+        ...(get().settings.customFonts || []).map(a => ['custom:' + a.file, a.name + ' · ' + t('own_font_tag')])])),
       c.fontStyle === 'system' ? field(t('font_system_name'), h('div', { style: { flex: 1 } },
         h('input', { class: 'field', list: 'systemFonts', value: c.systemFont || '', placeholder: t('font_system_placeholder'), onchange: e => change({ systemFont: e.target.value.trim() }) }),
         h('datalist', { id: 'systemFonts' }, (systemFonts || []).map(f => h('option', { value: f }))))) : null,
+      h('div', { class: 'stack', style: { gap: '8px' } },
+        (get().settings.customFonts || []).map(a => h('div', { class: 'font-row' + (c.fontStyle === 'custom:' + a.file ? ' on' : '') },
+          h('button', { class: 'font-pick', onclick: () => { change({ fontStyle: 'custom:' + a.file }); rerender(); } },
+            h('span', { class: 'font-sample', style: { fontFamily: fontFor({ fontStyle: 'custom:' + a.file }) } }, '123'),
+            h('span', { class: 'small' }, a.name)),
+          h('button', { class: 'shape-remove inline', title: t('remove'), 'aria-label': t('remove') + ': ' + a.name, onclick: () => removeUpload('font', a.file) }, '×'))),
+        h('button', { class: 'btn small', style: { alignSelf: 'flex-start' }, onclick: () => upload('font') }, t('upload_font')),
+        uploadError?.kind === 'font' ? h('p', { class: 'small bad-text', role: 'status', style: { margin: 0 } }, uploadError.text) : null,
+        h('p', { class: 'small muted', style: { margin: 0 } }, t('own_font_note'))),
+      h('hr', { class: 'divider' }),
       field(t('bpm_size'), range('bpmSize', 16, 96, 'px')),
       field(t('num_anim'), select('numAnim', [['flip', t('num_flip')], ['fade', t('num_fade')], ['pop', t('num_pop')], ['none', t('anim_none')]]))),
     h('div', { class: 'card stack' },
@@ -164,7 +234,8 @@ function layoutTab(c) {
   return h('div', { class: 'split' },
     h('div', { class: 'card stack' },
       field(t('background'), select('bgStyle', [['transparent', t('bg_transparent')], ['dark-pill', t('bg_pill')], ['glass', t('bg_glass')], ['solid', t('bg_solid')], ['gradient', t('bg_gradient')]])),
-      ['solid', 'gradient'].includes(c.bgStyle) ? field(t('bg_color'), color('bgColor')) : null,
+      ['solid', 'gradient'].includes(c.bgStyle) ? field(t(c.bgStyle === 'gradient' ? 'bg_color_from' : 'bg_color'), color('bgColor')) : null,
+      c.bgStyle === 'gradient' ? field(t('bg_color_to'), color('bgColor2')) : null,
       c.bgStyle !== 'transparent' ? field(t('bg_opacity'), range('bgOpacity', 0, 100, '%')) : null,
       c.bgStyle !== 'transparent' ? field(t('corner_radius'), range('borderRadius', 0, 50, 'px')) : null),
     h('div', { class: 'card stack' },
