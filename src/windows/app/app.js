@@ -5,6 +5,7 @@ import { t } from './lib/i18n.js';
 import * as store from './lib/state.js';
 import * as live from './pages/live.js';
 import * as source from './pages/source.js';
+import * as overlay from './pages/overlay.js';
 import { placeholder } from './pages/placeholder.js';
 
 const api = window.electronAPI;
@@ -14,7 +15,7 @@ const NAV = [
   { id: 'live', icon: 'live', label: 'nav_live', page: live },
   { id: 'sessions', icon: 'sessions', label: 'nav_sessions', page: placeholder('sessions', 'nav_sessions') },
   { group: 'nav_setup' },
-  { id: 'overlay', icon: 'overlay', label: 'nav_overlay', page: placeholder('overlay', 'nav_overlay') },
+  { id: 'overlay', icon: 'overlay', label: 'nav_overlay', page: overlay },
   { id: 'source', icon: 'source', label: 'nav_source', page: source },
   { id: 'games', icon: 'games', label: 'nav_games', page: placeholder('games', 'nav_games') },
   { id: 'integrations', icon: 'integrations', label: 'nav_integrations', page: placeholder('integrations', 'nav_integrations') },

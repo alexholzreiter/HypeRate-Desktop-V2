@@ -2,13 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:" />
+  <!-- Fonts for the overlay preview come from Google Fonts, as in the overlay itself -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com" />
   <title>HypeRate Desktop</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600&family=Playfair+Display:wght@700&family=Bebas+Neue&family=VT323&display=swap" />
   <link rel="stylesheet" href="./app.css" />
 </head>
 <body>
   <div id="app"></div>
   <script src="../../i18n/strings.js"></script>
+  <script src="../../hearts.js"></script>
   <script type="module" src="./app.js"></script>
 </body>
 </html>
