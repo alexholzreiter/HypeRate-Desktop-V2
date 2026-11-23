@@ -24,6 +24,9 @@ const state = {
   mqttPassword: 'none',  // 'ok' | 'lost' | 'none': is a broker password stored and readable
   hyperaid: { state: 'off' },
   sessions: { list: [], selected: null, detail: null, card: null, confirmDelete: false },
+  autostart: null,      // null until asked
+  update: { state: 'idle' },   // 'idle' | 'checking' | 'current' | 'available' | 'error'
+  news: null,           // null = not loaded, [] = none, or [{ title, url, date }]
   overlayOpen: false,
 };
 
@@ -133,6 +136,10 @@ export async function start() {
   api.onHyperaidStatus((status) => { state.hyperaid = { ...state.hyperaid, ...status }; changed(); });
   api.onSessionsChanged(() => sessions.refresh());
   sessions.refresh();
+  // The main process keeps checking while this window is closed and tells it here
+  api.onUpdateAvailable?.(({ version, url }) => { state.update = { state: 'available', version, url }; changed(); });
+  app.checkUpdate();
+  api.getAutostart?.().then(on => { state.autostart = !!on; changed(); }).catch(() => {});
 
   // The cloud connection, the game readers, Discord and MQTT are started by the window, as in
   // the previous one. HypeRaid and VRChat are run by the main process from the saved settings.
@@ -395,6 +402,41 @@ export const sessions = {
     changed();
     const saved = await api.sessionsCard(startedAt).catch(() => null);
     state.sessions.card = { startedAt, state: saved ? 'saved' : 'failed' };
+    changed();
+  },
+};
+
+// ── The app itself: start with the system, updates, news ──
+
+export const app = {
+  setAutostart(on) { state.autostart = on; api.setAutostart(on); changed(); },
+  async checkUpdate() {
+    if (state.update.state === 'available') return;
+    state.update = { state: 'checking' };
+    changed();
+    try {
+      const r = await api.checkUpdate();
+      state.update = r?.hasUpdate ? { state: 'available', version: r.latestVersion, url: r.downloadUrl }
+        : r?.error ? { state: 'error' } : { state: 'current', checkedAt: Date.now() };
+    } catch { state.update = { state: 'error' }; }
+    changed();
+  },
+  // The blog's Atom feed; posts tagged "news" first, otherwise the newest posts
+  async loadNews() {
+    if (state.news) return;
+    state.news = 'loading';
+    try {
+      const xml = await api.fetchNews();
+      if (!xml) throw new Error('no data');
+      const doc = new DOMParser().parseFromString(xml, 'text/xml');
+      const all = [...doc.querySelectorAll('entry')];
+      const tagged = all.filter(e => [...e.querySelectorAll('category')].some(c => (c.getAttribute('term') || '').toLowerCase().includes('news')));
+      state.news = (tagged.length ? tagged : all).slice(0, 3).map(e => ({
+        title: (e.querySelector('title')?.textContent || '').trim(),
+        url: e.querySelector('link')?.getAttribute('href') || (e.querySelector('id')?.textContent || '').trim(),
+        date: new Date(e.querySelector('updated')?.textContent || ''),
+      })).filter(n => /^https:\/\//.test(n.url));
+    } catch { state.news = 'error'; }
     changed();
   },
 };

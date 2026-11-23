@@ -9,7 +9,7 @@ import * as overlay from './pages/overlay.js';
 import * as gamesPage from './pages/games.js';
 import * as integrations from './pages/integrations.js';
 import * as sessionsPage from './pages/sessions.js';
-import { placeholder } from './pages/placeholder.js';
+import * as settingsPage from './pages/settings.js';
 
 const api = window.electronAPI;
 
@@ -22,7 +22,7 @@ const NAV = [
   { id: 'source', icon: 'source', label: 'nav_source', page: source },
   { id: 'games', icon: 'games', label: 'nav_games', page: gamesPage },
   { id: 'integrations', icon: 'integrations', label: 'nav_integrations', page: integrations },
-  { id: 'settings', icon: 'settings', label: 'nav_settings', page: placeholder('settings', 'nav_settings') },
+  { id: 'settings', icon: 'settings', label: 'nav_settings', page: settingsPage },
 ];
 
 let current = 'live';
@@ -54,6 +54,7 @@ function titlebar(s) {
     h('span', { class: 'brand' }, 'HypeRate Desktop'),
     h('span', { class: 'version' }, s.settings.version ? 'v' + s.settings.version : ''),
     h('div', { class: 'spacer' }),
+    s.update.state === 'available' ? h('button', { class: 'pill ok update-pill', onclick: () => go('settings') }, '↑ ' + t('update_pill', { version: s.update.version })) : null,
     h('span', { class: 'pill ' + (conn === 'on' ? 'ok' : conn === 'none' ? 'off' : 'warn') },
       h('span', { class: 'dot ' + (conn === 'on' ? 'live' : conn === 'none' ? '' : 'warn') }),
       conn === 'on' && s.bpm != null ? h('span', { class: 'num' }, `${s.bpm} BPM`) : t('conn_' + conn)),
