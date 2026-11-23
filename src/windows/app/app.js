@@ -54,7 +54,7 @@ function titlebar(s) {
   const conn = store.connection(s);
   return h('header', { class: 'titlebar' },
     logo({ size: 21 }),
-    h('span', { class: 'brand' }, 'HypeRate Desktop'),
+    h('span', { class: 'brand', 'aria-label': 'HypeRate Desktop' }, 'HYPERATE', h('span', { class: 'brand-accent' }, '.DESKTOP')),
     h('span', { class: 'version' }, s.settings.version ? 'v' + s.settings.version : ''),
     h('div', { class: 'spacer' }),
     s.update.state === 'available' ? h('button', { class: 'pill ok update-pill', onclick: () => go('settings') }, '↑ ' + t('update_pill', { version: s.update.version })) : null,

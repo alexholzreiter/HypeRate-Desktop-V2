@@ -31,7 +31,7 @@ export function render(s) {
   const body = { welcome, source: pickSource, connect, style: pickStyle, done }[name](s);
   return h('div', { class: 'welcome' },
     h('header', { class: 'welcome-top' },
-      logo({ size: 21 }), h('span', { class: 'brand' }, 'HypeRate Desktop'),
+      logo({ size: 21 }), h('span', { class: 'brand', 'aria-label': 'HypeRate Desktop' }, 'HYPERATE', h('span', { class: 'brand-accent' }, '.DESKTOP')),
       h('span', { class: 'small muted', style: { marginLeft: 'auto' } }, t('welcome_step', { n: step + 1, of: STEPS.length, name: t('welcome_label_' + name) })),
       h('button', { class: 'win-btn close', 'aria-label': t('close'), onclick: () => window.electronAPI.closeSettings() }, icon('close', 16))),
     h('div', { class: 'welcome-dots' }, STEPS.map((_, i) => h('span', { class: i <= step ? 'on' : '' }))),

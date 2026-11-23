@@ -67,7 +67,8 @@ code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: .92em;
   -webkit-app-region: drag;
 }
 .titlebar button, .titlebar a, .titlebar .pill { -webkit-app-region: no-drag; }
-.brand { font-family: var(--font-num); font-weight: 600; font-size: 15px; letter-spacing: -.01em; }
+.brand { font-family: var(--font); font-weight: 800; font-size: 14px; letter-spacing: .04em; color: #fff; }
+.brand-accent { color: #5b9bff; }   /* as in HYPERATE.STUDIO */
 .version { font-size: 12px; color: var(--label); }
 .spacer { flex: 1; }
 .win-btn {
@@ -391,7 +392,7 @@ input[type="range"] { accent-color: var(--accent); }
 .welcome { height: 100%; display: flex; flex-direction: column; background: radial-gradient(80% 60% at 50% 0%, #141a3c 0%, var(--bg) 70%); }
 .welcome-top { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 12px 0 20px; -webkit-app-region: drag; }
 .welcome-top button { -webkit-app-region: no-drag; }
-.welcome-top .brand { font-weight: 600; }
+.welcome-top .brand { font-weight: 800; }
 .welcome-dots { display: flex; gap: 6px; padding: 0 20px; }
 .welcome-dots span { flex: 1; height: 4px; border-radius: 999px; background: rgba(255, 255, 255, .1); }
 .welcome-dots span.on { background: linear-gradient(90deg, #3b7bff, #5b9bff); }
