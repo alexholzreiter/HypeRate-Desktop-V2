@@ -361,6 +361,12 @@
           <label class="tog"><input type="checkbox" id="bleAutoReconnect" onchange="bleAutoReconnectToggle()" /><span class="ts"></span></label>
         </div>
 
+        <!-- Diagnostics for support -->
+        <div style="display:flex;align-items:center;gap:8px;padding:0 1px;">
+          <a href="#" onclick="bleCopyDiagnostics();return false;" style="font-size:11px;color:var(--accent3);text-decoration:none;" data-i18n="ble_copy_diag">Copy diagnostics</a>
+          <span id="bleDiagDone" hidden style="font-size:11px;color:var(--success);" data-i18n="ble_copied">Copied</span>
+        </div>
+
         <!-- Info text -->
         <div style="font-size:11px;color:var(--text-dim);line-height:1.6;background:var(--surface);border-radius:7px;padding:8px 10px;" data-i18n-html="ble_info_html">
           Connect any <strong>Bluetooth LE</strong> heart rate monitor directly —
@@ -902,6 +908,9 @@
       ble_idle:'Not connected', ble_scanning:'Scanning…', ble_connecting:'Connecting…',
       ble_reconnecting:'Reconnecting to {name}…', ble_connected:'Connected via Bluetooth',
       ble_disconnected:'Disconnected', ble_unavailable:'Bluetooth unavailable — is it turned on?',
+      ble_signal_lost:'No heart rate from {name} — is the strap on?',
+      ble_no_contact:'{name} has no skin contact — moisten the electrodes and check the fit',
+      ble_copy_diag:'Copy diagnostics', ble_copied:'Copied',
       // Discord
       discord_heading:'Discord Rich Presence', discord_toggle:'Show heart rate in Discord',
       discord_idle:'Not connected to Discord', discord_connected:'Connected to Discord',
@@ -997,6 +1006,9 @@
       ble_idle:'Nicht verbunden', ble_scanning:'Suche läuft…', ble_connecting:'Verbinde…',
       ble_reconnecting:'Verbinde erneut mit {name}…', ble_connected:'Per Bluetooth verbunden',
       ble_disconnected:'Getrennt', ble_unavailable:'Bluetooth nicht verfügbar — ist es eingeschaltet?',
+      ble_signal_lost:'Kein Puls von {name} — sitzt der Gurt richtig?',
+      ble_no_contact:'{name} hat keinen Hautkontakt — Elektroden befeuchten und Sitz prüfen',
+      ble_copy_diag:'Diagnose kopieren', ble_copied:'Kopiert',
       // Discord
       discord_heading:'Discord Rich Presence', discord_toggle:'Herzfrequenz in Discord anzeigen',
       discord_idle:'Nicht mit Discord verbunden', discord_connected:'Mit Discord verbunden',
@@ -1771,6 +1783,12 @@
       dot.classList.add('connecting');
       text.textContent = t('ble_reconnecting').replace('{name}', extra.name || 'device');
       connRow.style.display = 'none';
+    } else if (state === 'signal-lost' || state === 'no-contact') {
+      // Still connected, but no heart rate: gone quiet, or sending without skin contact
+      dot.classList.add('connecting');
+      text.textContent = t(state === 'no-contact' ? 'ble_no_contact' : 'ble_signal_lost').replace('{name}', extra.name || 'HR Monitor');
+      connRow.style.display = 'flex';
+      $('bleDeviceName').textContent = extra.name || 'HR Monitor';
     } else if (state === 'connected') {
       dot.classList.add('connected');
       text.textContent = t('ble_connected');
@@ -1844,6 +1862,12 @@
       <button class="btn" style="font-size:11px;padding:4px 9px;flex-shrink:0;" onclick="bleConnect('${id}','${safeName}')">Connect</button>`;
     list.appendChild(row);
   });
+
+  async function bleCopyDiagnostics() {
+    await window.electronAPI.bleCopyDiagnostics();
+    $('bleDiagDone').hidden = false;
+    setTimeout(() => { $('bleDiagDone').hidden = true; }, 2500);
+  }
 
   function bleConnect(id, name) {
     window.electronAPI.bleConnect(id, name);
@@ -2358,10 +2382,11 @@
     }
     if (saved.config) applyConfigToForm(saved.config);
     applyOscSettings(saved);
-    if (saved.bleAutoReconnect) {
-      $('bleAutoReconnect').checked = true;
-      window.electronAPI.bleSetAutoReconnect(true);
-    }
+    // On by default; only an explicit "off" turns it off
+    $('bleAutoReconnect').checked = saved.bleAutoReconnect !== false;
+    window.electronAPI.bleSetAutoReconnect($('bleAutoReconnect').checked);
+    // The app may already be reconnecting the remembered strap before this window loaded
+    window.electronAPI.bleGetState?.().then(s => { if (s?.state && s.state !== 'idle') setBleStatus(s.state, s); });
     if (saved.discordEnabled) {
       $('discordEnabled').checked = true;
       $('discordBody').style.display = 'flex';
