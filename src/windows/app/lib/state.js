@@ -23,6 +23,7 @@ const state = {
   mqtt: { state: null },
   mqttPassword: 'none',  // 'ok' | 'lost' | 'none': is a broker password stored and readable
   hyperaid: { state: 'off' },
+  sessions: { list: [], selected: null, detail: null, card: null, confirmDelete: false },
   overlayOpen: false,
 };
 
@@ -130,6 +131,8 @@ export async function start() {
   api.onMqttStatus(({ state: s, ...extra }) => { if (state.settings.mqttEnabled) state.mqtt = { state: s, ...extra }; changed(); });
   api.onMqttPasswordLost(() => { state.mqttPassword = 'lost'; changed(); });
   api.onHyperaidStatus((status) => { state.hyperaid = { ...state.hyperaid, ...status }; changed(); });
+  api.onSessionsChanged(() => sessions.refresh());
+  sessions.refresh();
 
   // The cloud connection, the game readers, Discord and MQTT are started by the window, as in
   // the previous one. HypeRaid and VRChat are run by the main process from the saved settings.
@@ -337,6 +340,62 @@ export const integrations = {
     changed();
     try { state.hyperaid = { ...state.hyperaid, ...await api.hyperaidInstall(), justInstalled: true }; }
     finally { state.hyperaid.busy = false; changed(); }
+  },
+};
+
+// ── Sessions: recorded heart rate with the game moments in it ──
+
+export const sessions = {
+  async refresh() {
+    const ss = state.sessions;
+    try { ss.list = (await api.sessionsList()) || []; } catch { ss.list = []; }
+    if (!ss.list.some(x => x.startedAt === ss.selected)) ss.selected = ss.list[0]?.startedAt ?? null;
+    await sessions.loadDetail();
+  },
+  async select(startedAt) {
+    state.sessions.selected = startedAt;
+    state.sessions.card = null;
+    changed();
+    await sessions.loadDetail();
+  },
+  async loadDetail() {
+    const ss = state.sessions;
+    const wanted = ss.selected;
+    let detail = null;
+    if (wanted != null) { try { detail = await api.sessionsRead(wanted); } catch {} }
+    if (ss.selected !== wanted) return;    // another one was picked meanwhile
+    ss.detail = detail;
+    changed();
+  },
+  options: () => ({
+    sessionsEnabled: !!state.settings.sessionsEnabled,
+    sessionsEndAfterMin: Number(state.settings.sessionsEndAfterMin) || 5,
+    sessionsMinLengthMin: Number(state.settings.sessionsMinLengthMin) || 3,
+    sessionsKeepDays: Number(state.settings.sessionsKeepDays) || 90,
+  }),
+  save(patch) {
+    Object.assign(state.settings, patch);
+    api.sessionsSetOptions(sessions.options());
+    changed();
+  },
+  // Two steps instead of a system dialog: the first click asks, the second deletes
+  async deleteAll() {
+    if (!state.sessions.confirmDelete) {
+      state.sessions.confirmDelete = true;
+      changed();
+      setTimeout(() => { state.sessions.confirmDelete = false; changed(); }, 5000);
+      return;
+    }
+    state.sessions.confirmDelete = false;
+    await api.sessionsDelete();
+    await sessions.refresh();
+  },
+  async makeCard(startedAt) {
+    state.sessions.card = { startedAt, state: 'working' };
+    changed();
+    const saved = await api.sessionsCard(startedAt).catch(() => null);
+    state.sessions.card = { startedAt, state: saved ? 'saved' : 'failed' };
+    changed();
   },
 };
 

@@ -332,6 +332,29 @@ input[type="range"] { accent-color: var(--accent); }
 .osc-field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .osc-field .field { width: 100%; box-sizing: border-box; }
 
+/* ── Sessions ── */
+.sess-layout { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+.sess-list { flex: 1 1 280px; max-width: 380px; padding: 8px; display: flex; flex-direction: column; gap: 2px; max-height: 560px; overflow-y: auto; }
+.sess-detail { flex: 2 1 420px; min-width: 0; }
+.sess-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 0; border-radius: 11px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.sess-row:hover { background: #151831; }
+.sess-row.on { background: #18214a; box-shadow: inset 0 0 0 1px rgba(127, 176, 255, .3); }
+.sess-row .dot.live { margin: 0 11px; }
+.sess-game { width: 32px; height: 32px; flex: none; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-family: var(--font-num); font-size: 10px; font-weight: 700; color: #fff; background: #222645; }
+.sess-game.wow { background: linear-gradient(160deg, #b8893a, #6b4a14); }
+.sess-game.lol { background: linear-gradient(160deg, #17a3b0, #0b5560); }
+.sess-peak { font-size: 13px; color: #ffb3a0; }
+.sess-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.sess-stats p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sess-wait { display: flex; align-items: center; justify-content: center; color: var(--label); font-size: 13px; }
+.sess-moment { display: flex; align-items: baseline; gap: 10px; font-size: 13px; padding: 6px 0; box-shadow: inset 0 -1px 0 var(--line); }
+.sess-moment .num { flex: none; min-width: 52px; }
+.sess-moment .mark { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--accent-text); transform: translateY(-1px); }
+.sess-moment .mark.good { background: var(--ok); }
+.sess-moment .mark.bad { background: var(--bad); }
+.sess-moment .mark.warn { background: var(--warn); }
+.btn.danger { background: rgba(240, 82, 82, .14); color: var(--bad-text); box-shadow: inset 0 0 0 1px rgba(240, 82, 82, .4); }
+
 /* ── Placeholder pages ── */
 .todo { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
 

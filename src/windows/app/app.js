@@ -8,6 +8,7 @@ import * as source from './pages/source.js';
 import * as overlay from './pages/overlay.js';
 import * as gamesPage from './pages/games.js';
 import * as integrations from './pages/integrations.js';
+import * as sessionsPage from './pages/sessions.js';
 import { placeholder } from './pages/placeholder.js';
 
 const api = window.electronAPI;
@@ -15,7 +16,7 @@ const api = window.electronAPI;
 const NAV = [
   { group: 'nav_overview' },
   { id: 'live', icon: 'live', label: 'nav_live', page: live },
-  { id: 'sessions', icon: 'sessions', label: 'nav_sessions', page: placeholder('sessions', 'nav_sessions') },
+  { id: 'sessions', icon: 'sessions', label: 'nav_sessions', page: sessionsPage },
   { group: 'nav_setup' },
   { id: 'overlay', icon: 'overlay', label: 'nav_overlay', page: overlay },
   { id: 'source', icon: 'source', label: 'nav_source', page: source },

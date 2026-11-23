@@ -1127,6 +1127,8 @@ sessions.setOptions(sessionOptions());
 
 ipcMain.handle('sessions-list',   () => sessions.list());
 ipcMain.handle('sessions-delete', () => { sessions.deleteAll(); return true; });
+// One whole session for the detail view: the curve and its moments
+ipcMain.handle('sessions-read', (_, startedAt) => sessions.read(Number(startedAt)));
 // Rendering the card needs the icon and the headline font as siblings of the html file,
 // because a file:// page may not reach across directories for a font. They are copied into
 // userData once and reused.
