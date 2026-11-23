@@ -383,8 +383,11 @@ input[type="range"] { accent-color: var(--accent); }
 .osc-field .field { width: 100%; box-sizing: border-box; }
 
 /* ── Sessions ── */
-.sess-layout { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
-.sess-list { flex: 1 1 280px; max-width: 380px; padding: 8px; display: flex; flex-direction: column; gap: 2px; max-height: 560px; overflow-y: auto; }
+.sess-layout { display: flex; flex-wrap: wrap; gap: 18px; align-items: stretch; }
+/* As tall as the session card beside it: the rows sit in an absolutely placed scroller, so they
+   never push the row taller; stacked on a narrow window it keeps a height of its own */
+.sess-list { flex: 1 1 280px; max-width: 380px; padding: 0; min-height: 320px; overflow: hidden; }
+.sess-list-scroll { position: absolute; inset: 0; padding: 8px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
 .sess-detail { flex: 2 1 420px; min-width: 0; }
 .sess-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 0; border-radius: 11px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .sess-row:hover { background: #151831; }

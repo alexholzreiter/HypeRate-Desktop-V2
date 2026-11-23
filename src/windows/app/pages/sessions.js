@@ -30,7 +30,8 @@ function empty(on) {
 // ── The list ──
 function list(s) {
   const ss = s.sessions;
-  return h('div', { class: 'card sess-list', role: 'list' },
+  // The card takes the height of the session card next to it; the rows scroll inside
+  return h('div', { class: 'card sess-list' }, h('div', { class: 'sess-list-scroll', role: 'list' },
     ss.list.slice(0, 50).map(x => h('button', {
       class: 'sess-row' + (x.startedAt === ss.selected ? ' on' : '') + (x.live ? ' live' : ''), role: 'listitem',
       'aria-current': x.startedAt === ss.selected ? 'true' : null,
@@ -41,7 +42,7 @@ function list(s) {
         h('p', { style: { margin: 0, fontWeight: 600 } }, x.live ? t('sessions_live') : when(x.startedAt, s.lang)),
         h('p', { class: 'small muted', style: { margin: '2px 0 0' } },
           duration(x.minutes) + ' · Ø ' + x.avg + (x.events ? ' · ' + x.events + ' ' + t(x.events === 1 ? 'sessions_moment' : 'sessions_moments') : ''))),
-      h('span', { class: 'num sess-peak' }, '▲' + x.peak))));
+      h('span', { class: 'num sess-peak' }, '▲' + x.peak)))));
 }
 
 // ── One session ──
@@ -125,7 +126,9 @@ function curve(d) {
   const lines = [];
   let run = [];
   for (let k = 0; k < pts.length; k++) {
-    if (k && pts[k].i - pts[k - 1].i > GAP_S) { lines.push(run); run = []; }
+    // Neighbouring points are `step` seconds apart in a long session (one point per bucket);
+    // only what is missing beyond that counts as a gap
+    if (k && pts[k].i - pts[k - 1].i - step > GAP_S) { lines.push(run); run = []; }
     run.push(`${x(pts[k].i).toFixed(1)},${y(pts[k].v).toFixed(1)}`);
   }
   lines.push(run);
