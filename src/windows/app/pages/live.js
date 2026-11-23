@@ -75,7 +75,7 @@ function span(s) {
 
 function axis(s) {
   const { from, full } = span(s);
-  const since = new Date(from).toLocaleTimeString(s.lang === 'de' ? 'de-DE' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
+  const since = new Date(from).toLocaleTimeString(window.HR_LANGUAGES.localeFor(s.lang), { hour: '2-digit', minute: '2-digit' });
   return h('div', { class: 'row between', style: { fontSize: '11px', color: 'var(--label)' } },
     full ? [h('span', {}, t('ago_10')), h('span', {}, t('ago_5'))] : h('span', {}, t('since', { time: since })),
     h('span', {}, t('now')));

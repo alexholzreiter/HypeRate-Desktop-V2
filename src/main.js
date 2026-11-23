@@ -28,12 +28,17 @@ const sessions = require('./sessions');
 const sessionCard = require('./session-card');
 const systemFonts = require('./system-fonts');
 const customAssets = require('./custom-assets');
+const LANGS = require('./i18n/languages');
 const usageStats = require('./usage-stats');
 const { fetchLatestRelease } = require('./desktop-update');
 const { fitOverlay, restoreOverlayPlacement, overlayPlacementPreferences } = require('./overlay-placement');
 const crypto = require('crypto');
 
-const HYPERATE_PUSH_URL = 'https://push.hyperate.io';
+const { createInApp } = require('./in-app');
+
+// A development run can point at a local stand-in (HYPERATE_PUSH_URL=http://localhost:…); a
+// packaged app always talks to the real service.
+const HYPERATE_PUSH_URL = (!app.isPackaged && process.env.HYPERATE_PUSH_URL) || 'https://push.hyperate.io';
 const DESKTOP_PUSH_INTERVAL_MS = 30000;
 
 let desktopPushTimer = null;
@@ -244,6 +249,7 @@ async function pollDesktopPush() {
     }
 
     const result = await response.json();
+    noteInAppRevision(result.inAppRevision);
 
     const messages = result.messages || [];
 
@@ -275,8 +281,60 @@ function startDesktopPush() {
 
   powerMonitor.on('resume', () => {
     pollDesktopPush();
+    refreshInApp();
   });
+
+  // In-app messages: once the installation is registered, then every few hours
+  setTimeout(refreshInApp, 3000);
+  setInterval(refreshInApp, IN_APP_INTERVAL_MS);
 }
+
+// ── In-app messages (see in-app.js) ──────────────────────────────────────────
+// In the background every 15 minutes; when the window opens at most every 2 minutes; and right
+// away when the 30-second push poll reports that the in-app messages changed (inAppRevision).
+const IN_APP_INTERVAL_MS = 15 * 60 * 1000;
+const IN_APP_ON_OPEN_MS = 2 * 60 * 1000;
+const inApp = createInApp({ baseUrl: HYPERATE_PUSH_URL, credentials: () => getDesktopPushCredentials() });
+let inAppMessage = null;      // the one to show now, or null
+let inAppFetchedAt = 0;
+const inAppDone = new Set();  // clicked or dismissed in this run: not shown again until restart
+
+async function refreshInApp() {
+  try {
+    const message = await inApp.fetchMessage();
+    inAppFetchedAt = Date.now();
+    inAppMessage = message && !inAppDone.has(message.id) ? message : null;
+    sendToSettings('inapp-message', inAppMessage);
+  } catch (error) {
+    console.error('[In-app] fetch failed:', error.message);
+  }
+}
+
+ipcMain.handle('inapp-get', async () => {
+  if (Date.now() - inAppFetchedAt > IN_APP_ON_OPEN_MS) await refreshInApp();
+  return inAppMessage;
+});
+// The window coming forward is when a message can be read, so ask then (throttled)
+function inAppOnShow() {
+  if (Date.now() - inAppFetchedAt > IN_APP_ON_OPEN_MS) refreshInApp();
+}
+// The push poll carries a revision of the in-app messages; a new one means: fetch now
+let inAppRevision = null;
+function noteInAppRevision(revision) {
+  if (typeof revision !== 'string' || !revision) return;   // an older server sends none
+  if (inAppRevision !== null && revision !== inAppRevision) refreshInApp();
+  inAppRevision = revision;
+}
+ipcMain.handle('inapp-event', async (_, id, event) => {
+  if (event === 'click' || event === 'dismiss') {
+    inAppDone.add(id);
+    if (inAppMessage?.id === id) inAppMessage = null;
+  }
+  try { return await inApp.report(String(id), String(event)); } catch { return false; }
+});
+ipcMain.handle('inapp-vote', async (_, id, optionId) => {
+  try { return await inApp.vote(String(id), String(optionId)); } catch { return null; }
+});
 
 // ── OSC ──────────────────────────────────────────────────────────────────────
 // Pure Node.js UDP — no extra npm package needed.
@@ -596,6 +654,10 @@ function createSettingsWindow() {
 
   settingsWindow.loadFile(path.join(__dirname, kind.file));
 
+  // Coming forward is when an in-app message can be read: ask for one (throttled)
+  settingsWindow.on('show', () => inAppOnShow());
+  settingsWindow.on('focus', () => inAppOnShow());
+
   // Hide to tray instead of quitting when the window is closed
   settingsWindow.on('close', (e) => {
     if (!app.isQuitting) {
@@ -608,7 +670,9 @@ function createSettingsWindow() {
 // ── Tray / Menu-bar icon ──
 // Texts live in src/i18n/*.json; a key missing in a language falls back to English.
 const STRINGS = require('./i18n/strings');
-function tl(key) { const lang = loadStore().lang || 'en'; return STRINGS[lang]?.tray?.[key] ?? STRINGS.en.tray[key]; }
+// The saved language, or the system's on a first start
+function appLang() { return LANGS.resolve(loadStore().lang, app.getLocale()); }
+function tl(key) { return STRINGS[appLang()]?.tray?.[key] ?? STRINGS.en.tray[key]; }
 
 function buildMenu() {
   return Menu.buildFromTemplate([
@@ -1263,7 +1327,7 @@ function cardAssets() {
 // saving it and copying it do not render three times.
 let lastCard = null;   // { startedAt, image }
 async function renderCard(startedAt) {
-  const lang = loadStore().lang || 'en';
+  const lang = appLang();
   // reused for a minute: long enough for show, save and copy, short enough not to go stale
   if (lastCard?.startedAt === startedAt && lastCard.lang === lang && Date.now() - lastCard.at < 60000) return lastCard.image;
   const session = sessions.read(startedAt);

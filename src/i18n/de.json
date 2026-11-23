@@ -583,6 +583,12 @@
     "sess_share_alt": "Bild der Sitzung zum Teilen",
     "sess_copy": "Kopieren",
     "sess_save": "In „Bilder\" speichern",
-    "sess_copied": "Kopiert. Füg es in Discord, X oder sonst wo ein."
+    "sess_copied": "Kopiert. Füg es in Discord, X oder sonst wo ein.",
+    "inapp_ok": "OK",
+    "inapp_later": "Später",
+    "inapp_done": "Fertig",
+    "inapp_voting": "Wird gesendet…",
+    "inapp_vote_failed": "Deine Stimme konnte nicht gesendet werden. Versuch es später noch einmal.",
+    "inapp_votes": "Bisher {n} Stimmen"
   }
 }

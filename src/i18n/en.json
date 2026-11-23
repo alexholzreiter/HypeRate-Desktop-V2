@@ -583,6 +583,12 @@
     "sess_share_alt": "Share image of the session",
     "sess_copy": "Copy",
     "sess_save": "Save to Pictures",
-    "sess_copied": "Copied. Paste it into Discord, X or anywhere."
+    "sess_copied": "Copied. Paste it into Discord, X or anywhere.",
+    "inapp_ok": "OK",
+    "inapp_later": "Later",
+    "inapp_done": "Done",
+    "inapp_voting": "Sending…",
+    "inapp_vote_failed": "Your vote could not be sent. Try again later.",
+    "inapp_votes": "{n} votes so far"
   }
 }

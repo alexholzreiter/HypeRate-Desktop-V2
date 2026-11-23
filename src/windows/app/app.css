@@ -426,3 +426,15 @@ input[type="range"] { accent-color: var(--accent); }
 .modal { width: min(1000px, 100%); max-height: 100%; overflow: auto; gap: 18px; box-shadow: 0 30px 80px rgba(0, 0, 0, .6), inset 0 0 0 1px rgba(255, 255, 255, .08); }
 .share-frame { aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #0b0c1a; box-shadow: inset 0 0 0 1px var(--line-strong); }
 .share-frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* ── In-app messages ── */
+.inapp { width: min(520px, 100%); position: relative; gap: 14px; }
+.inapp-close { position: absolute; top: 12px; right: 12px; }
+.inapp-image { width: calc(100% + 44px); margin: -22px -22px 4px; max-height: 260px; object-fit: cover; border-radius: var(--radius) var(--radius) 0 0; display: block; }
+.inapp-title { font-size: 22px; margin: 0; padding-right: 32px; }
+.inapp-body { margin: 0; color: var(--text-2); line-height: 1.6; white-space: pre-line; }
+.inapp-option { justify-content: flex-start; width: 100%; }
+.inapp-result { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; overflow: hidden; background: var(--field); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.inapp-result > * { position: relative; }
+.inapp-result.mine { box-shadow: inset 0 0 0 1.5px #5b8dff; }
+.inapp-bar { position: absolute; inset: 0 auto 0 0; background: rgba(59, 123, 255, .22); }

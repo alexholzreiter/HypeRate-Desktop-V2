@@ -172,7 +172,7 @@ function settings(s, on) {
 }
 
 // ── Formatting ──
-const locale = lang => (lang === 'de' ? 'de-DE' : 'en-GB');
+const locale = lang => window.HR_LANGUAGES.localeFor(lang);
 const time = ms => new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
 function when(ms, lang) {

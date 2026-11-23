@@ -27,6 +27,7 @@ const proSprache = (wert) => Object.fromEntries(Object.entries(STRINGS).map(([sp
 
 const OHNE_SPIEL = { name: proSprache((t) => t.plainSessionName), akzent: '#6f9dff', glanz: 'rgba(90,140,235,.14)' };
 
+const LANGS = require('./i18n/languages');
 const TEXTE = proSprache((t) => t);
 
 // Der Verlauf der Schlagzeile war fest auf Gold gerechnet und wurde mit jeder anderen
@@ -39,7 +40,7 @@ const mische = (hex, mit, anteil) => {
 
 function bauen(sitzung, sprache = 'de', mittel = {}) {
   const t = TEXTE[sprache] || TEXTE.en;
-  const loc = sprache === 'de' ? 'de-DE' : 'en-GB';
+  const loc = LANGS.localeFor(sprache);
   const spiel = SPIELE[sitzung.game] || OHNE_SPIEL;
   const mitSpiel = !!SPIELE[sitzung.game] && sitzung.events.length > 0;
 

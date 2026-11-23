@@ -8,7 +8,6 @@ import { setLang, app } from '../lib/state.js';
 
 export const id = 'settings';
 
-const LANGS = [['en', 'English'], ['de', 'Deutsch']];
 const FEEDBACK_URL = 'https://feedback.hyperate.io/form/iHnGf9vp';
 const NEWS_URL = 'https://blog.hyperate.io/tags/news/';
 
@@ -19,8 +18,8 @@ export function render(s) {
     h('div', { class: 'split' },
       h('div', { class: 'card stack' },
         h('p', { class: 'label' }, t('set_general')),
-        row(t('set_language'), h('div', { class: 'tabs', role: 'radiogroup', 'aria-label': t('set_language') },
-          LANGS.map(([code, name]) => h('button', { class: 'tab' + (s.lang === code ? ' on' : ''), role: 'radio', 'aria-checked': String(s.lang === code), onclick: () => setLang(code) }, name)))),
+        row(t('set_language'), h('select', { class: 'field select', style: { flex: '0 1 220px' }, 'aria-label': t('set_language'), onchange: e => setLang(e.target.value) },
+          window.HR_LANGUAGES.LANGUAGES.map(l => h('option', { value: l.code, selected: s.lang === l.code ? true : null }, l.name)))),
         row(t('set_autostart'), s.autostart == null ? null : toggle(s.autostart, v => app.setAutostart(v), t('set_autostart'))),
         dockRow(s),
         h('hr', { class: 'divider' }),
@@ -65,7 +64,7 @@ function updates(s) {
 }
 
 function news(s) {
-  const lang = s.lang === 'de' ? 'de-DE' : 'en-GB';
+  const lang = window.HR_LANGUAGES.localeFor(s.lang);
   const items = Array.isArray(s.news) ? s.news : [];
   return h('div', { class: 'card stack' },
     h('div', { class: 'row between' }, h('p', { class: 'label' }, t('set_news')),

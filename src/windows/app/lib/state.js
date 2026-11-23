@@ -27,6 +27,7 @@ const state = {
   autostart: null,      // null until asked
   update: { state: 'idle' },   // 'idle' | 'checking' | 'current' | 'available' | 'error'
   news: null,           // null = not loaded, [] = none, or [{ title, url, date }]
+  inApp: { message: null, results: null, voting: false },   // announcement or poll from HypeRate
   overlayOpen: false,
 };
 
@@ -87,8 +88,8 @@ function trim(now) {
 
 export async function start() {
   state.settings = await api.loadSettings();
-  state.lang = state.settings.lang === 'de' ? 'de' : (state.settings.lang || (navigator.language || 'en').slice(0, 2));
-  if (!['en', 'de'].includes(state.lang)) state.lang = 'en';
+  // The saved choice, or the system language on a first start
+  state.lang = window.HR_LANGUAGES.resolve(state.settings.lang, navigator.language);
 
   api.onBpmUpdate(({ bpm, source }) => {
     const now = Date.now();
@@ -139,6 +140,8 @@ export async function start() {
   api.onMqttStatus(({ state: s, ...extra }) => { if (state.settings.mqttEnabled) state.mqtt = { state: s, ...extra }; changed(); });
   api.onMqttPasswordLost(() => { state.mqttPassword = 'lost'; changed(); });
   api.onHyperaidStatus((status) => { state.hyperaid = { ...state.hyperaid, ...status }; changed(); });
+  api.onInAppMessage?.(m => inApp.receive(m));
+  api.inAppGet?.().then(m => inApp.receive(m)).catch(() => {});
   api.onSessionsChanged(() => sessions.refresh());
   sessions.refresh();
   // The main process keeps checking while this window is closed and tells it here
@@ -468,6 +471,45 @@ export function setSidebarCollapsed(on) {
   api.saveSettings({ sidebarCollapsed: on });
   changed();
 }
+
+// ── In-app messages from HypeRate (see src/in-app.js) ──
+const shownInApp = new Set();   // impression reported in this run
+export const inApp = {
+  receive(message) {
+    const cur = state.inApp;
+    if (cur.message?.id === message?.id && cur.results) return;   // keep the results of a vote on screen
+    state.inApp = { message: message || null, results: null, voting: false };
+    changed();
+  },
+  // Called when the dialog is on screen; tells the server once per run
+  shown(id) {
+    if (shownInApp.has(id)) return;
+    shownInApp.add(id);
+    api.inAppEvent(id, 'impression');
+  },
+  dismiss() {
+    const m = state.inApp.message;
+    if (m && !state.inApp.results) api.inAppEvent(m.id, 'dismiss');
+    state.inApp = { message: null, results: null, voting: false };
+    changed();
+  },
+  open() {
+    const m = state.inApp.message;
+    if (!m) return;
+    api.inAppEvent(m.id, 'click');
+    if (m.link) api.openExternal(m.link);
+    state.inApp = { message: null, results: null, voting: false };
+    changed();
+  },
+  async vote(optionId) {
+    const m = state.inApp.message;
+    if (!m || state.inApp.voting) return;
+    state.inApp.voting = optionId; changed();
+    const results = await api.inAppVote(m.id, optionId).catch(() => null);
+    state.inApp = { message: m, results: results || { failed: true }, voting: false, voted: optionId };
+    changed();
+  },
+};
 
 // The first-start wizard is done (or skipped): never show it again
 export function finishWelcome() {

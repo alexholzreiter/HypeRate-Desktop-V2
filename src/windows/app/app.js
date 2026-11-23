@@ -11,6 +11,7 @@ import * as integrations from './pages/integrations.js';
 import * as sessionsPage from './pages/sessions.js';
 import * as settingsPage from './pages/settings.js';
 import * as welcome from './pages/welcome.js';
+import * as inAppDialog from './pages/inapp.js';
 import { setKnownHearts } from './lib/overlay-config.js';
 
 const api = window.electronAPI;
@@ -124,7 +125,8 @@ function render() {
   }
   update(defs(), h('div', { class: 'app' },
     titlebar(s),
-    h('div', { class: 'body' }, sidebar(s), h('main', { class: 'content' }, item.page.render(s, go)))));
+    h('div', { class: 'body' }, sidebar(s), h('main', { class: 'content' }, item.page.render(s, go))),
+    inAppDialog.render(s)));
 }
 
 // The screen is patched, not rebuilt: see morph() in lib/dom.js
