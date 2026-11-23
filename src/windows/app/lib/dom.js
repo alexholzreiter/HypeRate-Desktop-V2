@@ -12,12 +12,59 @@ export function h(tag, props = {}, ...children) {
     if (value === undefined || value === null || value === false) continue;
     if (key === 'class') el.className = value;
     else if (key === 'style' && typeof value === 'object') Object.assign(el.style, value);
-    else if (key.startsWith('on') && typeof value === 'function') el.addEventListener(key.slice(2), value);
+    else if (key.startsWith('on') && typeof value === 'function') listen(el, key.slice(2), value);
     else if (key === 'dataset') Object.assign(el.dataset, value);
     else el.setAttribute(key, value === true ? '' : value);
   }
   append(el, children);
   return el;
+}
+
+// Handlers live in a table on the element behind one listener per event type, so morph() can
+// hand an existing element the handlers of its freshly rendered twin.
+function dispatch(e) { e.currentTarget.__on?.[e.type]?.(e); }
+function listen(el, type, fn) {
+  if (!el.__on) el.__on = {};
+  if (!(type in el.__on)) el.addEventListener(type, dispatch);
+  el.__on[type] = fn;
+}
+
+// Brings `live` (what is on screen) to look like `next` (a fresh render) and keeps every element
+// that is still the same kind. Rebuilding everything once a second, with each heart rate, made
+// clicks get lost (mouse down on one button, up on its replacement) and restarted every
+// animation, which showed as a faint flicker in time with the pulse.
+export function morph(live, next) {
+  if (live.nodeType !== next.nodeType || live.nodeName !== next.nodeName || live.namespaceURI !== next.namespaceURI) {
+    live.replaceWith(next);
+    return next;
+  }
+  if (live.nodeType === Node.TEXT_NODE || live.nodeType === Node.COMMENT_NODE) {
+    if (live.nodeValue !== next.nodeValue) live.nodeValue = next.nodeValue;
+    return live;
+  }
+  if (live.nodeType === Node.ELEMENT_NODE) {
+    syncAttributes(live, next);
+    // handlers: the fresh render's closures see the current state
+    if (live.__on) for (const type of Object.keys(live.__on)) if (!next.__on || !(type in next.__on)) live.__on[type] = undefined;
+    if (next.__on) for (const [type, fn] of Object.entries(next.__on)) listen(live, type, fn);
+  }
+  const a = [...live.childNodes], b = [...next.childNodes];
+  for (let i = 0; i < b.length; i++) {
+    if (i < a.length) morph(a[i], b[i]);
+    else live.appendChild(b[i]);
+  }
+  for (let i = b.length; i < a.length; i++) a[i].remove();
+  return live;
+}
+
+function syncAttributes(live, next) {
+  for (const { name } of [...live.attributes]) if (!next.hasAttribute(name)) live.removeAttribute(name);
+  for (const { name, value } of [...next.attributes]) if (live.getAttribute(name) !== value) live.setAttribute(name, value);
+  // Form state lives in properties; leave a field alone while someone is in it
+  if (live === document.activeElement) return;
+  if ('value' in next && live.tagName !== 'OPTION' && live.tagName !== 'BUTTON' && live.value !== next.value) live.value = next.value;
+  if ('checked' in next && live.checked !== next.checked) live.checked = next.checked;
+  if (live.tagName === 'OPTION' && live.selected !== next.hasAttribute('selected')) live.selected = next.hasAttribute('selected');
 }
 
 function append(el, children) {
@@ -52,6 +99,8 @@ const ICONS = {
   integrations: 'M3.5 3.5h7v7h-7zM13.5 3.5h7v7h-7zM3.5 13.5h7v7h-7zM13.5 13.5h7v7h-7z',
   settings: 'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M16 4v4M10 10v4M18 16v4',
   cloud: 'M7 18a5 5 0 1 1 1-9.9A6 6 0 0 1 19.5 10 4 4 0 0 1 18 18H7z',
+  collapse: 'M4 5h16v14H4zM9 5v14M15.5 10l-2 2 2 2',
+  expand: 'M4 5h16v14H4zM9 5v14M13.5 10l2 2-2 2',
   minimize: 'M5 12h14',
   close: 'M6 6l12 12M18 6L6 18',
 };
