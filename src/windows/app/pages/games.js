@@ -4,6 +4,7 @@
 import { h, html } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
 import { games, WOW_CARDS, LOL_CARDS } from '../lib/state.js';
+import { open as openIntegration } from './integrations.js';
 
 export const id = 'games';
 
@@ -122,7 +123,7 @@ function gamePage(s, key, go) {
         key === 'wow' ? wowFolder(s) : h('p', { class: 'small muted', style: { margin: 0 } }, html(t('lol_how_html'))),
         key === 'wow' ? h('a', { class: 'small', onclick: () => games.diagnostics() }, t('wow_diagnostics')) : null)),
 
-    key === 'wow' ? h('button', { class: 'card hint-link', onclick: () => go('integrations') },
+    key === 'wow' ? h('button', { class: 'card hint-link', onclick: () => { openIntegration('hyperaid'); go('integrations'); } },
       h('span', { class: 'game-mono small-mono' }, 'HR'),
       h('span', { style: { flex: 1 } }, h('b', { style: { display: 'block' } }, t('hyperaid_q')), h('span', { class: 'small muted' }, t('hyperaid_where'))),
       h('span', { class: 'small', style: { color: 'var(--accent-text)', fontWeight: 600 } }, t('open') + ' →')) : null);

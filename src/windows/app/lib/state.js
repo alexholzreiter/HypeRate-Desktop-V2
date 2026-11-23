@@ -19,6 +19,10 @@ const state = {
   cloud: { status: 'idle' },
   wow: { state: null },
   lol: { state: null },
+  discord: { state: null },
+  mqtt: { state: null },
+  mqttPassword: 'none',  // 'ok' | 'lost' | 'none': is a broker password stored and readable
+  hyperaid: { state: 'off' },
   overlayOpen: false,
 };
 
@@ -122,11 +126,20 @@ export async function start() {
   api.onWowStatus(({ state: s, ...extra }) => { state.wow = { state: s, ...extra }; changed(); });
   api.onLolStatus(({ state: s, ...extra }) => { state.lol = { state: s, ...extra }; changed(); });
   api.onOverlayState(({ open }) => { state.overlayOpen = !!open; changed(); });
+  api.onDiscordStatus(({ state: s, reason }) => { if (state.settings.discordEnabled) state.discord = { state: s, reason }; changed(); });
+  api.onMqttStatus(({ state: s, ...extra }) => { if (state.settings.mqttEnabled) state.mqtt = { state: s, ...extra }; changed(); });
+  api.onMqttPasswordLost(() => { state.mqttPassword = 'lost'; changed(); });
+  api.onHyperaidStatus((status) => { state.hyperaid = { ...state.hyperaid, ...status }; changed(); });
 
-  // The cloud connection and the game readers are started by the window, as in the previous one
+  // The cloud connection, the game readers, Discord and MQTT are started by the window, as in
+  // the previous one. HypeRaid and VRChat are run by the main process from the saved settings.
   if (state.settings.cloudAutoConnect && state.settings.hrId) cloud.connect(state.settings.hrId);
   if (state.settings.wowEnabled) api.wowEnable(games.wowOptions());
   if (state.settings.lolEnabled) api.lolEnable(games.lolOptions());
+  if (state.settings.discordEnabled) api.discordEnable();
+  state.mqttPassword = (await api.mqttHasPassword?.()) || 'none';
+  if (state.settings.mqttEnabled) api.mqttEnable(integrations.mqttOptions());
+  try { state.hyperaid = await api.hyperaidStatus(); } catch {}
   changed();
 }
 
@@ -237,6 +250,94 @@ export const games = {
     setTimeout(send, 1200);
   },
   diagnostics: () => api.wowShowDiagnostics(),
+};
+
+// ── Integrations: other apps that get the heart rate ──
+
+const OSC_KEYS = ['oscEnabled', 'oscHost', 'oscPort', 'oscChatbox', 'oscChatboxFormat',
+  'oscNormalizedEnabled', 'oscNormalizedParam', 'oscMinBpm', 'oscMaxBpm',
+  'oscRawEnabled', 'oscRawParam', 'oscRawType', 'oscBoolEnabled', 'oscBoolParam', 'oscBoolValue', 'oscLegacyEnabled'];
+const OSC_DEFAULTS = { oscHost: '127.0.0.1', oscPort: 9000, oscChatboxFormat: '♥ {bpm} BPM', oscRawParam: 'HR', oscRawType: 'i',
+  oscNormalizedParam: 'VRCOSC/Heartrate/Normalised', oscMinBpm: 0, oscMaxBpm: 240, oscBoolParam: 'HRActive', oscBoolValue: true };
+
+let oscRevision = 0;
+
+export const integrations = {
+  // Discord
+  setDiscord(on) {
+    state.settings.discordEnabled = on;
+    api.saveSettings({ discordEnabled: on });
+    if (on) api.discordEnable();
+    else { api.discordDisable(); state.discord = { state: null }; }   // disconnecting reports nothing
+    changed();
+  },
+
+  // VRChat OSC: the main process checks the whole set and keeps the old one when it is invalid
+  osc: () => Object.fromEntries(OSC_KEYS.map(k => [k, state.settings[k] ?? OSC_DEFAULTS[k] ?? false])),
+  oscSave: { state: null },
+  async saveOsc(patch) {
+    Object.assign(state.settings, patch);
+    const revision = ++oscRevision;
+    integrations.oscSave = { state: 'saving' };
+    changed();
+    let result;
+    try { result = await api.saveOscSettings(integrations.osc()); } catch (e) { result = { ok: false, error: e.message }; }
+    if (revision !== oscRevision) return;
+    integrations.oscSave = result.ok ? { state: 'saved' } : { state: 'error', error: result.error };
+    changed();
+  },
+  testOsc: () => api.testOsc(integrations.osc()),
+
+  // Home Assistant over MQTT. The password never comes back from the main process; leaving the
+  // field alone keeps the stored one.
+  mqttOptions(password) {
+    const s = state.settings;
+    return {
+      host: s.mqttHost || '', port: Number(s.mqttPort) || 1883, username: s.mqttUser || '',
+      password: password || undefined, tls: !!s.mqttTls, baseTopic: s.mqttBaseTopic || 'hyperate',
+      discovery: s.mqttDiscovery !== false, events: s.mqttEvents !== false,
+    };
+  },
+  saveMqtt(patch, password) {
+    Object.assign(state.settings, patch);
+    const s = state.settings;
+    api.saveSettings({
+      mqttEnabled: !!s.mqttEnabled, mqttHost: s.mqttHost || '', mqttPort: Number(s.mqttPort) || 1883,
+      mqttUser: s.mqttUser || '', mqttTls: !!s.mqttTls, mqttBaseTopic: s.mqttBaseTopic || 'hyperate',
+      mqttDiscovery: s.mqttDiscovery !== false, mqttEvents: s.mqttEvents !== false,
+    });
+    if (password) state.mqttPassword = 'ok';
+    if (s.mqttEnabled) api.mqttSetOptions(integrations.mqttOptions(password));
+    changed();
+  },
+  setMqtt(on) {
+    state.settings.mqttEnabled = on;
+    integrations.saveMqtt({});
+    if (on) api.mqttEnable(integrations.mqttOptions());
+    else { api.mqttDisable(); state.mqtt = { state: null }; }
+    changed();
+  },
+  testMqtt: () => api.mqttTest(),
+
+  // HypeRaid: the WoW addon that shows the heart rate in the game
+  async configureHyperaid(patch) {
+    Object.assign(state.settings, patch);
+    if (state.settings.hyperaidEnabled && !state.settings.hyperaidFolder) {
+      state.settings.hyperaidFolder = state.settings.wowPath || await api.wowDefaultPath();
+    }
+    state.hyperaid = { ...state.hyperaid, ...await api.hyperaidConfigure({ enabled: !!state.settings.hyperaidEnabled, folder: state.settings.hyperaidFolder || '' }) };
+    changed();
+  },
+  async pickHyperaidFolder() {
+    const p = await api.wowPickFolder(state.settings.hyperaidFolder || state.settings.wowPath || '');
+    if (p) await integrations.configureHyperaid({ hyperaidFolder: p });
+  },
+  async installHyperaid() {
+    state.hyperaid = { ...state.hyperaid, busy: true };
+    changed();
+    try { state.hyperaid = { ...state.hyperaid, ...await api.hyperaidInstall(), justInstalled: true }; }
+    finally { state.hyperaid.busy = false; changed(); }
+  },
 };
 
 // The overlay needs the whole config: a partial one (say, only the game settings on a fresh

@@ -7,6 +7,7 @@ import * as live from './pages/live.js';
 import * as source from './pages/source.js';
 import * as overlay from './pages/overlay.js';
 import * as gamesPage from './pages/games.js';
+import * as integrations from './pages/integrations.js';
 import { placeholder } from './pages/placeholder.js';
 
 const api = window.electronAPI;
@@ -19,7 +20,7 @@ const NAV = [
   { id: 'overlay', icon: 'overlay', label: 'nav_overlay', page: overlay },
   { id: 'source', icon: 'source', label: 'nav_source', page: source },
   { id: 'games', icon: 'games', label: 'nav_games', page: gamesPage },
-  { id: 'integrations', icon: 'integrations', label: 'nav_integrations', page: placeholder('integrations', 'nav_integrations') },
+  { id: 'integrations', icon: 'integrations', label: 'nav_integrations', page: integrations },
   { id: 'settings', icon: 'settings', label: 'nav_settings', page: placeholder('settings', 'nav_settings') },
 ];
 
