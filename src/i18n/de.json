@@ -578,7 +578,7 @@
     "set_analytics_text": "Hilft uns zu sehen, in welchen Sprachen und Ländern HypeRate Desktop genutzt wird. Einmal pro Start meldet die App der eigenen Statistik von HypeRate (Umami, von HypeRate selbst betrieben), dass sie geöffnet wurde, mit Sprache und Bildschirmgröße. Das Land wird aus der Verbindung abgeleitet; gespeichert werden keine IP-Adresse, kein Cookie und nichts über deinen Puls. Aus, solange du es nicht einschaltest.",
     "welcome_analytics_sub": "Ein anonymer Zähler pro Start, mit Sprache und Bildschirmgröße. Hilft uns zu entscheiden, welche Sprachen wir ergänzen. Später unter Einstellungen änderbar.",
     "set_dock": "Symbol im Dock zeigen",
-    "set_dock_sub": "Der Puls bleibt so oder so in der Menüleiste.",
+    "set_dock_sub": "Der Puls bleibt so oder so in der Menüleiste. Mit Dock-Symbol zeigt macOS das Overlay nicht über Spielen im Vollbildmodus; nutze dort Fenster- oder randlosen Modus.",
     "set_taskbar": "In der Taskleiste zeigen",
     "set_taskbar_sub": "HypeRate bleibt so oder so im Infobereich.",
     "sess_share_title": "Bild zum Teilen",

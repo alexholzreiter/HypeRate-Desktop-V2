@@ -589,7 +589,11 @@ function applyOverlaySpaces(enabled) {
       && overlayWindow.isVisibleOnAllWorkspaces() !== enabled) {
     overlayWindow.setVisibleOnAllWorkspaces(enabled, {
       visibleOnFullScreen: enabled,
-      skipTransformProcessType: !app.dock.isVisible(),
+      // Never let Electron switch the app between Dock app and menu bar app here: with the Dock
+      // icon on, that switch took the icon away and pushed the main window off screen. Without
+      // the Dock icon the app already is a menu bar app, so nothing changes there; with it, macOS
+      // keeps the overlay out of other apps' full-screen spaces (the setting says so).
+      skipTransformProcessType: true,
     });
   }
 }

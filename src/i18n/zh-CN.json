@@ -578,7 +578,7 @@
     "set_analytics_text": "帮助我们了解 HypeRate Desktop 在哪些语言和国家被使用。每次启动时，App 会告诉 HypeRate 自己的统计服务（Umami，由 HypeRate 自行托管）它已被打开，附带语言和屏幕尺寸。国家由连接推断；不会保存 IP 地址、Cookie 或任何心率数据。除非你开启，否则保持关闭。",
     "welcome_analytics_sub": "每次启动匿名计数一次，附带语言和屏幕尺寸。帮助我们决定要增加哪些语言。之后可在“设置”中更改。",
     "set_dock": "在程序坞中显示图标",
-    "set_dock_sub": "心率始终显示在菜单栏中。",
+    "set_dock_sub": "心率始终显示在菜单栏中。开启程序坞图标后，macOS 不会在全屏模式的游戏上方显示悬浮窗；请在游戏中使用窗口或无边框模式。",
     "set_taskbar": "在任务栏中显示",
     "set_taskbar_sub": "HypeRate 始终保留在托盘中。",
     "sess_share_title": "分享图片",
