@@ -77,7 +77,11 @@ user decides.
 hyperate.on('heartRate', ({ bpm }) => { … });          // needs "heartRate"; about once a second
 hyperate.on('zone', (zone) => { … });                   // needs "zones"; zone = { name, color, min, max } or null
 hyperate.on('gameMoment', ({ game, type, title, detail, bpm }) => { … });  // needs "gameMoments"
-                                                         // game: "wow" | "lol"; title like "Boss Defeated"
+                                                         // game: "wow" | "lol"; title like "Boss Defeated";
+                                                         // bpm: the peak heart rate of that moment (or null)
+// gameMoment types: boss_defeated, close_call, closest_call, death, intense_enemy, nemesis,
+// peak_heart_rate, kill_streak (WoW); kill, multikill, pentakill, first_blood, ace, objective,
+// objective_stolen, victory, defeat (League of Legends). Compare "type", not "title".
 await hyperate.storage.get('key');                      // needs "storage"; undefined if not set
 await hyperate.storage.set('key', value);               // needs "storage"; value must be JSON-able
 await hyperate.notify('Title', 'Text');                 // needs "notifications"; false if too soon

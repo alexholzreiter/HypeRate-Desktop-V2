@@ -7,6 +7,10 @@ import { t } from '../lib/i18n.js';
 import { addons as ad } from '../lib/state.js';
 import { FEEDBACK_URL } from './settings.js';
 
+// The guide for writing addons, with examples to download
+export const ADDONS_DOCS_URL = 'https://github.com/HypeRate/HypeRate-Desktop-Addons';
+const openDocs = () => window.electronAPI.openExternal(ADDONS_DOCS_URL);
+
 const toggle = (on, onChange, label) =>
   h('button', { class: 'toggle' + (on ? ' on' : ''), role: 'switch', 'aria-checked': String(!!on), 'aria-label': label, onclick: () => onChange(!on) }, h('span'));
 const initials = (item) => (item.manifest?.name || item.folder).replace(/[^\p{L}\p{N} ]/gu, '').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '+';
@@ -99,7 +103,8 @@ export function addonPage(s, folder, back) {
         } }, t('addons_change_ai')),
         h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
           h('button', { class: 'btn small', onclick: () => ad.openEditor(folder) }, t('addons_open_editor')),
-          h('button', { class: 'btn small', onclick: () => ad.showFolder(folder) }, t('addons_show_folder'))),
+          h('button', { class: 'btn small', onclick: () => ad.showFolder(folder) }, t('addons_show_folder')),
+          h('button', { class: 'btn small', onclick: openDocs }, t('addons_docs') + ' ↗')),
         h('hr', { class: 'divider' }),
         h('button', { class: 'btn small' + (s.addons.confirmRemove === folder ? ' danger' : ''), onclick: async () => { if (await ad.remove(folder)) back(); } },
           t(s.addons.confirmRemove === folder ? 'addons_remove_confirm' : 'addons_remove')))));
@@ -234,7 +239,11 @@ function createDialog(openAddon, d) {
       h('input', { class: 'field addon-name', maxlength: 60, placeholder: t('addons_create_name_ph') })),
     h('label', { class: 'osc-field' }, h('span', { class: 'small muted' }, t('addons_create_task')),
       h('textarea', { class: 'field addon-task', rows: 4, maxlength: 2000, placeholder: t('addons_create_task_ph') })),
-    h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('addons_create_hint')),
+    h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('addons_create_hint'), ' ',
+      h('a', { onclick: openDocs }, t('addons_docs') + ' ↗')),
+    h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('addons_install_text'), ' ',
+      h('a', { onclick: () => ad.openFolder() }, t('addons_open_folder_link'))),
+    h('p', { class: 'small muted', style: { margin: 0 } }, t('addons_no_ai')),
     d.error ? h('p', { class: 'small warn-text', role: 'alert', style: { margin: 0 } }, t('addons_create_empty')) : null,
     h('div', { class: 'row', style: { gap: '10px', justifyContent: 'flex-end' } },
       h('button', { class: 'btn', onclick: () => ad.dialog(null) }, t('addons_cancel')),
@@ -321,13 +330,14 @@ function guide(s) {
   const key = GUIDE[step];
   const last = step === GUIDE.length - 1;
   const action = {
+    ai: h('button', { class: 'btn small', onclick: openDocs }, t('addons_docs') + ' ↗'),
     safe: s.addons.master ? h('p', { class: 'small ok-text row', style: { margin: 0, gap: '6px' } }, icon('tick', 16), t('guide_safe_on'))
       : h('button', { class: 'btn small', onclick: () => ad.setMaster(true) }, t('addons_allow_yes')),
   }[key] || null;
   return modal('addons-guide', t('guide_title'), () => ad.closeGuide(),
     h('div', { class: 'row between' }, h('p', { class: 'label' }, t('guide_title')), h('span', { class: 'small muted' }, t('guide_step', { n: step + 1, of: GUIDE.length }))),
     h('div', { class: 'welcome-dots', style: { padding: 0 } }, GUIDE.map((_, i) => h('span', { class: i <= step ? 'on' : '' }))),
-    h('div', { class: 'guide-icon' }, icon(['puzzle', 'shield', 'pen', 'sparkle', 'check', 'settings', 'wrench'][step], 26)),
+    h('div', { class: 'guide-icon' }, icon(['puzzle', 'shield', 'pen', 'code', 'check', 'settings', 'wrench'][step], 26)),
     h('h2', { class: 'h1', style: { fontSize: '22px', margin: 0 } }, t('guide_' + key + '_title')),
     h('p', { class: 'muted', style: { margin: 0, lineHeight: 1.65, whiteSpace: 'pre-line' } }, t('guide_' + key + '_text')),
     action,
