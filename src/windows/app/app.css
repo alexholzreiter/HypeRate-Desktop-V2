@@ -384,12 +384,15 @@ input[type="range"] { accent-color: var(--accent); }
 .osc-field .field { width: 100%; box-sizing: border-box; }
 
 /* ── Sessions ── */
-.sess-layout { display: flex; flex-wrap: wrap; gap: 18px; align-items: stretch; }
+/* List beside the detail when there is room; stacked, both full width, when the window is narrow */
+.sess-layout { container-type: inline-size; }
+.sess-cols { display: grid; gap: 18px; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); align-items: stretch; }
+@container (max-width: 760px) { .sess-cols { grid-template-columns: minmax(0, 1fr); } }
 /* As tall as the session card beside it: the rows sit in an absolutely placed scroller, so they
    never push the row taller; stacked on a narrow window it keeps a height of its own */
-.sess-list { flex: 1 1 280px; max-width: 380px; padding: 0; min-height: 320px; overflow: hidden; }
+.sess-list { padding: 0; min-height: 320px; overflow: hidden; }
 .sess-list-scroll { position: absolute; inset: 0; padding: 8px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
-.sess-detail { flex: 2 1 420px; min-width: 0; }
+.sess-detail { min-width: 0; }
 .sess-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 0; border-radius: 11px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .sess-row:hover { background: #151831; }
 .sess-row.on { background: #18214a; box-shadow: inset 0 0 0 1px rgba(127, 176, 255, .3); }
@@ -521,3 +524,82 @@ input[type="range"] { accent-color: var(--accent); }
 .day-vignette { background: radial-gradient(78% 120% at 50% 45%, transparent 55%, rgba(0, 0, 0, .42) 100%); }
 .day-grain { background-size: 180px 180px; mix-blend-mode: soft-light; opacity: .5; pointer-events: none; }
 .scene .scene-note, .scene .scene-widget { z-index: 2; }
+
+/* ── Theme "Liquid Glass" (Settings → Design) ──
+   Same colours, a different material: a soft glow of the accent blue behind the window's content,
+   and the sidebar, title bar, cards, tabs and buttons as frosted glass over it, with a bright rim on
+   top. Only CSS, nothing loaded. The overlay widget over games is left alone. */
+:root[data-theme="glass"] .body {
+  background:
+    radial-gradient(34% 40% at 10% 30%, rgba(59, 123, 255, .30), transparent 70%),
+    radial-gradient(26% 30% at 6% 88%, rgba(37, 99, 235, .26), transparent 70%),
+    radial-gradient(40% 36% at 30% 4%, rgba(59, 123, 255, .24), transparent 70%),
+    radial-gradient(32% 34% at 92% 52%, rgba(37, 99, 235, .20), transparent 70%),
+    radial-gradient(36% 30% at 55% 100%, rgba(52, 211, 153, .09), transparent 70%);
+}
+:root[data-theme="glass"] .content { background: none; }
+/* The title bar floats over the page: what scrolls up slides under it and shows through the frost */
+:root[data-theme="glass"] .app { position: relative; }
+:root[data-theme="glass"] .titlebar {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 20;
+  background: linear-gradient(180deg, rgba(14, 16, 32, .42), rgba(10, 11, 22, .26));
+  backdrop-filter: blur(8px) saturate(180%);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .09), inset 0 1px 0 rgba(255, 255, 255, .08), 0 8px 24px rgba(0, 0, 0, .18);
+}
+:root[data-theme="glass"] .content { padding-top: 76px; }
+:root[data-theme="glass"] .sidebar { padding-top: 64px; }
+:root[data-theme="glass"] .content::-webkit-scrollbar-track, :root[data-theme="glass"] .sidebar::-webkit-scrollbar-track { margin-top: 48px; }
+:root[data-theme="glass"] .sidebar {
+  background: linear-gradient(180deg, rgba(20, 22, 44, .42), rgba(12, 13, 26, .30));
+  backdrop-filter: blur(40px) saturate(170%);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, .07);
+}
+:root[data-theme="glass"] .nav[aria-current="page"],
+:root[data-theme="glass"] .tab.on {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .03) 55%, rgba(59, 123, 255, .10)), rgba(59, 123, 255, .22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 0 0 1px rgba(160, 195, 255, .22),
+              inset 0 -6px 14px rgba(59, 123, 255, .18), 0 6px 18px rgba(20, 50, 140, .35);
+}
+:root[data-theme="glass"] .side-status {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .02));
+  backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), inset 0 0 0 1px rgba(255, 255, 255, .08);
+}
+:root[data-theme="glass"] .card {
+  background: linear-gradient(160deg, rgba(255, 255, 255, .085) 0%, rgba(255, 255, 255, .03) 38%, rgba(255, 255, 255, .02) 100%), rgba(20, 22, 41, .30);
+  backdrop-filter: blur(28px) saturate(170%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .26), inset 1px 0 0 rgba(255, 255, 255, .08),
+              inset 0 0 0 1px rgba(255, 255, 255, .07), inset 0 -1px 0 rgba(0, 0, 0, .25), 0 18px 40px rgba(0, 0, 0, .35);
+}
+/* a card inside a card: no second blur */
+:root[data-theme="glass"] .card .card { background: linear-gradient(160deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .015)); backdrop-filter: none; }
+:root[data-theme="glass"] .scene-card { background: none; }
+:root[data-theme="glass"] .modal { background: linear-gradient(160deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .02) 40%), rgba(16, 18, 36, .78); }
+:root[data-theme="glass"] .tabs {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .02));
+  backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), inset 0 0 0 1px rgba(255, 255, 255, .07);
+}
+:root[data-theme="glass"] .btn {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, .04));
+  backdrop-filter: blur(16px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), inset 0 0 0 1px rgba(255, 255, 255, .10), 0 4px 12px rgba(0, 0, 0, .25);
+}
+:root[data-theme="glass"] .btn:hover { background: linear-gradient(180deg, rgba(255, 255, 255, .17), rgba(255, 255, 255, .06)); }
+:root[data-theme="glass"] .btn.primary {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .28) 0%, rgba(255, 255, 255, 0) 48%), linear-gradient(180deg, var(--accent), var(--accent-2));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .55), inset 0 -2px 6px rgba(10, 30, 110, .35), 0 8px 24px rgba(37, 99, 235, .45);
+}
+:root[data-theme="glass"] .btn.primary:hover { background: linear-gradient(180deg, rgba(255, 255, 255, .32) 0%, rgba(255, 255, 255, 0) 48%), linear-gradient(180deg, #4a86ff, #2f6df0); }
+:root[data-theme="glass"] .pill.ok, :root[data-theme="glass"] .pill.warn, :root[data-theme="glass"] .pill.off {
+  backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), inset 0 0 0 1px rgba(255, 255, 255, .08);
+}
+:root[data-theme="glass"] .scene-note {
+  background: rgba(255, 255, 255, .10); backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), inset 0 0 0 1px rgba(255, 255, 255, .10);
+}
+:root[data-theme="glass"] .field {
+  background: rgba(5, 6, 14, .35);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .4), inset 0 0 0 1px rgba(255, 255, 255, .08);
+}

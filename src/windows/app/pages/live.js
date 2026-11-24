@@ -2,7 +2,7 @@
 
 import { h, svg, icon, heart } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
-import { connection, stats, zones, zoneFor, showOverlay } from '../lib/state.js';
+import { connection, stats, recent, zones, zoneFor, showOverlay } from '../lib/state.js';
 
 export const id = 'live';
 
@@ -69,7 +69,7 @@ function hero(s, conn) {
 function span(s) {
   const now = Date.now();
   const full = now - 10 * 60 * 1000;
-  const first = s.history[0]?.t ?? now;
+  const first = recent(s)[0]?.t ?? now;
   return { from: Math.max(full, Math.min(first, now - 30 * 1000)), now, full: first <= full };
 }
 
@@ -100,7 +100,7 @@ function zoneBar(s, bpm) {
 function graph(s) {
   const W = 640, H = 170;
   const { from, now } = span(s);
-  const pts = s.history;
+  const pts = recent(s);
   if (pts.length < 2) {
     return h('div', { class: 'spark', style: { display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--label)', fontSize: '13px' } }, t('graph_waiting'));
   }

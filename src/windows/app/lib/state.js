@@ -58,8 +58,15 @@ export function connection(s = state) {
   return 'none';
 }
 
+// The last ten minutes of the history. It is trimmed only when a value comes in, so after a
+// long silence it can still hold older points; those must not be drawn or counted.
+export function recent(s = state) {
+  const from = Date.now() - HISTORY_MS;
+  return s.history.filter(p => p.t >= from);
+}
+
 export function stats(s = state) {
-  const values = s.history.map(p => p.bpm);
+  const values = recent(s).map(p => p.bpm);
   if (!values.length) return null;
   return {
     min: Math.min(...values),
@@ -440,6 +447,8 @@ export const app = {
   // Show the app in the Dock (macOS) or the taskbar (Windows) besides the menu bar / tray
   setDockIcon(on) { state.settings.showInDock = !!on; api.dockSet(!!on); changed(); },
   // Anonymous usage count, off until the user agrees
+  // Look of the window: 'classic' or 'glass' (Settings → Design)
+  setTheme(theme) { state.settings.theme = theme === 'glass' ? 'glass' : 'classic'; api.saveSettings({ theme: state.settings.theme }); changed(); },
   setAnalytics(on) { state.settings.analyticsEnabled = !!on; api.analyticsSet(!!on); changed(); },
   async checkUpdate() {
     if (state.update.state === 'available') return;

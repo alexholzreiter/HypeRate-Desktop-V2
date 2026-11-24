@@ -113,6 +113,7 @@ function render() {
   queued = false;
   const s = store.get();
   document.documentElement.lang = s.lang;
+  document.documentElement.dataset.theme = s.settings?.theme === 'glass' ? 'glass' : 'classic';
   setKnownHearts(s.settings.customHearts);
   // First start: the wizard takes the whole window until it is finished or skipped
   if (s.settings.onboarded !== true) {

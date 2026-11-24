@@ -19,6 +19,8 @@ export function render(s) {
         h('p', { class: 'label' }, t('set_general')),
         row(t('set_language'), h('select', { class: 'field select', style: { flex: '0 1 220px' }, 'aria-label': t('set_language'), onchange: e => setLang(e.target.value) },
           window.HR_LANGUAGES.LANGUAGES.map(l => h('option', { value: l.code, selected: s.lang === l.code ? true : null }, l.name)))),
+        row(t('set_theme'), h('select', { class: 'field select', style: { flex: '0 1 220px' }, 'aria-label': t('set_theme'), onchange: e => app.setTheme(e.target.value) },
+          ['classic', 'glass'].map(v => h('option', { value: v, selected: (s.settings.theme === 'glass' ? 'glass' : 'classic') === v ? true : null }, t('set_theme_' + v))))),
         row(t('set_autostart'), s.autostart == null ? null : toggle(s.autostart, v => app.setAutostart(v), t('set_autostart'))),
         dockRow(s),
         h('hr', { class: 'divider' }),

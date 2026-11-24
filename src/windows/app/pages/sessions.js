@@ -14,7 +14,7 @@ export function render(s) {
     h('div', { class: 'page-head row between', style: { alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' } },
       h('div', {}, h('h1', { class: 'h1' }, t('nav_sessions')), h('p', { class: 'sub' }, t('sess_sub'))),
       h('div', { class: 'row' }, h('span', {}, t('sessions_toggle')), toggle(on, v => sessions.save({ sessionsEnabled: v }), t('sessions_toggle')))),
-    ss.list.length ? h('div', { class: 'sess-layout' }, list(s), detail(s)) : empty(on),
+    ss.list.length ? h('div', { class: 'sess-layout' }, h('div', { class: 'sess-cols' }, list(s), detail(s))) : empty(on),
     settings(s, on),
     ss.share ? shareView(s) : null);
 }
@@ -104,7 +104,8 @@ function stat(label, value, color) {
 
 const markClass = style => ({ boss: 'good', death: 'bad', close: 'warn', closest: 'warn' }[style] || '');
 
-// The whole session as one line, at most ~600 points, with a gap where there was no signal
+// The whole session as one line, at most ~600 points. Stretches without a value are bridged:
+// the HypeRate app sends irregularly, sometimes nothing for a minute or two
 function curve(d) {
   const W = 640, H = 170;
   const values = d.bpm || [];
@@ -120,27 +121,14 @@ function curve(d) {
   const n = Math.max(1, values.length - 1);
   const x = i => (i / n) * W;
   const y = v => H - ((v - lo) / (hi - lo)) * H;
-  // The HypeRate app does not send every second, so short holes are bridged; only a real
-  // stretch without signal (over GAP_S seconds) breaks the line
-  const GAP_S = 15;
-  const lines = [];
-  let run = [];
-  for (let k = 0; k < pts.length; k++) {
-    // Neighbouring points are `step` seconds apart in a long session (one point per bucket);
-    // only what is missing beyond that counts as a gap
-    if (k && pts[k].i - pts[k - 1].i - step > GAP_S) { lines.push(run); run = []; }
-    run.push(`${x(pts[k].i).toFixed(1)},${y(pts[k].v).toFixed(1)}`);
-  }
-  lines.push(run);
+  const line = pts.map(p => `${x(p.i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
   const peakIdx = values.indexOf(Math.max(...values.filter(v => v != null)));
   return h('div', { class: 'stack', style: { gap: '6px' } },
     h('div', { class: 'sess-curve' },
       svg('svg', { class: 'spark', viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', role: 'img', 'aria-label': t('sess_curve_label') },
         [34, 68, 102, 136].map(yy => svg('line', { x1: 0, y1: yy, x2: W, y2: yy, stroke: 'rgba(255,255,255,.06)', 'stroke-dasharray': '3 5' })),
         (d.events || []).map(e => svg('line', { x1: x(e.t), y1: 0, x2: x(e.t), y2: H, stroke: markColor(e.style), 'stroke-opacity': .55, 'stroke-width': 1.5, 'vector-effect': 'non-scaling-stroke' })),
-        lines.map(l => l.length === 1
-          ? svg('line', { x1: l[0].split(',')[0], y1: l[0].split(',')[1], x2: l[0].split(',')[0], y2: l[0].split(',')[1], stroke: '#7fb0ff', 'stroke-width': 3, 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke' })
-          : svg('polyline', { points: l.join(' '), fill: 'none', stroke: 'url(#hr-line)', 'stroke-width': 2.2, 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke' }))),
+        svg('polyline', { points: line, fill: 'none', stroke: 'url(#hr-line)', 'stroke-width': 2.2, 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke' })),
       // A round dot in HTML: inside the stretched SVG a circle would come out as an egg
       peakIdx >= 0 ? h('span', { class: 'sess-peak-dot', title: values[peakIdx] + ' BPM', style: { left: (x(peakIdx) / W * 100) + '%', top: (y(values[peakIdx]) / H * 100) + '%' } }) : null),
     h('div', { class: 'row between', style: { fontSize: '11px', color: 'var(--label)' } },
