@@ -30,6 +30,7 @@ const systemFonts = require('./system-fonts');
 const customAssets = require('./custom-assets');
 const LANGS = require('./i18n/languages');
 const usageStats = require('./usage-stats');
+const { createAddonHost } = require('./addons/host');
 const { fetchLatestRelease } = require('./desktop-update');
 const { fitOverlay, restoreOverlayPlacement, overlayPlacementPreferences } = require('./overlay-placement');
 const crypto = require('crypto');
@@ -884,6 +885,8 @@ function emitGameMoment(moment) {
   sendToOverlay('game-moment', moment);
   mqtt.publishMoment(moment);
   sessions.recordMoment(moment);
+  const m = moments.describe(moment);
+  if (m) addons.emit('gameMoment', { game: m.game, type: m.type, title: m.title, detail: m.detail ?? null, bpm: m.bpm ?? null });
 }
 
 // Every BPM sample (cloud or BLE) goes through here
@@ -894,6 +897,12 @@ function broadcastBpm(bpm, source) {
   sendHeartRateOsc(bpm);
   discordBpmUpdate(bpm);
   mqtt.publishBpm(bpm, source, zoneForBpm(bpm) || {});
+  addons.emit('heartRate', { bpm });
+  const zone = zoneForBpm(bpm);
+  if ((zone?.name || null) !== lastAddonZone) {
+    lastAddonZone = zone?.name || null;
+    addons.emit('zone', zone ? { name: zone.name, color: zone.color, min: zone.min, max: zone.max } : null);
+  }
   sessions.recordBpm(bpm);
   moments.recordBpm(bpm);
   if (process.platform === 'darwin' && tray && showBpmInTray) tray.setTitle(` ${bpm}`);
@@ -948,10 +957,70 @@ function hotkeyInfo() {
   };
 }
 
+// ── User addons (src/addons) ─────────────────────────────────────────────────
+// Off unless the master switch is on; each addon runs only after the user approved exactly
+// this version and what it asks for.
+let lastAddonZone = null;
+let addonsChangedTimer = null;
+const addons = createAddonHost({
+  root: path.join(app.getPath('userData'), 'addons'),
+  dataDir: path.join(app.getPath('userData'), 'addon-data'),
+  loadStore, saveStore,
+  appIcon: path.join(__dirname, '..', 'assets', 'icon.png'),
+  onChange: () => {   // many log lines at once become one update for the window
+    if (addonsChangedTimer) return;
+    addonsChangedTimer = setTimeout(() => { addonsChangedTimer = null; sendToSettings('addons-changed', {}); }, 250);
+  },
+});
+const ADDONS_ROOT = path.join(app.getPath('userData'), 'addons');
+ipcMain.handle('addons-list', () => addons.list());
+ipcMain.handle('addons-set-master', (_, on) => addons.setMaster(on === true));
+ipcMain.handle('addons-enable', (_, id, on) => addons.setEnabled(String(id), on === true));
+ipcMain.handle('addons-approve', (_, id, print) => addons.approve(String(id), String(print)));
+ipcMain.handle('addons-reload', (_, id) => addons.reload(String(id)));
+ipcMain.handle('addons-logs', (_, id) => addons.logs(String(id)));
+ipcMain.handle('addons-remove', (_, folder) => addons.remove(String(folder)));
+ipcMain.handle('addons-open-folder', () => { fs.mkdirSync(ADDONS_ROOT, { recursive: true }); return shell.openPath(ADDONS_ROOT); });
+// A new addon from a name and what it should do: its folder with AGENTS.md (the guide for
+// Claude, Codex and co.), the task written into it, and a main.js that only says it is ready.
+// The assistant builds the rest; the app notices and asks for approval.
+ipcMain.handle('addons-create', (_, { name, task } = {}) => {
+  const title = String(name || '').trim().slice(0, 60) || 'My addon';
+  const job = String(task || '').trim().slice(0, 2000);
+  fs.mkdirSync(ADDONS_ROOT, { recursive: true });
+  const base = title.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'addon';
+  let folder = base.length >= 2 ? base : 'addon-' + base, n = 2;
+  while (fs.existsSync(path.join(ADDONS_ROOT, folder))) folder = `${base}-${n++}`.slice(0, 40);
+  const target = path.join(ADDONS_ROOT, folder);
+  fs.mkdirSync(target);
+  const template = path.join(__dirname, 'addons', 'template');
+  fs.copyFileSync(path.join(template, 'main.js'), path.join(target, 'example.js.txt'));   // a working example to look at
+  fs.writeFileSync(path.join(target, 'addon.json'), JSON.stringify({
+    id: folder, name: title, version: '0.1.0', description: job.split('\n')[0].slice(0, 300), author: '',
+    permissions: [], network: [], settings: [],
+  }, null, 2) + '\n');
+  fs.writeFileSync(path.join(target, 'main.js'), `// ${title}\n// Built by an AI assistant from the task in AGENTS.md (see "Your task" at its end).\n\nhyperate.log('ready');\n`);
+  fs.writeFileSync(path.join(target, 'AGENTS.md'), fs.readFileSync(path.join(template, 'AGENTS.md'), 'utf8')
+    + `\n## Your task\n\n${job || '(The user has not described it yet. Ask them what the addon should do.)'}\n`);
+  return { folder, dir: target, list: addons.list() };
+});
+ipcMain.handle('addons-set-value', (_, id, key, value) => addons.setValue(String(id), String(key), value));
+// The single addon: its main.js in the default editor, its folder in Finder / Explorer
+const addonDir = (folder) => {
+  const dir = path.resolve(ADDONS_ROOT, String(folder));
+  return dir.startsWith(path.resolve(ADDONS_ROOT) + path.sep) && fs.existsSync(dir) ? dir : null;
+};
+ipcMain.handle('addons-open-editor', (_, folder) => { const d = addonDir(folder); return d ? shell.openPath(path.join(d, 'main.js')) : 'not found'; });
+ipcMain.handle('addons-show-folder', (_, folder) => { const d = addonDir(folder); if (d) shell.showItemInFolder(path.join(d, 'addon.json')); return !!d; });
+
 // ── Hearts and fonts the user brings along ───────────────────────────────────
 // Served as hr-asset://a/<file> from one folder only; see custom-assets.js
 const ASSET_DIR = path.join(app.getPath('userData'), 'custom-assets');
-protocol.registerSchemesAsPrivileged([{ scheme: 'hr-asset', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'hr-asset', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
+  // user addons: each one's own files, served into its own sandboxed session (src/addons/host.js)
+  { scheme: 'hr-addon', privileges: { standard: true, secure: true, supportFetchAPI: true } },
+]);
 
 const ASSET_LIST = { heart: 'customHearts', font: 'customFonts' };
 ipcMain.handle('assets-pick', async (_, kind) => {
@@ -1039,6 +1108,7 @@ app.whenReady().then(() => {
   applyDockIcon(loadStore().showInDock === true);
 
   createSettingsWindow();
+  addons.sync();
   countVisit();
   createTray();
   registerHotkey();
@@ -1077,7 +1147,7 @@ app.whenReady().then(() => {
   }
 });
 
-app.on('before-quit', () => { app.isQuitting = true; clearInterval(hyperaidTimer); sessions.stop(); });   // die letzte halbe Minute soll nicht verloren gehen
+app.on('before-quit', () => { app.isQuitting = true; clearInterval(hyperaidTimer); sessions.stop(); addons.stopAll(); });   // die letzte halbe Minute soll nicht verloren gehen
 app.on('will-quit', () => globalShortcut.unregisterAll());
 // App lives in tray — never auto-quit when windows are closed
 app.on('window-all-closed', () => {});

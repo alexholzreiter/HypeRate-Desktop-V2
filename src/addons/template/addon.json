@@ -1,0 +1,9 @@
+{
+  "id": "my-first-addon",
+  "name": "My first addon",
+  "version": "1.0.0",
+  "description": "Tells you when your heart rate climbs above 120 BPM.",
+  "author": "",
+  "permissions": ["heartRate", "storage", "notifications"],
+  "network": []
+}

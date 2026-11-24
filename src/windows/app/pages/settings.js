@@ -4,7 +4,7 @@
 
 import { h } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
-import { setLang, app } from '../lib/state.js';
+import { setLang, app, addons } from '../lib/state.js';
 
 export const id = 'settings';
 
@@ -30,7 +30,10 @@ export function render(s) {
     h('div', { class: 'card stack' },
       h('p', { class: 'label' }, t('set_privacy')),
       row(t('set_analytics'), toggle(s.settings.analyticsEnabled === true, v => app.setAnalytics(v), t('set_analytics'))),
-      h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('set_analytics_text'))),
+      h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('set_analytics_text')),
+      h('hr', { class: 'divider' }),
+      row(t('integ_addons_toggle'), toggle(!!s.addons.master, v => addons.setMaster(v), t('integ_addons_toggle'))),
+      h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('set_addons_desc'))),
     h('div', { class: 'split' },
       news(s),
       h('div', { class: 'card stack' },

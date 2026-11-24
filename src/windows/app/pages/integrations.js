@@ -4,6 +4,7 @@
 import { h, html } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
 import { integrations as ig } from '../lib/state.js';
+import { addonTiles, addonPage, addonOverlays, guideButton } from './addons.js';
 
 export const id = 'integrations';
 
@@ -19,19 +20,26 @@ const LIST = {
   mqtt:     { name: 'Home Assistant', mono: 'HA', desc: 'integ_mqtt_desc',     enabled: s => !!s.settings.mqttEnabled,     status: mqttStatus,     page: mqttPage },
   hyperaid: { name: 'HypeRaid',       mono: 'HR', desc: 'integ_hyperaid_desc', enabled: s => !!s.settings.hyperaidEnabled, status: hyperaidStatus, page: hyperaidPage },
 };
+const nameOf = it => it.nameKey ? t(it.nameKey) : it.name;
 
 // Pages elsewhere can open one integration directly (the WoW page links to HypeRaid)
 export function open(key) { detail = key; }
 
 export function render(s) {
-  return detail ? detailPage(s, detail) : overview(s);
+  const page = detail?.startsWith('addon:')
+    ? addonPage(s, detail.slice(6), () => { detail = null; rerender(); })
+    : detail ? detailPage(s, detail) : overview(s);
+  return [page, addonOverlays(s, folder => { detail = 'addon:' + folder; rerender(); })];
 }
 
 // ── Overview ──
 function overview(s) {
   return h('div', { class: 'page' },
-    h('div', { class: 'page-head' }, h('div', {}, h('h1', { class: 'h1' }, t('nav_integrations')), h('p', { class: 'sub' }, t('integ_sub')))),
+    h('div', { class: 'page-head row between', style: { alignItems: 'flex-start', gap: '16px' } },
+      h('div', {}, h('h1', { class: 'h1' }, t('nav_integrations')), h('p', { class: 'sub' }, t('integ_sub'))),
+      guideButton()),
     h('div', { class: 'integ-grid' },
+      addonTiles(s, folder => { detail = 'addon:' + folder; rerender(); }, 'before'),
       Object.entries(LIST).map(([key, it]) => {
         const st = it.enabled(s) ? it.status(s) : { tone: 'off', text: t('off') };
         return h('button', { class: 'card integ-card ' + key, onclick: () => { detail = key; rerender(); } },
@@ -39,10 +47,11 @@ function overview(s) {
             h('span', { class: 'integ-mono' }, it.mono),
             h('span', { class: 'pill ' + st.tone }, h('span', { class: 'dot ' + dotFor(st.tone) }), st.short || st.text)),
           h('div', { class: 'stack', style: { gap: '4px' } },
-            h('p', { style: { margin: 0, fontWeight: 600, fontSize: '17px' } }, it.name),
+            h('p', { style: { margin: 0, fontWeight: 600, fontSize: '17px' } }, nameOf(it)),
             h('p', { class: 'small muted', style: { margin: 0 } }, t(it.desc))),
           h('span', { class: 'small', style: { color: 'var(--accent-text)', fontWeight: 600 } }, t('open') + ' →'));
-      })));
+      }),
+      addonTiles(s, folder => { detail = 'addon:' + folder; rerender(); }, 'after')));
 }
 
 const dotFor = tone => ({ ok: 'live', warn: 'warn', bad: 'bad' }[tone] || '');
@@ -58,7 +67,7 @@ function detailPage(s, key) {
       h('div', { class: 'row', style: { gap: '18px', flexWrap: 'wrap' } },
         h('span', { class: 'integ-mono big' }, it.mono),
         h('div', { style: { flex: 1, minWidth: '220px' } },
-          h('h1', { class: 'h1' }, it.name),
+          h('h1', { class: 'h1' }, nameOf(it)),
           h('div', { class: 'row small', style: { gap: '8px', marginTop: '6px' }, role: 'status' },
             h('span', { class: 'dot ' + dotFor(st.tone) }), h('span', { title: st.title || '' }, st.text))),
         h('div', { class: 'row' }, h('span', {}, t('integ_' + key + '_toggle')), toggle(on, v => setOn(key, v), t('integ_' + key + '_toggle'))))),

@@ -28,6 +28,8 @@ const state = {
   update: { state: 'idle' },   // 'idle' | 'checking' | 'current' | 'available' | 'error'
   news: null,           // null = not loaded, [] = none, or [{ title, url, date }]
   inApp: { message: null, results: null, voting: false },   // announcement or poll from HypeRate
+  // user addons (src/addons); dialog: null | { type: 'allow' | 'create' | 'prompt', … }; guide: step shown or null
+  addons: { master: false, root: '', addons: [], approving: null, logs: {}, dialog: null, guide: null },
   overlayOpen: false,
 };
 
@@ -140,6 +142,8 @@ export async function start() {
   api.onMqttStatus(({ state: s, ...extra }) => { if (state.settings.mqttEnabled) state.mqtt = { state: s, ...extra }; changed(); });
   api.onMqttPasswordLost(() => { state.mqttPassword = 'lost'; changed(); });
   api.onHyperaidStatus((status) => { state.hyperaid = { ...state.hyperaid, ...status }; changed(); });
+  api.onAddonsChanged?.(() => addons.refresh());
+  addons.refresh();
   api.onInAppMessage?.(m => inApp.receive(m));
   api.inAppGet?.().then(m => inApp.receive(m)).catch(() => {});
   api.onSessionsChanged(() => sessions.refresh());
@@ -471,6 +475,68 @@ export function setSidebarCollapsed(on) {
   api.saveSettings({ sidebarCollapsed: on });
   changed();
 }
+
+// ── User addons (main side: src/addons) ──
+export const addons = {
+  apply(list) { if (list) Object.assign(state.addons, list); changed(); },
+  async refresh() {
+    try { addons.apply(await api.addonsList()); } catch {}
+    for (const id of Object.keys(state.addons.logs)) addons.loadLogs(id);
+  },
+  async setMaster(on) { addons.apply(await api.addonsSetMaster(on)); },
+  // Switching on an addon that is not approved for this version first shows what it asks for
+  async setEnabled(item, on) {
+    if (on && !item.approved) { state.addons.approving = item; changed(); return; }
+    addons.apply(await api.addonsEnable(item.manifest.id, on));
+  },
+  async approve() {
+    const item = state.addons.approving;
+    state.addons.approving = null;
+    if (item) addons.apply(await api.addonsApprove(item.manifest.id, item.fingerprint));
+    else changed();
+  },
+  cancelApproval() { state.addons.approving = null; changed(); },
+  async reload(id) { addons.apply(await api.addonsReload(id || '')); },   // without id: look at the folder again
+  async loadLogs(id) {
+    try { state.addons.logs = { ...state.addons.logs, [id]: await api.addonsLogs(id) }; } catch {}
+    changed();
+  },
+  async setValue(id, key, value) { addons.apply(await api.addonsSetValue(id, key, value)); },
+  openEditor: (folder) => api.addonsOpenEditor(folder),
+  showFolder: (folder) => api.addonsShowFolder(folder),
+  openFolder: () => api.addonsOpenFolder(),
+  // Two clicks, like deleting sessions: the first asks, the second removes
+  async remove(folder) {
+    if (state.addons.confirmRemove !== folder) {
+      state.addons.confirmRemove = folder; changed();
+      setTimeout(() => { if (state.addons.confirmRemove === folder) { state.addons.confirmRemove = null; changed(); } }, 5000);
+      return false;
+    }
+    state.addons.confirmRemove = null;
+    addons.apply(await api.addonsRemove(folder));
+    return true;
+  },
+  // The + tile: the guide the very first time, then (once addons are allowed) the create dialog
+  plus() {
+    if (!state.settings.addonsGuideSeen) { addons.openGuide(); return; }
+    addons.dialog(state.addons.master ? { type: 'create' } : { type: 'allow' });
+  },
+  dialog(d) { state.addons.dialog = d; changed(); },
+  async allowAndCreate() { await addons.setMaster(true); addons.dialog({ type: 'create' }); },
+  // Creates the folder with the task in AGENTS.md; returns the new folder name
+  async create(name, task) {
+    const res = await api.addonsCreate(name, task);
+    addons.apply(res.list);
+    addons.dialog({ type: 'prompt', kind: 'create', folder: res.folder, dir: res.dir, task });
+    return res.folder;
+  },
+  openGuide(step = 0) { state.addons.guide = step; changed(); },
+  closeGuide() {
+    state.addons.guide = null;
+    if (!state.settings.addonsGuideSeen) { state.settings.addonsGuideSeen = true; api.saveSettings({ addonsGuideSeen: true }); }
+    changed();
+  },
+};
 
 // ── In-app messages from HypeRate (see src/in-app.js) ──
 const shownInApp = new Set();   // impression reported in this run
