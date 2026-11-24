@@ -510,11 +510,13 @@ input[type="range"] { accent-color: var(--accent); }
 .day-stars span { background: #fff; }
 .day-bokeh span { filter: blur(1.6px); }
 .sky-body { position: absolute; inset: auto; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; }
-.sky-body.sun { width: calc(var(--size) * 5); height: calc(var(--size) * 5); background: radial-gradient(circle, var(--glow) 0%, transparent 70%); opacity: .7; }
-.sky-body.sun-core { width: 52px; height: 52px; }
-.sky-body.moon { width: 36px; height: 36px; background: radial-gradient(circle at 35% 50%, #f4f2ff 0%, #c8cdf2 60%, transparent 72%);
-  -webkit-mask: radial-gradient(circle at 72% 36%, transparent 0 46%, #000 48%); mask: radial-gradient(circle at 72% 36%, transparent 0 46%, #000 48%);
-  box-shadow: 0 0 60px 26px rgba(185, 195, 255, .16); }
+/* Sun and moon are light, not shapes: washed out, with no edge to be seen */
+.sky-body.sun { width: calc(var(--size) * 6); height: calc(var(--size) * 6); background: radial-gradient(circle, var(--glow) 0%, transparent 68%); opacity: .75; filter: blur(14px); }
+.sky-body.sun-core { width: 70px; height: 70px; filter: blur(11px); opacity: .95; }
+.sky-body.moon { width: 44px; height: 44px; filter: blur(6px); }   /* blur on the outside: a mask after it would cut the edge sharp again */
+.sky-body.moon span { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 38% 50%, #f4f2ff 0%, #c8cdf2 55%, transparent 75%);
+  -webkit-mask: radial-gradient(circle at 74% 34%, transparent 0 40%, #000 62%); mask: radial-gradient(circle at 74% 34%, transparent 0 40%, #000 62%); }
+.day-stars span { filter: blur(.4px); }
 .day-ridges { width: 100%; height: 100%; }
 .day-vignette { background: radial-gradient(78% 120% at 50% 45%, transparent 55%, rgba(0, 0, 0, .42) 100%); }
 .day-grain { background-size: 180px 180px; mix-blend-mode: soft-light; opacity: .5; pointer-events: none; }

@@ -104,7 +104,9 @@ export function dayScene(date = new Date()) {
       STARS.map(s => h('span', { style: { left: s.x + '%', top: s.y + '%', width: s.r * 2 + 'px', height: s.r * 2 + 'px', opacity: s.o } }))) : null,
     sun ? body(sun, 'sun', 52, m.sun[2]) : null,
     sun ? h('div', { class: 'sky-body sun-core', style: { left: sun.x + '%', top: sun.y + '%', background: `radial-gradient(circle, ${m.sun[0]} 0%, ${m.sun[1]} 70%, transparent 100%)` } }) : null,
-    moon && m.night > .3 ? h('div', { class: 'sky-body moon', style: { left: moon.x + '%', top: moon.y + '%', opacity: Math.min(1, (m.night - .3) / .5).toFixed(2), '--sky': m.sky[1] } }) : null,
+    // the moon's glow lies outside its crescent (the crescent is masked, the glow would be cut)
+    moon && m.night > .3 ? h('div', { class: 'sky-body sun', style: { left: moon.x + '%', top: moon.y + '%', '--size': '44px', '--glow': 'rgba(185, 195, 255, .4)', opacity: (Math.min(1, (m.night - .3) / .5) * .75).toFixed(2) } }) : null,
+    moon && m.night > .3 ? h('div', { class: 'sky-body moon', style: { left: moon.x + '%', top: moon.y + '%', opacity: Math.min(1, (m.night - .3) / .5).toFixed(2), '--sky': m.sky[1] } }, h('span')) : null,
     svg('svg', { class: 'day-ridges', viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none' },
       svg('defs', {},
         m.ridges.map((c, k) => svg('linearGradient', { id: 'dr' + k, x1: 0, y1: 0, x2: 0, y2: 1 },
