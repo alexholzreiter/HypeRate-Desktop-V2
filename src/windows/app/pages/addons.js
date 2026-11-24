@@ -17,7 +17,9 @@ const initials = (item) => (item.manifest?.name || item.folder).replace(/[^\p{L}
 const byFolder = (s, folder) => (s.addons.addons || []).find(a => a.folder === folder);
 const changedSinceApproval = (item) => !!(item.manifest && item.granted && !item.approved);
 
-function status(item) {
+// master: own addons allowed at all (Settings › Privacy); while off, addons are shown but never run
+function status(item, master = true) {
+  if (!master) return { tone: 'off', text: t('addons_master_off') };
   if (item.error) return { tone: 'bad', text: t('addons_error') };
   if (changedSinceApproval(item)) return { tone: 'warn', text: t('addons_changed') };
   if (item.running) return { tone: 'ok', text: t('addons_running') };
@@ -29,10 +31,11 @@ const dotFor = tone => ({ ok: 'live', warn: 'warn', bad: 'bad' }[tone] || '');
 // ── Tiles ──
 export function addonTiles(s, openAddon, where) {
   if (where !== 'after') return null;
-  const items = s.addons.master ? (s.addons.addons || []) : [];
+  // Shown also while own addons are off, so they do not seem gone; they just do not run
+  const items = s.addons.addons || [];
   return [
     items.map(item => {
-      const st = status(item);
+      const st = status(item, s.addons.master);
       return h('button', { class: 'card integ-card addon', onclick: () => openAddon(item.folder) },
         h('div', { class: 'row between' },
           h('span', { class: 'integ-mono addon-mono' }, initials(item)),
@@ -58,7 +61,7 @@ export function addonPage(s, folder, back) {
   const item = byFolder(s, folder);
   if (!item) { queueMicrotask(back); return null; }
   const m = item.manifest;
-  const st = status(item);
+  const st = status(item, s.addons.master);
   const id = m?.id;
   if (id && !s.addons.logs[id]) queueMicrotask(() => ad.loadLogs(id));
   const logs = (id && s.addons.logs[id]) || [];
@@ -74,12 +77,16 @@ export function addonPage(s, folder, back) {
           h('div', { class: 'row small', style: { gap: '8px', marginTop: '6px', flexWrap: 'wrap' }, role: 'status' },
             h('span', { class: 'dot ' + dotFor(st.tone) }), h('span', {}, st.text),
             m ? h('span', { class: 'muted' }, '· v' + m.version + (m.author ? ' · ' + m.author : '')) : null)),
-        m ? h('div', { class: 'row' }, h('span', {}, t('addons_switch')), toggle(item.enabled && item.approved, v => ad.setEnabled(item, v), t('addons_switch'))) : null),
+        m && s.addons.master ? h('div', { class: 'row' }, h('span', {}, t('addons_switch')), toggle(item.enabled && item.approved, v => ad.setEnabled(item, v), t('addons_switch'))) : null),
       m?.description ? h('p', { class: 'muted', style: { margin: 0 } }, m.description) : null,
       m ? h('p', { class: 'small muted', style: { margin: 0 } }, permissionSummary(m)) : null),
 
+    // Own addons are switched off as a whole: say so, and offer to allow them (the allow dialog explains)
+    !s.addons.master ? h('div', { class: 'note warn row between', style: { gap: '14px', flexWrap: 'wrap' } },
+      h('span', {}, t('addons_master_off_text')),
+      h('button', { class: 'btn small primary', onclick: () => ad.dialog({ type: 'allow', then: 'stay' }) }, t('addons_allow_yes'))) : null,
     item.error ? errorCard(item, item.error) : null,
-    changedSinceApproval(item) ? h('div', { class: 'note warn row between', style: { gap: '14px', flexWrap: 'wrap' } },
+    s.addons.master && changedSinceApproval(item) ? h('div', { class: 'note warn row between', style: { gap: '14px', flexWrap: 'wrap' } },
       h('span', {}, t('addons_changed_text')),
       h('button', { class: 'btn small primary', onclick: () => ad.setEnabled(item, true) }, t('addons_review'))) : null,
 
@@ -211,7 +218,7 @@ export function addonOverlays(s, openAddon) {
   if (a.approving) return approvalDialog(a.approving);
   const d = a.dialog;
   if (!d) return null;
-  if (d.type === 'allow') return allowDialog();
+  if (d.type === 'allow') return allowDialog(d);
   if (d.type === 'create') return createDialog(openAddon, d);
   if (d.type === 'prompt') return promptDialog(d, openAddon);
   return null;
@@ -221,7 +228,8 @@ const modal = (cls, label, onClose, ...children) =>
   h('div', { class: 'modal-backdrop', onclick: e => { if (e.target === e.currentTarget) onClose(); } },
     h('div', { class: 'card modal stack ' + cls, role: 'dialog', 'aria-modal': 'true', 'aria-label': label, style: { width: 'min(560px, 100%)' } }, children));
 
-function allowDialog() {
+// then: 'stay' (opened from an addon's page: allow and stay there) or create the first addon
+function allowDialog(d = {}) {
   return modal('addons-allow', t('addons_allow_title'), () => ad.dialog(null),
     h('h2', { class: 'h1', style: { fontSize: '22px', margin: 0 } }, t('addons_allow_title')),
     h('p', { class: 'muted', style: { margin: 0, lineHeight: 1.6 } }, t('addons_intro')),
@@ -229,7 +237,9 @@ function allowDialog() {
     h('p', { class: 'small muted', style: { margin: 0 } }, t('addons_allow_off')),
     h('div', { class: 'row', style: { gap: '10px', justifyContent: 'flex-end' } },
       h('button', { class: 'btn', onclick: () => ad.dialog(null) }, t('addons_cancel')),
-      h('button', { class: 'btn primary', onclick: () => ad.allowAndCreate() }, t('addons_allow_yes'))));
+      h('button', { class: 'btn primary', onclick: async () => {
+        if (d.then === 'stay') { await ad.setMaster(true); ad.dialog(null); } else ad.allowAndCreate();
+      } }, t('addons_allow_yes'))));
 }
 
 function createDialog(openAddon, d) {

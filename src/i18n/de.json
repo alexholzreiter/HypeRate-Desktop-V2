@@ -643,6 +643,8 @@
     "addons_open_folder_link": "Addon-Ordner öffnen",
     "reception": "Empfang",
     "battery": "Akku",
-    "battery_unknown": "Akku: wird nicht gemeldet"
+    "battery_unknown": "Akku: wird nicht gemeldet",
+    "addons_master_off": "Addons aus",
+    "addons_master_off_text": "Eigene Addons sind ausgeschaltet, deshalb läuft dieses nicht. Erlaube sie, um es wieder zu nutzen."
   }
 }
