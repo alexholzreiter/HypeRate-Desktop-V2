@@ -5,7 +5,7 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-const listeners = { heartRate: [], zone: [], gameMoment: [], settings: [] };
+const listeners = { heartRate: [], zone: [], gameMoment: [], settings: [], message: [] };
 ipcRenderer.on('addon-event', (_, { type, data }) => {
   for (const fn of listeners[type] || []) {
     try { fn(data); } catch (error) { console.error(error); }
@@ -14,6 +14,7 @@ ipcRenderer.on('addon-event', (_, { type, data }) => {
 
 contextBridge.exposeInMainWorld('hyperate', {
   // hyperate.on('heartRate', ({ bpm }) => …) · 'zone' · 'gameMoment' · 'settings' (its own, when the user changes them)
+  // · 'message' (from the other part of the same addon: main.js ↔ overlay.html)
   on(type, fn) {
     if (!listeners[type] || typeof fn !== 'function') throw new Error(`unknown event "${type}"`);
     listeners[type].push(fn);
@@ -26,5 +27,7 @@ contextBridge.exposeInMainWorld('hyperate', {
   // The values of "settings" from addon.json, as the user set them in the app
   settings: { get: () => ipcRenderer.invoke('addon-settings-get') },
   notify: (title, body) => ipcRenderer.invoke('addon-notify', String(title ?? ''), String(body ?? '')),
+  // To the other part of this addon (main.js → overlay.html and back); JSON-able, 64 KB at most
+  send: (data) => ipcRenderer.send('addon-message', data),
   log: (...args) => console.log(...args),
 });

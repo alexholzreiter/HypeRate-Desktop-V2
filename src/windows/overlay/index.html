@@ -6,6 +6,8 @@
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     [hidden] { display:none !important; }
+    /* "Show the HypeRate widget" off: only the user's addons show; this window stays, tiny and empty */
+    body.no-widget #widget, body.no-widget .wow-root, body.no-widget .lol-root { visibility:hidden !important; }
 
     html, body {
       width:100vw; height:100vh;
@@ -336,6 +338,7 @@
 
   function applyConfig(c) {
     cfg = c;
+    document.body.classList.toggle('no-widget', c.showWidget === false);
     applyTheme(c);
     const isCompact = c.layoutStyle === 'compact';
     const isMinimal = c.heartStyle  === 'minimal';
@@ -875,6 +878,10 @@
 
   function reportSize() {
     requestAnimationFrame(() => {
+      if (document.body.classList.contains('no-widget')) {
+        window.electronAPI.resizeOverlay({ width: 1, height: 1 });
+        return;
+      }
       if (theme) {
         window.electronAPI.resizeOverlay({
           width:  Math.ceil((busy ? CARD_OPEN_W : CARD_W) * theme.scale) + GLOW_PAD * 2,

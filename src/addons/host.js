@@ -10,26 +10,67 @@
 // - no permissions (camera, microphone, location, web notifications …), no downloads, no new
 //   windows, no navigation away
 // - what it gets through window.hyperate is checked here against what the user approved
+// - with the "overlay" permission, overlay.html shows in a window of its own next to the
+//   overlay: same session and rules, shown only while the overlay is. Like the heart rate
+//   widget it lets the mouse through, except while the pointer is over it: then it can be
+//   dragged, and where it is put is remembered
 //
 // Settings (settings.json): addonsEnabled (master switch, off by default) and
-// addons: { <id>: { enabled, granted: { fingerprint, permissions, network } } }.
+// addons: { <id>: { enabled, granted: { fingerprint, permissions, network }, values,
+//   overlay: { on, scale, x, y } } }.
 
 const fs = require('fs');
 const path = require('path');
-const { BrowserWindow, session, ipcMain, Notification, shell } = require('electron');
+const { app, BrowserWindow, session, ipcMain, Notification, shell, screen } = require('electron');
 const { scan, needsApproval, settingValues, settingValue } = require('./manifest');
 
 const LOG_LINES = 200;
 const STORAGE_BYTES = 1024 * 1024;
 const NOTIFY_EVERY_MS = 10 * 1000;
 const EVENT_PERMISSION = { heartRate: 'heartRate', zone: 'zones', gameMoment: 'gameMoments' };
-const FREE_EVENTS = ['settings'];   // its own settings: no permission needed
+const FREE_EVENTS = ['settings', 'message'];   // its own settings and its own messages: no permission needed
+const MESSAGE_BYTES = 64 * 1024;
+const LINUX = process.platform === 'linux';
+const WINDOW_SHARE = 1 / 3;          // an overlay window covers at most this much of its screen
+const CPU_LIMIT = 40;                // percent of one core, for all windows of one addon together
+const CPU_SAMPLES = 6;               // … this many checks in a row (5 s apart) and it is stopped
+const OVERLAY_SCALES = [50, 75, 100, 125, 150, 200];
 
-function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () => {}, appIcon }) {
-  const running = new Map();   // id → { win, manifest, dir, subscribed:Set, lastNotify }
+// overlayInfo(): { allSpaces, anchor } – how the overlay is set up and where it is (its bounds),
+// so a new addon window can start next to it
+// cpu: { limit, samples, every } overrides the processor check (for tests)
+function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () => {}, appIcon, overlayInfo = () => ({}), cpu: cpuCheck = {} }) {
+  const CPU = { limit: CPU_LIMIT, samples: CPU_SAMPLES, every: 5000, ...cpuCheck };
+  const running = new Map();   // id → { win, overlay, manifest, dir, subs: Map(webContents id → Set), lastNotify }
   const logs = new Map();      // id → [{ t, level, text }]
   const errors = new Map();    // id → text of the last crash or load failure
   const byContents = new Map();// webContents id → addon id
+  const halted = new Set();    // ids stopped for crashing, hanging or using too much CPU: wait for the user
+  const limits = new Map();    // id → Map(kind:detail → { kind, detail, count, at }): what it tried that is not possible
+
+  // Something the addon wanted but may not or cannot do: logged, and kept for its page, where
+  // the user sees it in plain words with a way to hand it to the AI or wish for it
+  function limit(id, kind, detail = '') {
+    if (!limits.has(id)) limits.set(id, new Map());
+    const key = kind + ':' + detail;
+    const seen = limits.get(id).get(key);
+    if (seen) { seen.count++; seen.at = Date.now(); return; }
+    if (limits.get(id).size >= 20) return;
+    limits.get(id).set(key, { kind, detail: String(detail).slice(0, 200), count: 1, at: Date.now() });
+    onChange();
+  }
+  // What a blocked request or a Content Security Policy message means
+  function cspLimit(id, message) {
+    if (!/Content Security Policy/i.test(message)) return;
+    if (/inline/i.test(message)) return limit(id, 'inline');
+    // the address comes quoted ('https://…') or plain ("cannot load https://….")
+    const url = (message.match(/(?:'|\s)((?:https?|wss?|file|data|blob):[^'\s]*?)\.?(?:'|\s|$)/) || [])[1];
+    if (!url) return limit(id, 'source');
+    try {
+      const u = new URL(url);
+      limit(id, u.protocol === 'https:' ? 'network' : 'protocol', u.protocol === 'https:' ? u.hostname : u.protocol.replace(':', ''));
+    } catch { limit(id, 'source'); }
+  }
 
   const settings = () => { const s = loadStore(); return { master: s.addonsEnabled === true, addons: s.addons || {} }; };
   const saveAddon = (id, patch) => {
@@ -59,6 +100,8 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
       "default-src 'none'",
       `script-src ${own}`,
       `style-src ${own} 'unsafe-inline'`,
+      `font-src ${own}`,
+      `media-src ${manifest.permissions.includes('sound') ? own + ' data: blob:' : "'none'"}`,
       `img-src ${own} data: ${hosts.join(' ')}`,
       `connect-src ${hosts.join(' ') || "'none'"}`,
     ].join('; ');
@@ -72,7 +115,7 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
       }
       const file = path.resolve(dir, '.' + decodeURIComponent(url.pathname));
       if (!file.startsWith(path.resolve(dir) + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return new Response('Not found', { status: 404 });
-      const type = { '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.css': 'text/css' }[path.extname(file)] || 'application/octet-stream';
+      const type = { '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.css': 'text/css', '.html': 'text/html; charset=utf-8', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif' }[path.extname(file)] || 'application/octet-stream';
       return new Response(fs.readFileSync(file), { headers: { 'content-type': type, 'content-security-policy': csp } });
     });
     ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, done) => {
@@ -82,7 +125,10 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
         ok = details.url.startsWith(own) || u.protocol === 'devtools:'
           || (u.protocol === 'https:' && manifest.network.includes(u.hostname));
       } catch {}
-      if (!ok) log(id, 'warn', `blocked: ${details.url.slice(0, 200)} (not in "network" of addon.json)`);
+      if (!ok) {
+        log(id, 'warn', `blocked: ${details.url.slice(0, 200)} (not in "network" of addon.json)`);
+        try { const u = new URL(details.url); limit(id, u.protocol === 'https:' ? 'network' : 'protocol', u.protocol === 'https:' ? u.hostname : u.protocol.replace(':', '')); } catch {}
+      }
       done({ cancel: !ok });
     });
     ses.setPermissionRequestHandler((_, __, callback) => callback(false));
@@ -91,51 +137,209 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
     return ses;
   }
 
-  function start(entry) {
-    const { manifest, dir } = entry;
-    const id = manifest.id;
-    stop(id);
-    errors.delete(id);
-    const ses = prepareSession(id, dir, manifest);
-    const win = new BrowserWindow({
-      show: false, width: 400, height: 300,
-      webPreferences: {
-        session: ses, sandbox: true, contextIsolation: true, nodeIntegration: false,
-        preload: path.join(__dirname, 'preload.js'), webviewTag: false, spellcheck: false,
-        backgroundThrottling: false,
-      },
-    });
-    const wc = win.webContents;
+  const webPreferences = (ses) => ({
+    session: ses, sandbox: true, contextIsolation: true, nodeIntegration: false,
+    preload: path.join(__dirname, 'preload.js'), webviewTag: false, spellcheck: false,
+    backgroundThrottling: false,
+    autoplayPolicy: 'no-user-gesture-required',   // nobody clicks a hidden window; sound needs the "sound" permission
+  });
+
+  // The same rules for the hidden window and the overlay window of an addon
+  function guard(wc, id, tag) {
     byContents.set(wc.id, id);
-    running.set(id, { win, manifest, dir, subscribed: new Set(), lastNotify: 0 });
+    // Web Audio needs no file, so the CSP alone would not keep an addon quiet: mute it
+    const r = running.get(id);
+    wc.setAudioMuted(!r?.manifest.permissions.includes('sound'));
     wc.setWindowOpenHandler(() => ({ action: 'deny' }));
     wc.on('will-navigate', (event) => event.preventDefault());
     // Electron 35+ passes one event object; older versions (event, level, message, …)
     wc.on('console-message', (event, oldLevel, oldMessage) => {
       const raw = event.level ?? oldLevel, message = event.message ?? oldMessage;
       const level = typeof raw === 'string' ? raw : ['debug', 'info', 'warning', 'error'][raw] || 'info';
-      log(id, level === 'warning' ? 'warn' : level, message);
+      log(id, level === 'warning' ? 'warn' : level, tag + message);
+      cspLimit(id, String(message));
     });
-    wc.on('render-process-gone', (_, details) => { errors.set(id, `stopped: ${details.reason}`); log(id, 'error', `stopped: ${details.reason}`); cleanup(id); });
-    wc.on('unresponsive', () => { log(id, 'error', 'not responding, stopped'); errors.set(id, 'not responding'); stop(id); });
-    wc.on('did-fail-load', (_, code, desc) => { errors.set(id, desc); log(id, 'error', `could not load: ${desc}`); });
+    wc.on('did-fail-load', (_, code, desc) => { errors.set(id, tag + desc); log(id, 'error', `${tag}could not load: ${desc}`); });
+  }
+
+  function start(entry) {
+    const { manifest, dir } = entry;
+    const id = manifest.id;
+    stop(id);
+    errors.delete(id);
+    limits.delete(id);   // a new start: what it ran into before may be fixed
+    const ses = prepareSession(id, dir, manifest);
+    const win = new BrowserWindow({ show: false, width: 400, height: 300, webPreferences: webPreferences(ses) });
+    const wc = win.webContents;
+    const r = { win, overlay: null, manifest, dir, ses, subs: new Map(), lastNotify: 0 };
+    running.set(id, r);
+    guard(wc, id, '');
+    wc.on('render-process-gone', (_, details) => { log(id, 'error', `stopped: ${details.reason}`); stop(id); halt(id, `stopped: ${details.reason}`); });
+    wc.on('unresponsive', () => { log(id, 'error', 'not responding, stopped'); stop(id); halt(id, 'not responding'); });
     log(id, 'info', `started ${manifest.name} ${manifest.version}`);
     win.loadURL(`hr-addon://${id}/`);
+    openOverlay(r);
+    watchCpu();
     onChange();
   }
 
-  function cleanup(id) {
-    const r = running.get(id);
-    if (!r) return;
-    byContents.delete(r.win.webContents?.id);
-    running.delete(id);
-    onChange();
+  // An addon that keeps using a lot of processor time is stopped, so games stay smooth
+  let cpuTimer = null;
+  function watchCpu() {
+    if (cpuTimer) return;
+    cpuTimer = setInterval(() => {
+      if (!running.size) { clearInterval(cpuTimer); cpuTimer = null; return; }
+      // percentCPUUsage is spread over all cores; processor seconds per second are not
+      const used = new Map(app.getAppMetrics().map(m => [m.pid, m.cpu?.cumulativeCPUUsage || 0]));
+      const now = Date.now();
+      for (const [id, r] of [...running]) {
+        const total = contentsOf(r).reduce((sum, wc) => sum + (used.get(wc.getOSProcessId()) || 0), 0);
+        const before = r.cpuLast;
+        r.cpuLast = { total, at: now };
+        if (!before || total < before.total) continue;   // first look, or a window came or went
+        const cpu = (total - before.total) / ((now - before.at) / 1000) * 100;   // percent of one core
+        r.cpuHigh = cpu > CPU.limit ? (r.cpuHigh || 0) + 1 : 0;
+        if (r.cpuHigh < CPU.samples) continue;
+        log(id, 'error', `stopped: used ${Math.round(cpu)} % of a processor core for ${Math.round(CPU.samples * CPU.every / 1000)} s`);
+        stop(id);
+        halt(id, 'used too much processor time');
+        limit(id, 'cpu');
+      }
+    }, CPU.every);
   }
+
+  // ── The addon's window in the overlay ──
+  let overlayShown = false;
+  const overlayPrefs = (id) => ({ on: true, scale: 100, ...((settings().addons[id] || {}).overlay || {}) });
+
+  // Where the window goes: where the user put it, kept on a screen; else below the overlay
+  // "mode": "screen": the whole screen the overlay is on (the main screen while it is closed)
+  const isScreen = (r) => r.manifest.overlay?.mode === 'screen';
+  function screenBounds() {
+    const anchor = overlayInfo().anchor;
+    const b = (anchor ? screen.getDisplayMatching(anchor) : screen.getPrimaryDisplay()).bounds;
+    return { x: b.x, y: b.y, width: b.width, height: b.height };
+  }
+  function overlayBounds(r, index) {
+    if (isScreen(r)) return { ...screenBounds(), scale: 1 };
+    const p = overlayPrefs(r.manifest.id);
+    const scale = OVERLAY_SCALES.includes(p.scale) ? p.scale / 100 : 1;
+    let width = Math.round(r.manifest.overlay.width * scale), height = Math.round(r.manifest.overlay.height * scale);
+    let x = p.x, y = p.y;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      const anchor = overlayInfo().anchor;
+      const area = (anchor ? screen.getDisplayMatching(anchor) : screen.getPrimaryDisplay()).workArea;
+      x = anchor ? anchor.x : area.x + 40;
+      y = (anchor ? anchor.y + anchor.height : area.y + 40) + index * 24;
+    }
+    const area = screen.getDisplayNearestPoint({ x: Math.round(x + width / 2), y: Math.round(y + height / 2) }).workArea;
+    // A window takes the mouse while the pointer is over it; a huge one would block the screen
+    const most = area.width * area.height * WINDOW_SHARE;
+    if (width * height > most) {
+      const f = Math.sqrt(most / (width * height));
+      width = Math.round(width * f); height = Math.round(height * f);
+      limit(r.manifest.id, 'window-size');
+      log(r.manifest.id, 'warn', '[overlay] window too big for the screen, made smaller; use "mode": "screen" for full-screen effects');
+      return place(x, y, width, height, scale * f, area);
+    }
+    return place(x, y, width, height, scale, area);
+  }
+  function place(x, y, width, height, scale, area) {
+    x = Math.min(Math.max(x, area.x), area.x + area.width - Math.min(width, area.width));
+    y = Math.min(Math.max(y, area.y), area.y + area.height - Math.min(height, area.height));
+    return { x: Math.round(x), y: Math.round(y), width, height, scale };
+  }
+
+  function openOverlay(r) {
+    const id = r.manifest.id;
+    closeOverlay(r);
+    if (!r.manifest.overlay || !overlayPrefs(id).on) return;
+    const { scale, ...bounds } = overlayBounds(r, [...running.values()].filter(x => x.overlay).length);
+    const win = new BrowserWindow({
+      ...bounds, show: false, frame: false, transparent: true, backgroundColor: '#00000000',
+      alwaysOnTop: true, skipTaskbar: true, resizable: false, maximizable: false, minimizable: false,
+      fullscreenable: false, hasShadow: false, title: r.manifest.name,
+      // a screen addon covers the menu bar too; macOS would otherwise push it below it
+      enableLargerThanScreen: isScreen(r),
+      webPreferences: webPreferences(r.ses),
+    });
+    r.overlay = win;
+    win.setAlwaysOnTop(true, 'screen-saver');
+    // A screen addon never takes the mouse. A window one does while the pointer is over it
+    // (see watchCursor); Linux has no click-through forwarding, there it is always grabbable.
+    win.setIgnoreMouseEvents(isScreen(r) || !LINUX);
+    if (process.platform === 'darwin' && overlayInfo().allSpaces) win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+    const wc = win.webContents;
+    guard(wc, id, '[overlay] ');
+    wc.on('render-process-gone', (_, details) => { log(id, 'error', `[overlay] stopped: ${details.reason}`); closeOverlay(r); onChange(); });
+    wc.on('did-finish-load', () => { wc.setZoomFactor(scale); if (!isScreen(r)) wc.insertCSS(DRAG_CSS).catch(() => {}); r.hoverCss = null; });
+    // A move comes from the user dragging it (the app never moves it after creating it)
+    let moveTimer = null;
+    win.on('move', () => {
+      if (isScreen(r)) return;
+      clearTimeout(moveTimer);
+      moveTimer = setTimeout(() => {
+        if (win.isDestroyed()) return;
+        const [x, y] = win.getPosition();
+        saveAddon(id, { overlay: { ...overlayPrefs(id), x, y } });
+      }, 400);
+    });
+    win.loadURL(`hr-addon://${id}/overlay.html`);
+    win.once('ready-to-show', () => {
+      if (!overlayShown) return;
+      win.showInactive();
+      if (isScreen(r)) win.setBounds(screenBounds());
+    });
+    watchCursor();
+  }
+
+  function closeOverlay(r) {
+    const win = r.overlay;
+    r.overlay = null;
+    r.hover = false; r.hoverCss = null;
+    if (!win) return;
+    byContents.delete(win.webContents?.id);
+    r.subs.delete(win.webContents?.id);
+    if (!win.isDestroyed()) win.destroy();
+  }
+
+  // Like the widget: the whole window is a drag area, and while the pointer is over it, it
+  // catches the mouse and lights up its edge; elsewhere clicks go through to the game.
+  // setIgnoreMouseEvents(…, { forward: true }) hears no mouse over other apps, so the cursor
+  // is polled instead, as for the overlay itself.
+  const DRAG_CSS = 'html { -webkit-app-region: drag !important; cursor: grab !important; }';
+  const HOVER_CSS = 'html { box-shadow: inset 0 0 0 1.5px rgba(127, 176, 255, .55) !important; border-radius: 14px; }';
+  let cursorTimer = null;
+  function watchCursor() {
+    if (LINUX || cursorTimer) return;
+    cursorTimer = setInterval(() => {
+      const wins = [...running.values()].filter(r => r.overlay && !r.overlay.isDestroyed() && !isScreen(r));
+      if (!wins.length) { clearInterval(cursorTimer); cursorTimer = null; return; }
+      const p = screen.getCursorScreenPoint();
+      for (const r of wins) {
+        const win = r.overlay;
+        const b = win.getBounds();
+        const inside = win.isVisible() && p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height;
+        if (inside === !!r.hover) continue;
+        r.hover = inside;
+        win.setIgnoreMouseEvents(!inside);
+        const wc = win.webContents;
+        if (inside) wc.insertCSS(HOVER_CSS).then(key => { if (r.hover && r.overlay === win) r.hoverCss = key; else wc.removeInsertedCSS(key).catch(() => {}); }).catch(() => {});
+        else if (r.hoverCss) { wc.removeInsertedCSS(r.hoverCss).catch(() => {}); r.hoverCss = null; }
+      }
+    }, 100);
+  }
+
+  // Stays off until the user restarts it (or changes, switches on, approves it again)
+  function halt(id, why) { halted.add(id); errors.set(id, why); onChange(); }
   function stop(id) {
     const r = running.get(id);
     if (!r) return;
-    cleanup(id);
+    closeOverlay(r);
+    byContents.delete(r.win.webContents?.id);
+    running.delete(id);
     if (!r.win.isDestroyed()) r.win.destroy();
+    onChange();
   }
 
   // ── What an addon may ask for ──
@@ -143,27 +347,40 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
     const id = byContents.get(event.sender.id);
     return id && running.has(id) ? running.get(id) : null;
   };
+  const subscribe = (r, wc, type) => { if (!r.subs.has(wc.id)) r.subs.set(wc.id, new Set()); r.subs.get(wc.id).add(type); };
   ipcMain.on('addon-subscribe', (event, type) => {
     const r = caller(event);
     if (!r) return;
-    if (FREE_EVENTS.includes(type)) { r.subscribed.add(type); return; }
+    if (FREE_EVENTS.includes(type)) { subscribe(r, event.sender, type); return; }
     if (!EVENT_PERMISSION[type]) return;
-    if (!r.manifest.permissions.includes(EVENT_PERMISSION[type])) { log(r.manifest.id, 'warn', `"${type}" needs the permission "${EVENT_PERMISSION[type]}" in addon.json`); return; }
-    r.subscribed.add(type);
+    if (!r.manifest.permissions.includes(EVENT_PERMISSION[type])) { log(r.manifest.id, 'warn', `"${type}" needs the permission "${EVENT_PERMISSION[type]}" in addon.json`); limit(r.manifest.id, 'permission', EVENT_PERMISSION[type]); return; }
+    subscribe(r, event.sender, type);
+  });
+  // The two parts of one addon (main.js and overlay.html) talk with hyperate.send / on('message')
+  ipcMain.on('addon-message', (event, data) => {
+    const r = caller(event);
+    if (!r) return;
+    let text;
+    try { text = JSON.stringify(data); } catch { return; }
+    if (text === undefined) return;
+    if (Buffer.byteLength(text) > MESSAGE_BYTES) { log(r.manifest.id, 'warn', 'message too big (64 KB)'); limit(r.manifest.id, 'message-size'); return; }
+    for (const wc of contentsOf(r)) if (wc.id !== event.sender.id) send(r, wc, 'message', JSON.parse(text));
   });
   const storeFile = (id) => path.join(dataDir, id + '.json');
   const readStorage = (id) => { try { return JSON.parse(fs.readFileSync(storeFile(id), 'utf8')); } catch { return {}; } };
   ipcMain.handle('addon-storage-get', (event, key) => {
     const r = caller(event);
-    if (!r || !r.manifest.permissions.includes('storage')) return undefined;
+    if (!r) return undefined;
+    if (!r.manifest.permissions.includes('storage')) { limit(r.manifest.id, 'permission', 'storage'); return undefined; }
     return readStorage(r.manifest.id)[key];
   });
   ipcMain.handle('addon-storage-set', (event, key, value) => {
     const r = caller(event);
-    if (!r || !r.manifest.permissions.includes('storage')) return false;
+    if (!r) return false;
+    if (!r.manifest.permissions.includes('storage')) { limit(r.manifest.id, 'permission', 'storage'); return false; }
     const data = { ...readStorage(r.manifest.id), [key]: value };
     const text = JSON.stringify(data);
-    if (Buffer.byteLength(text) > STORAGE_BYTES) { log(r.manifest.id, 'warn', 'storage is full (1 MB)'); return false; }
+    if (Buffer.byteLength(text) > STORAGE_BYTES) { log(r.manifest.id, 'warn', 'storage is full (1 MB)'); limit(r.manifest.id, 'storage-size'); return false; }
     fs.mkdirSync(dataDir, { recursive: true });
     fs.writeFileSync(storeFile(r.manifest.id), text);
     return true;
@@ -176,7 +393,9 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
   });
   ipcMain.handle('addon-notify', (event, title, body) => {
     const r = caller(event);
-    if (!r || !r.manifest.permissions.includes('notifications') || !Notification.isSupported()) return false;
+    if (!r) return false;
+    if (!r.manifest.permissions.includes('notifications')) { limit(r.manifest.id, 'permission', 'notifications'); return false; }
+    if (!Notification.isSupported()) return false;
     if (Date.now() - r.lastNotify < NOTIFY_EVERY_MS) return false;   // one every 10 s at most
     r.lastNotify = Date.now();
     new Notification({ title: `${r.manifest.name}: ${title}`.slice(0, 120), body: body.slice(0, 400), icon: appIcon }).show();
@@ -184,10 +403,24 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
   });
 
   // ── What the app tells the addons ──
+  const contentsOf = (r) => [r.win, r.overlay].filter(w => w && !w.isDestroyed()).map(w => w.webContents);
+  const send = (r, wc, type, data) => { if (r.subs.get(wc.id)?.has(type)) wc.send('addon-event', { type, data }); };
   function emit(type, data) {
-    for (const r of running.values()) {
-      if (r.subscribed.has(type) && !r.win.isDestroyed()) r.win.webContents.send('addon-event', { type, data });
-    }
+    for (const r of running.values()) for (const wc of contentsOf(r)) send(r, wc, type, data);
+  }
+
+  // WISHES.md: what the AI could not build because the app does not offer it (yet), one
+  // "## " heading per wish; shown on the addon's page so the user can pass it on
+  function readWishes(dir) {
+    try {
+      const file = path.join(dir, 'WISHES.md');
+      if (fs.lstatSync(file).isSymbolicLink()) return [];
+      const text = fs.readFileSync(file, 'utf8').slice(0, 8000);
+      return text.split(/^## +/m).slice(1).map(part => {
+        const [title, ...rest] = part.split('\n');
+        return { title: title.trim().slice(0, 120), text: rest.join('\n').trim().slice(0, 1000) };
+      }).filter(w => w.title).slice(0, 10);
+    } catch { return []; }
   }
 
   // ── For the settings window ──
@@ -196,6 +429,7 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
     return {
       master,
       root,
+      overlayScales: OVERLAY_SCALES,
       addons: scan(root).map(entry => {
         const id = entry.manifest?.id;
         const saved = (id && addons[id]) || {};
@@ -214,13 +448,43 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
           fingerprint: entry.fingerprint,
           running: !!(id && running.has(id)),
           logCount: (id && logs.get(id)?.length) || 0,
+          // shown in the overlay: on, size in percent; inOverlay: its window is up right now
+          overlay: entry.manifest?.overlay ? (({ on, scale }) => ({ on, scale }))(overlayPrefs(id)) : null,
+          inOverlay: !!(id && running.get(id)?.overlay),
+          limits: id ? [...(limits.get(id)?.values() || [])] : [],
+          wishes: readWishes(entry.dir),
         };
       }),
     };
   }
 
+  // The guide for AI assistants in each addon folder follows the app: an addon made with an
+  // older version gets the current one, and its task (under "## Your task") stays as it is.
+  // Only guides the app wrote itself are touched (they start with the template's title), and
+  // AGENTS.md is not part of the fingerprint, so this never asks the user again.
+  const GUIDE = path.join(__dirname, 'template', 'AGENTS.md');
+  function refreshGuides() {
+    let guide;
+    try { guide = fs.readFileSync(GUIDE, 'utf8').replace(/\s*$/, '\n'); } catch { return; }
+    const title = guide.split('\n')[0];
+    if (!fs.existsSync(root)) return;
+    for (const e of fs.readdirSync(root, { withFileTypes: true })) {
+      if (!e.isDirectory()) continue;
+      const file = path.join(root, e.name, 'AGENTS.md');
+      try {
+        if (fs.lstatSync(file).isSymbolicLink()) continue;
+        const text = fs.readFileSync(file, 'utf8');
+        if (!text.startsWith(title)) continue;
+        const at = text.indexOf('\n## Your task');
+        const next = guide + (at >= 0 ? text.slice(at) : '');
+        if (next !== text) fs.writeFileSync(file, next);
+      } catch {}
+    }
+  }
+
   // Start what is switched on and approved; stop what is not (or everything, master off)
   function sync() {
+    refreshGuides();
     const { master, addons } = settings();
     const wanted = new Set();
     if (master) {
@@ -228,7 +492,7 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
         const id = entry.manifest?.id;
         if (!id || entry.error) continue;
         const saved = addons[id] || {};
-        if (!saved.enabled || needsApproval(entry.manifest, entry.fingerprint, saved.granted)) continue;
+        if (!saved.enabled || halted.has(id) || needsApproval(entry.manifest, entry.fingerprint, saved.granted)) continue;
         wanted.add(id);
         const r = running.get(id);
         if (!r || r.dir !== entry.dir) start(entry);
@@ -253,22 +517,35 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
     } catch { watcher = null; }   // no recursive watching (older Linux): rescanning still works
   }
 
+  // A screen changed (added, removed, resolution): screen addons follow it
+  let screensWatched = false;
+  function watchScreens() {
+    if (screensWatched) return;
+    screensWatched = true;
+    for (const event of ['display-added', 'display-removed', 'display-metrics-changed']) {
+      screen.on(event, () => setTimeout(() => {
+        for (const r of running.values()) if (isScreen(r) && r.overlay && !r.overlay.isDestroyed()) r.overlay.setBounds(screenBounds());
+      }, 300));
+    }
+  }
+
   return {
     list,
-    sync() { watch(); sync(); },
+    sync() { watch(); watchScreens(); sync(); },
     emit,
     logs: (id) => logs.get(id) || [],
     setMaster(on) { const s = loadStore(); s.addonsEnabled = on === true; saveStore(s); sync(); return list(); },
-    setEnabled(id, on) { saveAddon(id, { enabled: on === true }); sync(); return list(); },
+    setEnabled(id, on) { halted.delete(id); errors.delete(id); saveAddon(id, { enabled: on === true }); sync(); return list(); },
     // The user saw exactly this version (fingerprint) with these permissions and said yes
     approve(id, print) {
       const entry = scan(root).find(e => e.manifest?.id === id);
       if (!entry || entry.fingerprint !== print) return list();   // it changed meanwhile: show again
+      halted.delete(id); errors.delete(id);
       saveAddon(id, { enabled: true, granted: { fingerprint: print, permissions: entry.manifest.permissions, network: entry.manifest.network } });
       sync();
       return list();
     },
-    reload(id) { if (id) stop(id); sync(); return list(); },
+    reload(id) { if (id) { stop(id); halted.delete(id); errors.delete(id); } sync(); return list(); },
     // One setting changed in the app: kept within what it allows, saved, told to the addon
     setValue(id, key, value) {
       const entry = scan(root).find(e => e.manifest?.id === id);
@@ -277,7 +554,7 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
       const saved = (settings().addons[id] || {}).values || {};
       saveAddon(id, { values: { ...saved, [key]: settingValue(setting, value) } });
       const r = running.get(id);
-      if (r?.subscribed.has('settings') && !r.win.isDestroyed()) r.win.webContents.send('addon-event', { type: 'settings', data: valuesOf(entry.manifest) });
+      if (r) for (const wc of contentsOf(r)) send(r, wc, 'settings', valuesOf(entry.manifest));
       return list();
     },
     // Stops the addon, moves its folder to the trash (so a mistake can be undone there) and
@@ -288,7 +565,7 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
       const id = entry.manifest?.id;
       if (id) {
         stop(id);
-        logs.delete(id); errors.delete(id);
+        logs.delete(id); errors.delete(id); limits.delete(id);
         try { fs.unlinkSync(storeFile(id)); } catch {}
         const s = loadStore();
         if (s.addons?.[id]) { delete s.addons[id]; saveStore(s); }
@@ -298,8 +575,40 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
       sync();
       return list();
     },
+    // The overlay is up or not: the addons' windows follow it
+    setOverlayVisible(on) {
+      overlayShown = on === true;
+      for (const r of running.values()) {
+        const win = r.overlay;
+        if (!win || win.isDestroyed()) continue;
+        if (!overlayShown) { win.hide(); continue; }
+        win.showInactive();
+        if (isScreen(r)) win.setBounds(screenBounds());   // the overlay may be on another screen now
+      }
+    },
+    setAllSpaces(on) {
+      if (process.platform !== 'darwin') return;
+      for (const r of running.values()) if (r.overlay && !r.overlay.isDestroyed()) r.overlay.setVisibleOnAllWorkspaces(on === true, { visibleOnFullScreen: on === true, skipTransformProcessType: true });
+    },
+    // In the overlay or not, and how big
+    setOverlay(id, patch) {
+      const p = overlayPrefs(id);
+      const next = { ...p };
+      if (typeof patch.on === 'boolean') next.on = patch.on;
+      if (OVERLAY_SCALES.includes(patch.scale)) next.scale = patch.scale;
+      if (patch.resetPosition) { delete next.x; delete next.y; }
+      saveAddon(id, { overlay: next });
+      const r = running.get(id);
+      if (r) openOverlay(r);
+      onChange();
+      return list();
+    },
     stopAll() { watcher?.close(); watcher = null; for (const id of [...running.keys()]) stop(id); },
   };
 }
 
-module.exports = { createAddonHost };
+// hr-addon://<id>/: registered before the app is ready (protocol.registerSchemesAsPrivileged),
+// so an addon's page is a normal secure origin whose own scripts and styles load
+const ADDON_SCHEME = { scheme: 'hr-addon', privileges: { standard: true, secure: true, supportFetchAPI: true } };
+
+module.exports = { createAddonHost, ADDON_SCHEME };

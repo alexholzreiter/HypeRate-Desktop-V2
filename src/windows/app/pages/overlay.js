@@ -84,8 +84,8 @@ function scene(c, bpm) {
         svg('polygon', { points: '0,190 90,130 170,170 260,105 350,160 440,120 540,175 640,118 740,165 820,128 900,160 900,300 0,300', fill: '#2b2140' }),
         svg('polygon', { points: '0,230 120,190 230,220 330,180 460,225 560,195 690,232 800,200 900,222 900,300 0,300', fill: '#1a1527' }),
         svg('polygon', { points: '0,265 160,245 320,262 520,240 720,262 900,248 900,300 0,300', fill: '#0e0c16' })),
-      h('span', { class: 'scene-note' }, t('preview_note')),
-      h('div', { class: 'scene-widget' }, preview)));
+      h('span', { class: 'scene-note' }, t(c.showWidget ? 'preview_note' : 'preview_no_widget')),
+      c.showWidget ? h('div', { class: 'scene-widget' }, preview) : null));
 }
 
 function gameHint(c) {
@@ -275,7 +275,9 @@ function displayTab() {
     api.getOverlayDisplays?.().then(d => { displays = d || { displays: [] }; rerender(); }).catch(() => {});
   }
   const hotkey = (get().settings.hotkey?.keys || ['Ctrl', 'Shift', 'H']).join(' + ');
-  return h('div', { class: 'card stack', style: { maxWidth: '760px' } },
+  return h('div', { class: 'card stack' },
+    switchRow('showWidget', t('overlay_show_widget'), t('overlay_show_widget_sub')),
+    h('hr', { class: 'divider' }),
     displays.displays.length > 1 ? field(t('overlay_display'), h('select', {
       class: 'field select',
       onchange: async e => { displays = await api.setOverlayDisplay(Number(e.target.value)); rerender(); },
@@ -286,5 +288,7 @@ function displayTab() {
       h('button', { class: 'toggle' + (displays.allSpaces ? ' on' : ''), role: 'switch', 'aria-checked': String(!!displays.allSpaces), 'aria-label': t('overlay_all_spaces'),
         onclick: async () => { const on = !displays.allSpaces; await api.setOverlayAllSpaces(on); displays = { ...displays, allSpaces: on }; rerender(); } }, h('span'))) : null,
     h('hr', { class: 'divider' }),
-    h('div', { class: 'row between' }, h('span', {}, t('hotkey_toggle')), h('span', { class: 'kbd' }, hotkey)));
+    h('div', { class: 'row between' }, h('span', {}, t('hotkey_toggle')), h('span', { class: 'kbd' }, hotkey)),
+    h('hr', { class: 'divider' }),
+    h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('overlay_fullscreen_note')));
 }

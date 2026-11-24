@@ -10,9 +10,12 @@
 //     "version": "1.0.0",
 //     "description": "What it does",
 //     "author": "Someone",
-//     "permissions": ["heartRate", "zones", "gameMoments", "storage", "notifications"],
-//     "network": ["api.example.com"]     hosts it may talk to over https (needs no permission
+//     "permissions": ["heartRate", "zones", "gameMoments", "storage", "notifications", "overlay", "sound"],
+//     "network": ["api.example.com"],    hosts it may talk to over https (needs no permission
 //                                        entry; listing a host is the request)
+//     "overlay": { "width": 300, "height": 120 }   with the "overlay" permission: the size of
+//                                        overlay.html, shown in a window of its own;
+//                { "mode": "screen" }    or over the whole screen, always click-through
 //   }
 //
 // Nothing here runs addon code. The fingerprint covers the manifest and every file of the
@@ -28,7 +31,10 @@ const PERMISSIONS = {
   gameMoments: 'Read game moments (boss kills, deaths, pentakills …)',
   storage: 'Keep its own small storage on this computer',
   notifications: 'Show system notifications',
+  overlay: 'Show something in the overlay',
+  sound: 'Play sounds',
 };
+const OVERLAY_SIZE = { width: [40, 1200, 300], height: [30, 800, 120] };   // min, max, default
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{1,39}$/;
 const HOST_RE = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
@@ -60,6 +66,7 @@ function readManifest(dir) {
   if (badHost.length) throw new ManifestError(`"network" takes host names only, e.g. api.example.com: ${badHost.join(', ')}`);
   if (!fs.existsSync(path.join(dir, 'main.js'))) throw new ManifestError('main.js is missing');
   const settings = readSettings(raw.settings);
+  const overlay = readOverlay(raw.overlay, permissions, dir);
   return {
     id,
     name: str('name', 60),
@@ -69,7 +76,26 @@ function readManifest(dir) {
     permissions,
     network,
     settings,
+    overlay,
   };
+}
+
+// With the "overlay" permission the addon has an overlay.html; its size comes from "overlay"
+function readOverlay(raw, permissions, dir) {
+  if (!permissions.includes('overlay')) return null;
+  if (!fs.existsSync(path.join(dir, 'overlay.html'))) throw new ManifestError('the "overlay" permission needs an overlay.html');
+  if (raw != null && typeof raw !== 'object') throw new ManifestError('"overlay" must be an object like { "width": 300, "height": 120 }');
+  const mode = raw?.mode ?? 'window';
+  if (mode !== 'window' && mode !== 'screen') throw new ManifestError('"overlay.mode" must be "window" or "screen"');
+  if (mode === 'screen') return { mode };   // the size is the screen's
+  const size = (k) => {
+    const [min, max, def] = OVERLAY_SIZE[k];
+    const v = raw?.[k];
+    if (v == null) return def;
+    if (!Number.isFinite(v)) throw new ManifestError(`"overlay.${k}" must be a number`);
+    return Math.round(Math.min(max, Math.max(min, v)));
+  };
+  return { mode, width: size('width'), height: size('height') };
 }
 
 // "settings": values the user can change in the app without touching code. Each one:
@@ -128,7 +154,7 @@ function settingValues(manifest, saved = {}) {
   return Object.fromEntries(manifest.settings.map(st => [st.key, st.key in saved ? settingValue(st, saved[st.key]) : st.default]));
 }
 
-// Every file of the addon (names and contents), sorted, hashed. Symlinks are refused, so an
+// Every file of the addon (names and contents), sorted, hashed (except AGENTS.md and WISHES.md). Symlinks are refused, so an
 // addon cannot reach outside its folder.
 function fingerprint(dir) {
   const files = [];
@@ -136,6 +162,8 @@ function fingerprint(dir) {
   (function walk(d, rel) {
     for (const entry of fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
       if (entry.name === '.DS_Store' || entry.name === 'Thumbs.db') continue;
+      // the guide for AI assistants (kept current by the app) and the AI's wishes: never run
+      if (!rel && (entry.name === 'AGENTS.md' || entry.name === 'WISHES.md')) continue;
       const full = path.join(d, entry.name), name = rel ? rel + '/' + entry.name : entry.name;
       if (entry.isSymbolicLink()) throw new ManifestError(`symbolic links are not allowed: ${name}`);
       if (entry.isDirectory()) { walk(full, name); continue; }

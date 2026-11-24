@@ -8,7 +8,7 @@ import { setLang, app, addons } from '../lib/state.js';
 
 export const id = 'settings';
 
-const FEEDBACK_URL = 'https://feedback.hyperate.io/form/iHnGf9vp';
+export const FEEDBACK_URL = 'https://feedback.hyperate.io/form/iHnGf9vp';
 const NEWS_URL = 'https://blog.hyperate.io/tags/news/';
 
 export function render(s) {

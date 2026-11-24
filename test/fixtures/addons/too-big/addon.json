@@ -1,0 +1,2 @@
+{ "id": "too-big", "name": "Too big", "version": "1.0.0", "description": "A window meant to cover most of the screen.",
+  "permissions": ["overlay"], "overlay": { "width": 1200, "height": 800 } }

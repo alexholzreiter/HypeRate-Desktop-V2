@@ -67,7 +67,10 @@ function syncAttributes(live, next) {
   for (const { name, value } of [...next.attributes]) if (live.getAttribute(name) !== value) live.setAttribute(name, value);
   // Form state lives in properties; leave a field alone while someone is in it
   if (live === document.activeElement) return;
-  if ('value' in next && live.tagName !== 'OPTION' && live.tagName !== 'BUTTON' && live.value !== next.value) live.value = next.value;
+  // Only fields the render fills (a value given, or a select) are brought back to it; a field
+  // without one is the user's (a name being typed, a wish, a password) and keeps what they wrote
+  const owned = live.tagName === 'SELECT' || ((live.tagName === 'INPUT' || live.tagName === 'TEXTAREA') && next.hasAttribute('value'));
+  if (owned && live.value !== next.value) live.value = next.value;
   if ('checked' in next && live.checked !== next.checked) live.checked = next.checked;
   if (live.tagName === 'OPTION' && live.selected !== next.hasAttribute('selected')) live.selected = next.hasAttribute('selected');
 }

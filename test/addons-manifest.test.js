@@ -93,3 +93,27 @@ check('settings are read with defaults, and values are kept within what they all
   assert.match(err([{ key: 'a', type: 'select' }]), /needs "options"/);
   assert.match(err([{ key: 'a', type: 'text' }, { key: 'a', type: 'text' }]), /twice/);
 });
+
+check('the overlay permission needs overlay.html and keeps the size within limits', () => {
+  const root = tmp();
+  const err = (folder, extra, withHtml) => {
+    const dir = addon(root, folder, { ...good, permissions: ['overlay'], ...extra });
+    if (withHtml) fs.writeFileSync(path.join(dir, 'overlay.html'), '<div>hi</div>');
+    try { return readManifest(dir); } catch (e) { return e.message; }
+  };
+  assert.match(err('a', {}, false), /needs an overlay.html/);
+  assert.deepEqual(err('b', {}, true).overlay, { mode: 'window', width: 300, height: 120 });
+  assert.deepEqual(err('c', { overlay: { width: 5000, height: 10 } }, true).overlay, { mode: 'window', width: 1200, height: 30 });
+  assert.deepEqual(err('f', { overlay: { mode: 'screen', width: 9 } }, true).overlay, { mode: 'screen' });
+  assert.match(err('g', { overlay: { mode: 'huge' } }, true), /must be "window" or "screen"/);
+  assert.match(err('d', { overlay: { width: 'big' } }, true), /must be a number/);
+  assert.equal(readManifest(addon(root, 'e', good)).overlay, null);
+});
+
+check('AGENTS.md is not part of the fingerprint, so the app can keep the guide current', () => {
+  const dir = addon(tmp(), 'a', good);
+  fs.writeFileSync(path.join(dir, 'AGENTS.md'), 'old guide');
+  const p1 = fingerprint(dir);
+  fs.writeFileSync(path.join(dir, 'AGENTS.md'), 'new guide');
+  assert.equal(fingerprint(dir), p1);
+});

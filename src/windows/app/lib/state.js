@@ -502,6 +502,7 @@ export const addons = {
     changed();
   },
   async setValue(id, key, value) { addons.apply(await api.addonsSetValue(id, key, value)); },
+  async setOverlay(id, patch) { addons.apply(await api.addonsSetOverlay(id, patch)); },
   openEditor: (folder) => api.addonsOpenEditor(folder),
   showFolder: (folder) => api.addonsShowFolder(folder),
   openFolder: () => api.addonsOpenFolder(),

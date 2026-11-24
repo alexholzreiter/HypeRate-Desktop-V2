@@ -5,6 +5,7 @@
 import { h, icon } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
 import { addons as ad } from '../lib/state.js';
+import { FEEDBACK_URL } from './settings.js';
 
 const toggle = (on, onChange, label) =>
   h('button', { class: 'toggle' + (on ? ' on' : ''), role: 'switch', 'aria-checked': String(!!on), 'aria-label': label, onclick: () => onChange(!on) }, h('span'));
@@ -80,8 +81,10 @@ export function addonPage(s, folder, back) {
 
     h('div', { class: 'split' },
       h('div', { class: 'stack', style: { gap: '18px', flex: '1.4 1 380px', minWidth: 0 } },
+        m?.overlay ? overlayCard(s, item) : null,
         m?.settings?.length ? settingsCard(item) : null,
         !item.error && item.lastError ? errorCard(item, item.lastError) : null,
+        item.limits?.length || item.wishes?.length ? limitsCard(item) : null,
         h('div', { class: 'card stack' },
           h('div', { class: 'row between' }, h('p', { class: 'label' }, t('addons_log')),
             item.running ? h('a', { class: 'small', onclick: () => ad.reload(id) }, t('addons_restart')) : null),
@@ -102,6 +105,55 @@ export function addonPage(s, folder, back) {
           t(s.addons.confirmRemove === folder ? 'addons_remove_confirm' : 'addons_remove')))));
 }
 
+// What the addon shows in the overlay: a window of its own that comes and goes with the
+// overlay (moved like the heart rate widget), or, with "mode": "screen", the whole screen
+function overlayCard(s, item) {
+  const id = item.manifest.id, o = item.overlay;
+  const screenMode = item.manifest.overlay.mode === 'screen';
+  const scales = s.addons.overlayScales || [50, 75, 100, 125, 150, 200];
+  return h('div', { class: 'card stack' },
+    h('p', { class: 'label' }, t('addons_overlay')),
+    h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } },
+      t(screenMode ? 'addons_overlay_screen' : 'addons_overlay_text'), ' ',
+      t('addons_overlay_hotkey', { hotkey: (s.settings.hotkey?.keys || ['Ctrl', 'Shift', 'H']).join(' + ') }),
+      s.overlayOpen ? null : ' ' + t('addons_overlay_closed')),
+    h('div', { class: 'ctl' }, h('span', { class: 'ctl-label' }, t('addons_overlay_show')),
+      h('div', { class: 'ctl-input' }, toggle(o.on, on => ad.setOverlay(id, { on }), t('addons_overlay_show')))),
+    screenMode ? null : h('div', { class: 'ctl' }, h('span', { class: 'ctl-label' }, t('addons_overlay_size')),
+      h('div', { class: 'ctl-input' }, h('select', { class: 'field select', 'aria-label': t('addons_overlay_size'), onchange: e => ad.setOverlay(id, { scale: Number(e.target.value) }) },
+        scales.map(v => h('option', { value: v, selected: v === o.scale ? true : null }, v + ' %'))))),
+    screenMode ? null : h('a', { class: 'small', onclick: () => ad.setOverlay(id, { resetPosition: true }) }, t('addons_overlay_reset')));
+}
+
+// What the addon tried that the app does not allow or offer, in plain words, and what the AI
+// wrote into WISHES.md; from here it goes to the AI (to adapt) or to HypeRate (as a wish)
+function limitText(l) {
+  const detail = l.kind === 'permission' ? t('addon_perm_short_' + l.detail) : l.detail;
+  return t('addons_limit_' + l.kind, { detail }) + (l.count > 1 ? ` (×${l.count})` : '');
+}
+const limitLines = (item) => [
+  ...(item.limits || []).map(l => '- ' + limitText(l)),
+  ...(item.wishes || []).map(w => '- ' + w.title + (w.text ? ': ' + w.text.replace(/\s+/g, ' ') : '')),
+].join('\n');
+
+function limitsCard(item) {
+  const m = item.manifest;
+  return h('div', { class: 'card stack' },
+    h('p', { class: 'label' }, t('addons_limits')),
+    item.limits?.length ? [
+      h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('addons_limits_text')),
+      h('ul', { class: 'addon-perms' }, item.limits.map(l => h('li', {}, limitText(l)))),
+    ] : null,
+    item.wishes?.length ? [
+      h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('addons_wishes_text')),
+      h('ul', { class: 'addon-perms' }, item.wishes.map(w => h('li', {}, h('b', {}, w.title), w.text ? h('span', { class: 'muted' }, ' – ' + w.text) : null))),
+    ] : null,
+    h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
+      item.limits?.length ? h('button', { class: 'btn small', onclick: () => ad.dialog({ type: 'prompt', kind: 'limits', folder: item.folder, dir: item.dir, task: limitLines(item) }) }, t('addons_error_ai')) : null,
+      h('button', { class: 'btn small', onclick: () => ad.dialog({ type: 'prompt', kind: 'wish', folder: item.folder, dir: item.dir,
+        task: t('addons_wish_text', { name: m?.name || item.folder, version: m?.version || '', list: limitLines(item) }) }) }, t('addons_wish'))));
+}
+
 function permissionSummary(m) {
   const parts = m.permissions.map(p => t('addon_perm_short_' + p));
   if (m.network.length) parts.push(t('addons_net_short', { hosts: m.network.join(', ') }));
@@ -112,8 +164,10 @@ function errorCard(item, text) {
   return h('div', { class: 'note warn stack', style: { gap: '10px' } },
     h('b', {}, t('addons_has_error')),
     h('code', { class: 'addon-error' }, text),
-    h('div', { class: 'row', style: { gap: '8px' } },
-      h('button', { class: 'btn small', onclick: () => ad.dialog({ type: 'prompt', kind: 'error', folder: item.folder, dir: item.dir, task: text }) }, t('addons_error_ai'))));
+    h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
+      h('button', { class: 'btn small', onclick: () => ad.dialog({ type: 'prompt', kind: 'error', folder: item.folder, dir: item.dir, task: text }) }, t('addons_error_ai')),
+      // stopped by the app (crash, hang, too much CPU): it waits for the user
+      item.manifest && !item.running && item.enabled && item.approved ? h('button', { class: 'btn small', onclick: () => ad.reload(item.manifest.id) }, t('addons_restart')) : null));
 }
 
 // The values from "settings" in addon.json, as a form; changing one needs no new approval
@@ -153,7 +207,7 @@ export function addonOverlays(s, openAddon) {
   const d = a.dialog;
   if (!d) return null;
   if (d.type === 'allow') return allowDialog();
-  if (d.type === 'create') return createDialog(openAddon);
+  if (d.type === 'create') return createDialog(openAddon, d);
   if (d.type === 'prompt') return promptDialog(d, openAddon);
   return null;
 }
@@ -173,7 +227,7 @@ function allowDialog() {
       h('button', { class: 'btn primary', onclick: () => ad.allowAndCreate() }, t('addons_allow_yes'))));
 }
 
-function createDialog(openAddon) {
+function createDialog(openAddon, d) {
   return modal('addons-create', t('addons_create_title'), () => ad.dialog(null),
     h('h2', { class: 'h1', style: { fontSize: '22px', margin: 0 } }, t('addons_create_title')),
     h('label', { class: 'osc-field' }, h('span', { class: 'small muted' }, t('addons_create_name')),
@@ -181,12 +235,17 @@ function createDialog(openAddon) {
     h('label', { class: 'osc-field' }, h('span', { class: 'small muted' }, t('addons_create_task')),
       h('textarea', { class: 'field addon-task', rows: 4, maxlength: 2000, placeholder: t('addons_create_task_ph') })),
     h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('addons_create_hint')),
+    d.error ? h('p', { class: 'small warn-text', role: 'alert', style: { margin: 0 } }, t('addons_create_empty')) : null,
     h('div', { class: 'row', style: { gap: '10px', justifyContent: 'flex-end' } },
       h('button', { class: 'btn', onclick: () => ad.dialog(null) }, t('addons_cancel')),
       h('button', { class: 'btn primary', onclick: async e => {
         const box = e.target.closest('.modal');
-        const name = box.querySelector('.addon-name').value.trim(), task = box.querySelector('.addon-task').value.trim();
-        if (!name) { box.querySelector('.addon-name').focus(); return; }
+        const task = box.querySelector('.addon-task').value.trim();
+        // no name given: the first words of the wish will do
+        const name = box.querySelector('.addon-name').value.trim() || task.split(/\s+/).slice(0, 4).join(' ').replace(/[.,;:!?]+$/, '').slice(0, 60);
+        // focus only after the hint is drawn: the window holds redraws while someone types
+        if (!name) { ad.dialog({ type: 'create', error: true }); setTimeout(() => document.querySelector('.addon-task')?.focus(), 150); return; }
+        e.target.disabled = true;
         const folder = await ad.create(name, task);
         openAddon(folder);
       } }, t('addons_create_go'))));
@@ -194,24 +253,41 @@ function createDialog(openAddon) {
 
 // The text to paste into Claude, Codex & co.
 function promptText(d) {
-  const key = { create: 'addons_prompt_create', change: 'addons_prompt_change', error: 'addons_prompt_error' }[d.kind];
+  if (d.kind === 'wish') return d.task;
+  const key = { create: 'addons_prompt_create', change: 'addons_prompt_change', error: 'addons_prompt_error', limits: 'addons_prompt_limits' }[d.kind];
   return t(key, { dir: d.dir, task: d.task || t('addons_prompt_no_task') });
 }
 
 function promptDialog(d) {
   const text = promptText(d);
+  if (d.kind === 'wish') return wishDialog(d, text);
   return modal('addons-prompt', t('addons_prompt_title'), () => ad.dialog(null),
     h('h2', { class: 'h1', style: { fontSize: '22px', margin: 0 } }, t(d.kind === 'create' ? 'addons_prompt_created' : 'addons_prompt_title')),
     h('p', { class: 'muted', style: { margin: 0, lineHeight: 1.6 } }, t('addons_prompt_how')),
     h('pre', { class: 'addon-prompt' }, text),
     h('div', { class: 'row', style: { gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' } },
       h('button', { class: 'btn', onclick: () => ad.showFolder(d.folder) }, t('addons_show_folder')),
-      h('button', { class: 'btn primary', onclick: async e => {
+      h('button', { class: 'btn primary', onclick: async () => {
         await navigator.clipboard.writeText(text).catch(() => {});
-        e.target.textContent = t('addons_copied');
-      } }, t('addons_copy_prompt')),
+        ad.dialog({ ...d, copied: true });
+      } }, d.copied ? [icon('tick', 16), ' ', t('addons_copied')] : t('addons_copy_prompt')),
       h('button', { class: 'btn', onclick: () => ad.dialog(null) }, t('addons_done'))),
     h('p', { class: 'small muted', style: { margin: 0 } }, t('addons_prompt_after')));
+}
+
+// A wish for HypeRate: the text goes out only if the user pastes it into the feedback form
+function wishDialog(d, text) {
+  return modal('addons-prompt', t('addons_wish'), () => ad.dialog(null),
+    h('h2', { class: 'h1', style: { fontSize: '22px', margin: 0 } }, t('addons_wish_title')),
+    h('p', { class: 'muted', style: { margin: 0, lineHeight: 1.6 } }, t('addons_wish_how')),
+    h('pre', { class: 'addon-prompt' }, text),
+    h('div', { class: 'row', style: { gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' } },
+      h('button', { class: 'btn', onclick: () => ad.dialog(null) }, t('addons_cancel')),
+      h('button', { class: 'btn primary', onclick: async () => {
+        await navigator.clipboard.writeText(text).catch(() => {});
+        window.electronAPI.openExternal(FEEDBACK_URL);
+        ad.dialog({ ...d, copied: true });
+      } }, d.copied ? [icon('tick', 16), ' ', t('addons_wish_copied')] : t('addons_wish_go'))));
 }
 
 // What the addon asks for, before it runs for the first time or after any change; what is new

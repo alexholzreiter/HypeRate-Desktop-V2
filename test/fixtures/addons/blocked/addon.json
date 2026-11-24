@@ -1,0 +1,2 @@
+{ "id": "blocked", "name": "Blocked", "version": "1.0.0", "description": "Tries what an addon may not do.",
+  "permissions": ["overlay"], "network": [], "overlay": { "width": 200, "height": 60 } }

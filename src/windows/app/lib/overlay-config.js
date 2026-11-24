@@ -15,6 +15,7 @@ export const DEFAULTS = {
   bgStyle: 'dark-pill', bgColor: '#000000', bgColor2: '#000000', bgOpacity: 75,
   layoutStyle: 'horizontal', borderRadius: 16, showLabel: true, showBorder: false, heartTint: true,
   zonesEnabled: false, zonesAffectFont: true, zones: DEFAULT_ZONES,
+  showWidget: true,   // off: the overlay shows only the user's addons
 };
 
 export const FONTS = {

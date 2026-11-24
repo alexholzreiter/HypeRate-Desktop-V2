@@ -30,7 +30,7 @@ const systemFonts = require('./system-fonts');
 const customAssets = require('./custom-assets');
 const LANGS = require('./i18n/languages');
 const usageStats = require('./usage-stats');
-const { createAddonHost } = require('./addons/host');
+const { createAddonHost, ADDON_SCHEME } = require('./addons/host');
 const { fetchLatestRelease } = require('./desktop-update');
 const { fitOverlay, restoreOverlayPlacement, overlayPlacementPreferences } = require('./overlay-placement');
 const crypto = require('crypto');
@@ -597,6 +597,7 @@ function applyOverlaySpaces(enabled) {
       skipTransformProcessType: true,
     });
   }
+  addons.setAllSpaces(enabled);
 }
 
 // ── Settings window ──
@@ -917,6 +918,7 @@ function overlayIsOpen() { return !!overlayWindow && !overlayWindow.isDestroyed(
 function notifyOverlayState() {
   if (app.isQuitting) return;
   sendToSettings('overlay-state', { open: overlayIsOpen() });
+  addons.setOverlayVisible(overlayIsOpen());   // addon windows come and go with the overlay
   if (tray) tray.setContextMenu(buildMenu());
 }
 
@@ -967,6 +969,11 @@ const addons = createAddonHost({
   dataDir: path.join(app.getPath('userData'), 'addon-data'),
   loadStore, saveStore,
   appIcon: path.join(__dirname, '..', 'assets', 'icon.png'),
+  // so an addon's overlay window starts next to the overlay and follows its spaces setting
+  overlayInfo: () => ({
+    allSpaces: loadStore().overlayAllSpaces === true,
+    anchor: overlayWindow && !overlayWindow.isDestroyed() ? overlayWindow.getBounds() : null,
+  }),
   onChange: () => {   // many log lines at once become one update for the window
     if (addonsChangedTimer) return;
     addonsChangedTimer = setTimeout(() => { addonsChangedTimer = null; sendToSettings('addons-changed', {}); }, 250);
@@ -1004,6 +1011,8 @@ ipcMain.handle('addons-create', (_, { name, task } = {}) => {
     + `\n## Your task\n\n${job || '(The user has not described it yet. Ask them what the addon should do.)'}\n`);
   return { folder, dir: target, list: addons.list() };
 });
+ipcMain.handle('addons-set-overlay', (_, id, patch = {}) => addons.setOverlay(String(id), {
+  on: typeof patch.on === 'boolean' ? patch.on : undefined, scale: Number(patch.scale) || undefined, resetPosition: patch.resetPosition === true }));
 ipcMain.handle('addons-set-value', (_, id, key, value) => addons.setValue(String(id), String(key), value));
 // The single addon: its main.js in the default editor, its folder in Finder / Explorer
 const addonDir = (folder) => {
@@ -1018,8 +1027,7 @@ ipcMain.handle('addons-show-folder', (_, folder) => { const d = addonDir(folder)
 const ASSET_DIR = path.join(app.getPath('userData'), 'custom-assets');
 protocol.registerSchemesAsPrivileged([
   { scheme: 'hr-asset', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
-  // user addons: each one's own files, served into its own sandboxed session (src/addons/host.js)
-  { scheme: 'hr-addon', privileges: { standard: true, secure: true, supportFetchAPI: true } },
+  ADDON_SCHEME,   // user addons: each one's own files, served into its own sandboxed session
 ]);
 
 const ASSET_LIST = { heart: 'customHearts', font: 'customFonts' };

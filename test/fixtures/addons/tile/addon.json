@@ -1,0 +1,2 @@
+{ "id": "tile", "name": "Tile", "version": "1.0.0", "description": "Heart rate and a beat counter in an overlay window.",
+  "permissions": ["heartRate", "overlay"], "overlay": { "width": 260, "height": 90 } }

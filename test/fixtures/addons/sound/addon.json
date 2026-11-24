@@ -1,0 +1,2 @@
+{ "id": "sound", "name": "Sound", "version": "1.0.0", "description": "May play sounds.",
+  "permissions": ["sound"] }

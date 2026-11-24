@@ -1,0 +1,1 @@
+hyperate.on('heartRate', () => {});

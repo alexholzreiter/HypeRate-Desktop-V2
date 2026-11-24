@@ -1,0 +1,2 @@
+{ "id": "screen-edge", "name": "Screen edge", "version": "1.0.0", "description": "A soft red edge around the whole screen.",
+  "permissions": ["overlay"], "overlay": { "mode": "screen" } }

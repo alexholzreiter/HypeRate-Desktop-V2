@@ -1,0 +1,2 @@
+html, body { margin: 0; background: transparent; }
+.box { margin: 8px; padding: 14px 18px; border-radius: 14px; background: rgba(10, 12, 30, .85); color: #fff; font: 600 22px system-ui, sans-serif; }

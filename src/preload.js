@@ -143,6 +143,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addonsOpenFolder: ()   => ipcRenderer.invoke('addons-open-folder'),
   addonsCreate:   (name, task) => ipcRenderer.invoke('addons-create', { name, task }),
   addonsSetValue: (id, key, value) => ipcRenderer.invoke('addons-set-value', id, key, value),
+  addonsSetOverlay: (id, patch) => ipcRenderer.invoke('addons-set-overlay', id, patch),
   addonsOpenEditor: (folder) => ipcRenderer.invoke('addons-open-editor', folder),
   addonsShowFolder: (folder) => ipcRenderer.invoke('addons-show-folder', folder),
   onAddonsChanged:(cb)   => ipcRenderer.on('addons-changed', () => cb()),
