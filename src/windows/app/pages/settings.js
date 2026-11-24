@@ -1,6 +1,5 @@
 // Settings: what belongs to the app itself rather than to the overlay or a source.
-// Language, starting with the system, the hotkey, updates, news, help, and the way back
-// to the previous window while the new one is in beta.
+// Language, starting with the system, the hotkey, updates, privacy, news and help.
 
 import { h } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
@@ -39,10 +38,7 @@ export function render(s) {
       h('div', { class: 'card stack' },
         h('p', { class: 'label' }, t('set_help')),
         h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('set_feedback_text')),
-        h('button', { class: 'btn', onclick: () => window.electronAPI.openExternal(FEEDBACK_URL) }, t('set_feedback') + ' ↗'),
-        h('hr', { class: 'divider' }),
-        h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('set_previous_text')),
-        h('button', { class: 'btn', onclick: () => window.electronAPI.switchUi(false) }, t('set_previous')))));
+        h('button', { class: 'btn', onclick: () => window.electronAPI.openExternal(FEEDBACK_URL) }, t('set_feedback') + ' ↗'))));
 }
 
 function updates(s) {

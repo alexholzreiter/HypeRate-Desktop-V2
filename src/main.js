@@ -516,7 +516,6 @@ function tracePulse(component, event, detail = {}) {
 
 const HYPERATE_API_KEY = '7XnPqR2m9LdHsV4tYk8ZuEf1WaJ5GcB3rTsQ6v';
 const VERSION = app.getVersion();            // reads from package.json
-const IS_FIRST_RUN = !loadStore().onboarded; // FTUE flag
 
 // Detect autostart launch — start hidden (tray only, no settings window)
 const IS_AUTOSTART = process.platform === 'darwin'
@@ -548,7 +547,6 @@ function discordBpmUpdate(bpm) {
 
 let settingsWindow  = null;
 let overlayWindow   = null;
-let ftueWindow      = null;
 let tray            = null;
 let overlayTrackedX = 0; // main-process position tracking — avoids stale getPosition() reads
 let overlayTrackedY = 0;
@@ -600,22 +598,12 @@ function applyOverlaySpaces(enabled) {
   addons.setAllSpaces(enabled);
 }
 
-// ── Settings window ──
-// v2 is building a new main window page by page. Until it covers everything, the previous
-// settings window stays the default and the new one is switched on per install (uiV2) or for
-// a run with HYPERATE_NEW_UI=1.
-const SETTINGS_WINDOWS = {
-  previous: { file: 'windows/settings/index.html', width: 820, height: 870, minWidth: 760, minHeight: 780 },
-  next:     { file: 'windows/app/index.html',      width: 1180, height: 820, minWidth: 940, minHeight: 640 },
-};
-function settingsWindowKind() {
-  if (process.env.HYPERATE_NEW_UI === '1') return 'next';
-  if (process.env.HYPERATE_NEW_UI === '0') return 'previous';
-  return loadStore().uiV2 === true ? 'next' : 'previous';
-}
+// ── Main window ──
+// (still called the settings window in the code: it grew out of the settings window of v1)
+const MAIN_WINDOW = { file: 'windows/app/index.html', width: 1180, height: 820, minWidth: 940, minHeight: 640 };
 
 function createSettingsWindow() {
-  const kind = SETTINGS_WINDOWS[settingsWindowKind()];
+  const kind = MAIN_WINDOW;
   settingsWindow = new BrowserWindow({
     width:kind.width, height:kind.height, minWidth:kind.minWidth, minHeight:kind.minHeight,
     frame:false, transparent:false, backgroundColor:'#080810',
@@ -808,19 +796,6 @@ function createOverlayWindow() {
   });
 }
 
-// ── FTUE window ──
-function createFtueWindow() {
-  ftueWindow = new BrowserWindow({
-    width:480, height:680, frame:false, transparent:false,
-    backgroundColor:'#080810', resizable:true, minHeight:600,
-    webPreferences:{ nodeIntegration:false, contextIsolation:true, preload:path.join(__dirname,'preload.js') },
-    icon: path.join(__dirname,'../assets/icon.png'),
-    title:'Welcome to HypeRate Desktop',
-    parent: settingsWindow, modal:false,
-  });
-  ftueWindow.loadFile(path.join(__dirname,'windows/ftue/index.html'));
-  ftueWindow.on('closed', () => { ftueWindow = null; });
-}
 
 // ── WebSocket ──
 let ws = null, heartbeatInt = null, wsSessionId = null;
@@ -1141,17 +1116,8 @@ app.whenReady().then(() => {
 
   if (IS_AUTOSTART) {
     // Started via autostart — stay in tray, don't show settings window
-  } else if (IS_FIRST_RUN && settingsWindowKind() === 'next') {
-    // The new window brings its own first-start wizard
-    settingsWindow.show();
-  } else if (IS_FIRST_RUN) {
-    // First launch — show settings window, then FTUE on top
-    settingsWindow.show();
-    settingsWindow.webContents.on('did-finish-load', () => {
-      setTimeout(createFtueWindow, 400);
-    });
   } else {
-    settingsWindow.show();
+    settingsWindow.show();   // on the first start it opens with its own welcome wizard
   }
 });
 
@@ -1177,26 +1143,12 @@ ipcMain.on('launch-overlay', (_, config) => {
 ipcMain.on('close-overlay',     ()       => { if (overlayWindow) { overlayWindow.close(); overlayWindow=null; notifyOverlayState(); } });
 ipcMain.on('update-config',     (_, cfg) => { if (overlayWindow) overlayWindow.webContents.send('config-update', cfg); });
 ipcMain.on('minimize-settings', () => { if (settingsWindow) settingsWindow.minimize(); });
-// Switch between the previous settings window and the new v2 window, and remember the choice
-ipcMain.on('switch-ui', (_, useNext) => {
-  const store = loadStore();
-  store.uiV2 = !!useNext;
-  saveStore(store);
-  if (!settingsWindow || settingsWindow.isDestroyed()) return;
-  const kind = SETTINGS_WINDOWS[useNext ? 'next' : 'previous'];
-  settingsWindow.setMinimumSize(kind.minWidth, kind.minHeight);
-  settingsWindow.setSize(kind.width, kind.height);
-  settingsWindow.center();
-  settingsWindow.loadFile(path.join(__dirname, kind.file));
-});
 ipcMain.on('close-settings',    () => { if (settingsWindow) settingsWindow.hide(); });
-ipcMain.on('close-ftue',        ()       => { if (ftueWindow) ftueWindow.close(); });
 
 ipcMain.on('ftue-complete', () => {
   const store = loadStore();
   store.onboarded = true;
   saveStore(store);
-  if (ftueWindow) ftueWindow.close();
 });
 
 ipcMain.on('set-ignore-mouse-events', (_, ignore) => {
