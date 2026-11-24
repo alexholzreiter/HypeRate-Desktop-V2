@@ -129,6 +129,23 @@ async function run() {
     await ble.disconnect();   // also ends its battery and signal polling
   }
 
+  // Quitting: the strap is disconnected and noble's native manager stopped, so no Bluetooth event
+  // can arrive while the app shuts down (one did, and kept the process alive)
+  {
+    let stopped = 0, disconnected = 0;
+    noble._bindings = { stop: () => { stopped++; } };
+    const p = fakePeripheral('strap-3');
+    p.disconnect = (cb) => { disconnected++; cb?.(); };
+    const connecting = ble.connect('strap-3', 'Polar H10');
+    await flush();
+    noble.emit('discover', p);
+    await flush(); await connecting;
+    await ble.shutdown();
+    assert.equal(disconnected, 1, 'the strap is disconnected');
+    assert.equal(stopped, 1, 'the native manager is stopped');
+    console.log('PASS quitting disconnects the strap and stops noble');
+  }
+
   mock.timers.reset();
 }
 

@@ -318,14 +318,19 @@ function getLogPath() {
   return logPath;
 }
 
-process.once('exit', () => {
+// The app is quitting: the helper disconnects and ends
+function shutdown() {
   helperStopping = true;
+  clearReconnect();
   try { helper?.stdin?.write(JSON.stringify({ cmd: 'shutdown' }) + '\n'); } catch {}
   try { helper?.kill(); } catch {}
-});
+  return Promise.resolve();
+}
+process.once('exit', shutdown);
 
 module.exports = {
   init,
+  shutdown,
   startScan,
   stopScan,
   connect,

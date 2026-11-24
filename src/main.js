@@ -1121,7 +1121,21 @@ app.whenReady().then(() => {
   }
 });
 
-app.on('before-quit', () => { app.isQuitting = true; clearInterval(hyperaidTimer); sessions.stop(); addons.stopAll(); });   // die letzte halbe Minute soll nicht verloren gehen
+// Quitting happens in two passes: the first one saves everything and lets go of the Bluetooth
+// strap, then quits again. A strap still connected when the process ends kept it alive after
+// quitting (on macOS), which would leave an installer or a Steam update waiting for the app.
+let bleReleased = false;
+app.on('before-quit', (event) => {
+  app.isQuitting = true;
+  if (bleReleased) return;
+  bleReleased = true;
+  clearInterval(hyperaidTimer);
+  sessions.stop();   // die letzte halbe Minute soll nicht verloren gehen
+  addons.stopAll();
+  event.preventDefault();
+  const released = Promise.resolve().then(() => ble.shutdown?.()).catch(() => {});
+  Promise.race([released, new Promise((r) => setTimeout(r, 2000))]).then(() => app.quit());
+});
 app.on('will-quit', () => globalShortcut.unregisterAll());
 // App lives in tray — never auto-quit when windows are closed
 app.on('window-all-closed', () => {});

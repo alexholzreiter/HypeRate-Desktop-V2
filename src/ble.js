@@ -357,4 +357,28 @@ async function disconnect(internal = false) {
   peripheralCache.delete(id);
 }
 
-module.exports = { init, startScan, stopScan, connect, disconnect, setAutoReconnect };
+// The app is quitting: let go of everything native (scan, polling, the connection) without
+// touching what is remembered for the next start. Resolves once macOS reports the strap
+// disconnected: a strap still connected when the app ends kept the process alive after quitting.
+function shutdown() {
+  clearTimeout(reconnectTimer);
+  reconnectTimer = null;
+  manualDisconnect = true;
+  try { if (scanning) { scanning = false; noble?.stopScanning(); } } catch {}
+  const device = connectedDevice;
+  cleanupConnectedDevice();
+  const peripheral = device?.peripheral;
+  const released = !peripheral ? Promise.resolve() : new Promise((resolve) => {
+    try {
+      peripheral.once('disconnect', () => resolve());
+      device.characteristic?.unsubscribe?.(() => {});
+      peripheral.disconnect(() => resolve());
+    } catch { resolve(); }
+  });
+  // Then stop noble's native Bluetooth manager. It hands events to JavaScript with a blocking
+  // call; one arriving while the app shuts down waited forever and kept the process alive.
+  const stopNative = () => { try { noble?._bindings?.stop?.(); } catch {} };
+  return Promise.race([released, delay(1500)]).then(stopNative);
+}
+
+module.exports = { init, startScan, stopScan, connect, disconnect, setAutoReconnect, shutdown };
