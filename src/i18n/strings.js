@@ -649,7 +649,8 @@
       "battery": "Battery",
       "battery_unknown": "Battery: not reported",
       "addons_master_off": "Addons off",
-      "addons_master_off_text": "Your own addons are switched off, so this one does not run. Allow them to use it again."
+      "addons_master_off_text": "Your own addons are switched off, so this one does not run. Allow them to use it again.",
+      "hyperaid_restart_short": "Restart WoW"
     }
   },
   "de": {
@@ -1299,7 +1300,8 @@
       "battery": "Akku",
       "battery_unknown": "Akku: wird nicht gemeldet",
       "addons_master_off": "Addons aus",
-      "addons_master_off_text": "Eigene Addons sind ausgeschaltet, deshalb läuft dieses nicht. Erlaube sie, um es wieder zu nutzen."
+      "addons_master_off_text": "Eigene Addons sind ausgeschaltet, deshalb läuft dieses nicht. Erlaube sie, um es wieder zu nutzen.",
+      "hyperaid_restart_short": "WoW neu starten"
     }
   },
   "zh-CN": {
@@ -1949,7 +1951,8 @@
       "battery": "电量",
       "battery_unknown": "电量：未报告",
       "addons_master_off": "插件已关闭",
-      "addons_master_off_text": "自定义插件已关闭，因此此插件不会运行。允许插件即可再次使用。"
+      "addons_master_off_text": "自定义插件已关闭，因此此插件不会运行。允许插件即可再次使用。",
+      "hyperaid_restart_short": "重启 WoW"
     }
   }
 };

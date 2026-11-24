@@ -645,6 +645,7 @@
     "battery": "Battery",
     "battery_unknown": "Battery: not reported",
     "addons_master_off": "Addons off",
-    "addons_master_off_text": "Your own addons are switched off, so this one does not run. Allow them to use it again."
+    "addons_master_off_text": "Your own addons are switched off, so this one does not run. Allow them to use it again.",
+    "hyperaid_restart_short": "Restart WoW"
   }
 }

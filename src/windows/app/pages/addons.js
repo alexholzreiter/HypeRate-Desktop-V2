@@ -39,7 +39,7 @@ export function addonTiles(s, openAddon, where) {
       return h('button', { class: 'card integ-card addon', onclick: () => openAddon(item.folder) },
         h('div', { class: 'row between' },
           h('span', { class: 'integ-mono addon-mono' }, initials(item)),
-          h('span', { class: 'pill ' + st.tone }, h('span', { class: 'dot ' + dotFor(st.tone) }), st.text)),
+          h('span', { class: 'pill tile-pill ' + st.tone, title: st.text }, h('span', { class: 'dot ' + dotFor(st.tone) }), h('span', { class: 'pill-text' }, st.text))),
         h('div', { class: 'stack', style: { gap: '4px' } },
           h('p', { style: { margin: 0, fontWeight: 600, fontSize: '17px' } }, item.manifest?.name || item.folder),
           h('p', { class: 'small muted', style: { margin: 0 } }, item.manifest?.description || item.error || t('addons_own_tile'))),

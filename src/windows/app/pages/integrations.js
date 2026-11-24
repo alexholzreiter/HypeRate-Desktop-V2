@@ -45,7 +45,7 @@ function overview(s) {
         return h('button', { class: 'card integ-card ' + key, onclick: () => { detail = key; rerender(); } },
           h('div', { class: 'row between' },
             h('span', { class: 'integ-mono' }, it.mono),
-            h('span', { class: 'pill ' + st.tone }, h('span', { class: 'dot ' + dotFor(st.tone) }), st.short || st.text)),
+            h('span', { class: 'pill tile-pill ' + st.tone, title: st.text }, h('span', { class: 'dot ' + dotFor(st.tone) }), h('span', { class: 'pill-text' }, st.short || st.text))),
           h('div', { class: 'stack', style: { gap: '4px' } },
             h('p', { style: { margin: 0, fontWeight: 600, fontSize: '17px' } }, nameOf(it)),
             h('p', { class: 'small muted', style: { margin: 0 } }, t(it.desc))),
@@ -225,7 +225,7 @@ function mqttPage(s, on) {
 function hyperaidStatus(s) {
   const st = s.hyperaid || {};
   const tone = { writing: 'ok', waiting: 'warn', installing: 'warn', error: 'bad', setup: 'warn', folder: 'warn' }[st.state] || 'off';
-  if (st.justInstalled && (st.state === 'waiting' || st.state === 'writing')) return { tone, text: t('hyperaid_restart') };
+  if (st.justInstalled && (st.state === 'waiting' || st.state === 'writing')) return { tone, text: t('hyperaid_restart'), short: t('hyperaid_restart_short') };
   const key = { off: 'hyperaid_off', folder: 'hyperaid_folder_status', setup: 'hyperaid_setup', installing: 'hyperaid_installing',
     waiting: 'hyperaid_waiting', writing: 'hyperaid_writing', error: 'hyperaid_error' }[st.state] || 'hyperaid_off';
   return { tone, text: t(key, { bpm: st.bpm ?? '' }), title: st.error || '',
