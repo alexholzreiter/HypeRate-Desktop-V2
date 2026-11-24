@@ -640,6 +640,9 @@
     "addons_docs": "Anleitung & Beispiele",
     "addons_no_ai": "HypeRate Desktop enthält keine KI und sendet nichts an KI-Dienste.",
     "addons_install_text": "Ein fertiges Addon heruntergeladen? Kopier seinen Ordner in den Addon-Ordner, es erscheint dann von selbst.",
-    "addons_open_folder_link": "Addon-Ordner öffnen"
+    "addons_open_folder_link": "Addon-Ordner öffnen",
+    "reception": "Empfang",
+    "battery": "Akku",
+    "battery_unknown": "Akku: wird nicht gemeldet"
   }
 }

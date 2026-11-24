@@ -18,6 +18,9 @@ let logPath = null;
 let onDeviceFound = null;
 let onStatus = null;
 let onBpm = null;
+let onPacket = null;
+let onBattery = null;
+let onRssi = null;
 
 let connected = false;
 let manualDisconnect = false;
@@ -30,6 +33,9 @@ function init(callbacks) {
   onDeviceFound = callbacks.onDeviceFound;
   onStatus = callbacks.onStatus;
   onBpm = callbacks.onBpm;
+  onPacket = callbacks.onPacket;
+  onBattery = callbacks.onBattery;
+  onRssi = callbacks.onRssi;
 }
 
 function setAutoReconnect(enabled) {
@@ -187,7 +193,14 @@ function handleMessage(message) {
       onDeviceFound?.(message.id, message.name || 'HR Monitor', message.rssi);
       break;
     case 'bpm':
-      if (Number.isFinite(message.bpm)) onBpm?.(message.bpm);
+      // each value is a measurement too, for the connection manager's reception and watchdog
+      if (Number.isFinite(message.bpm)) { onPacket?.({ bpm: message.bpm, contact: null }); onBpm?.(message.bpm); }
+      break;
+    case 'battery':
+      if (Number.isFinite(message.level)) onBattery?.(message.level);
+      break;
+    case 'rssi':
+      if (Number.isFinite(message.rssi) && message.rssi < 0) onRssi?.(message.rssi);
       break;
     case 'log':
       if (message.message) {

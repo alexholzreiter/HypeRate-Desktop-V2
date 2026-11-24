@@ -1536,6 +1536,7 @@ const bleManager = createBleManager({
     if (state === 'signal-lost' || state === 'no-contact') discord.clearPresence();
   },
   onBpm: (bpm) => broadcastBpm(bpm, 'ble'),
+  onVitals: (vitals) => sendToSettings('ble-vitals', vitals),   // battery and reception, or null
 });
 
 ipcMain.on('ble-scan-start',        ()              => bleManager.startScan());

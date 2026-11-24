@@ -18,6 +18,10 @@ internal sealed class Program
 {
     private static readonly Guid HeartRateServiceUuid = Guid.Parse("0000180d-0000-1000-8000-00805f9b34fb");
     private static readonly Guid HeartRateMeasurementUuid = Guid.Parse("00002a37-0000-1000-8000-00805f9b34fb");
+    private static readonly Guid BatteryServiceUuid = Guid.Parse("0000180f-0000-1000-8000-00805f9b34fb");
+    private static readonly Guid BatteryLevelUuid = Guid.Parse("00002a19-0000-1000-8000-00805f9b34fb");
+    private static readonly TimeSpan BatteryEvery = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan RssiEvery = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan DisconnectDebounceDelay = TimeSpan.FromSeconds(6);
     private static readonly string[] DeviceInformationProperties =
     [
@@ -41,6 +45,12 @@ internal sealed class Program
     private static bool _connectionReady;
     private static int _connectionEpoch;
     private static string? _connectedName;
+    private static GattDeviceService? _batteryService;
+    private static GattCharacteristic? _batteryCharacteristic;
+    private static Timer? _batteryTimer;
+    private static BluetoothLEAdvertisementWatcher? _rssiWatcher;
+    private static ulong _connectedAddress;
+    private static DateTime _lastRssiAt = DateTime.MinValue;
 
     public static async Task Main()
     {
@@ -210,6 +220,7 @@ internal sealed class Program
             await Task.Delay(300);
 
             _connectedName = CleanName(requestedName);
+            _connectedAddress = address;
             EmitStatus("connecting", name: _connectedName);
 
             _heartRateService = await OpenHeartRateServiceViaDeviceSelectorAsync(address, normalizedId, requestedName);
@@ -255,6 +266,8 @@ internal sealed class Program
             _connectionReady = true;
             Interlocked.Increment(ref _connectionEpoch);
             Emit(new LogEvent("log", $"Subscribed to heart rate notifications for {_connectedName}."));
+            await WatchBatteryAsync();
+            WatchRssi();
             EmitStatus("connected", name: _connectedName);
         }
         catch (TimeoutException)
@@ -310,6 +323,14 @@ internal sealed class Program
         }
 
         _subscribed = false;
+
+        try { _batteryTimer?.Dispose(); } catch { }
+        _batteryTimer = null;
+        StopRssiWatch();
+        if (_batteryCharacteristic is not null) _batteryCharacteristic.ValueChanged -= OnBatteryValueChanged;
+        try { _batteryService?.Dispose(); } catch { }
+        _batteryService = null;
+        _batteryCharacteristic = null;
 
         if (_device is not null)
         {
@@ -680,6 +701,96 @@ internal sealed class Program
         EmitStatus("disconnected", reason: "Device disconnected.");
     }
 
+    // ── Battery and signal ───────────────────────────────────────────────────
+
+    // The standard Battery service, if the device has one: read now, every ten minutes, and on change
+    private static async Task WatchBatteryAsync()
+    {
+        if (_device is null) return;
+        try
+        {
+            var services = await _device.GetGattServicesForUuidAsync(BatteryServiceUuid, BluetoothCacheMode.Cached).AsTask().WaitAsync(TimeSpan.FromSeconds(6));
+            if (services.Status != GattCommunicationStatus.Success || services.Services.Count == 0) return;
+            _batteryService = services.Services[0];
+            var chars = await _batteryService.GetCharacteristicsForUuidAsync(BatteryLevelUuid, BluetoothCacheMode.Cached).AsTask().WaitAsync(TimeSpan.FromSeconds(6));
+            if (chars.Status != GattCommunicationStatus.Success || chars.Characteristics.Count == 0) return;
+            _batteryCharacteristic = chars.Characteristics[0];
+            await ReadBatteryAsync();
+            if (_batteryCharacteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify))
+            {
+                _batteryCharacteristic.ValueChanged += OnBatteryValueChanged;
+                await _batteryCharacteristic
+                    .WriteClientCharacteristicConfigurationDescriptorAsync(GattClientCharacteristicConfigurationDescriptorValue.Notify)
+                    .AsTask()
+                    .WaitAsync(TimeSpan.FromSeconds(6));
+            }
+            _batteryTimer = new Timer(_ => _ = ReadBatteryAsync(), null, BatteryEvery, BatteryEvery);
+        }
+        catch (Exception ex)
+        {
+            Emit(new LogEvent("log", $"Battery level not available: {ex.Message}"));
+        }
+    }
+
+    private static async Task ReadBatteryAsync()
+    {
+        var characteristic = _batteryCharacteristic;
+        if (characteristic is null) return;
+        try
+        {
+            var result = await characteristic.ReadValueAsync(BluetoothCacheMode.Uncached).AsTask().WaitAsync(TimeSpan.FromSeconds(6));
+            if (result.Status != GattCommunicationStatus.Success || result.Value.Length < 1) return;
+            var reader = DataReader.FromBuffer(result.Value);
+            var level = reader.ReadByte();
+            if (level <= 100) Emit(new BatteryEvent("battery", level));
+        }
+        catch { }
+    }
+
+    private static void OnBatteryValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
+    {
+        if (args.CharacteristicValue.Length < 1) return;
+        var level = DataReader.FromBuffer(args.CharacteristicValue).ReadByte();
+        if (level <= 100) Emit(new BatteryEvent("battery", level));
+    }
+
+    // Windows has no signal strength for a connected device; many devices keep advertising
+    // while connected, and their advertisements carry it. Devices that do not: the app judges
+    // the connection by how regularly measurements arrive instead.
+    private static void WatchRssi()
+    {
+        StopRssiWatch();
+        try
+        {
+            var watcher = new BluetoothLEAdvertisementWatcher { ScanningMode = BluetoothLEScanningMode.Passive };
+            watcher.Received += OnRssiAdvertisement;
+            watcher.Start();
+            _rssiWatcher = watcher;
+        }
+        catch (Exception ex)
+        {
+            Emit(new LogEvent("log", $"Signal strength not available: {ex.Message}"));
+        }
+    }
+
+    private static void StopRssiWatch()
+    {
+        var watcher = _rssiWatcher;
+        _rssiWatcher = null;
+        if (watcher is null) return;
+        watcher.Received -= OnRssiAdvertisement;
+        try { watcher.Stop(); } catch { }
+    }
+
+    private static void OnRssiAdvertisement(BluetoothLEAdvertisementWatcher sender, BluetoothLEAdvertisementReceivedEventArgs args)
+    {
+        if (args.BluetoothAddress != _connectedAddress) return;
+        var now = DateTime.UtcNow;
+        if (now - _lastRssiAt < RssiEvery) return;
+        _lastRssiAt = now;
+        Emit(new RssiEvent("rssi", args.RawSignalStrengthInDBm));
+    }
+
     private static bool TryParseBluetoothAddress(string id, out ulong address)
     {
         var trimmed = NormalizeBluetoothId(id);
@@ -761,6 +872,8 @@ internal sealed class Program
     private static void Emit(DeviceEvent payload) => EmitJson(payload, BleJsonContext.Default.DeviceEvent);
     private static void Emit(BpmEvent payload) => EmitJson(payload, BleJsonContext.Default.BpmEvent);
     private static void Emit(LogEvent payload) => EmitJson(payload, BleJsonContext.Default.LogEvent);
+    private static void Emit(BatteryEvent payload) => EmitJson(payload, BleJsonContext.Default.BatteryEvent);
+    private static void Emit(RssiEvent payload) => EmitJson(payload, BleJsonContext.Default.RssiEvent);
 
     private static void EmitJson<T>(T payload, JsonTypeInfo<T> typeInfo)
     {
@@ -789,6 +902,8 @@ internal sealed class Command
 }
 
 internal sealed record StatusEvent(string Type, string State, string? Reason = null, string? Name = null);
+internal sealed record BatteryEvent(string Type, int Level);
+internal sealed record RssiEvent(string Type, short Rssi);
 internal sealed record DeviceEvent(string Type, string Id, string Name, short Rssi);
 internal sealed record BpmEvent(string Type, int Bpm);
 internal sealed record LogEvent(string Type, string Message);
@@ -801,6 +916,8 @@ internal sealed record LogEvent(string Type, string Message);
 [JsonSerializable(typeof(DeviceEvent))]
 [JsonSerializable(typeof(BpmEvent))]
 [JsonSerializable(typeof(LogEvent))]
+[JsonSerializable(typeof(BatteryEvent))]
+[JsonSerializable(typeof(RssiEvent))]
 internal partial class BleJsonContext : JsonSerializerContext
 {
 }

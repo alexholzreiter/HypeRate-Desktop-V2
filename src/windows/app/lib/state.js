@@ -14,6 +14,7 @@ const state = {
   history: [],          // [{ t, bpm }] for the last ten minutes
   source: null,         // 'ble' | 'cloud' | null
   ble: { state: 'idle' },
+  bleVitals: null,          // the connected device: { kind, battery, rssi, bars, barsFrom } or null
   bleLog: [],           // recent lines of the Bluetooth connection log
   scan: { active: false, error: null, devices: new Map() },
   cloud: { status: 'idle' },
@@ -116,6 +117,8 @@ export async function start() {
     changed();
   });
 
+  api.onBleVitals?.((v) => { state.bleVitals = v || null; changed(); });
+
   api.onBleDeviceFound(({ id, name, rssi }) => {
     state.scan.devices.set(id, { id, name: name || 'HR Monitor', rssi });
     changed();
@@ -130,7 +133,7 @@ export async function start() {
 
   // The app may already be connected (or reconnecting) when this window opens
   const ble = await api.bleGetState?.();
-  if (ble?.state) state.ble = ble;
+  if (ble?.state) { const { vitals, ...rest } = ble; state.ble = rest; state.bleVitals = vitals || null; }
   await refreshLog();
 
   api.onWowStatus(({ state: s, ...extra }) => { state.wow = { state: s, ...extra }; changed(); });

@@ -640,6 +640,9 @@
     "addons_docs": "Guide & examples",
     "addons_no_ai": "HypeRate Desktop contains no AI and sends nothing to AI services.",
     "addons_install_text": "Downloaded a finished addon? Copy its folder into the addons folder; it shows up by itself.",
-    "addons_open_folder_link": "Open the addons folder"
+    "addons_open_folder_link": "Open the addons folder",
+    "reception": "Reception",
+    "battery": "Battery",
+    "battery_unknown": "Battery: not reported"
   }
 }

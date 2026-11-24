@@ -3,6 +3,9 @@
 import { h, svg, icon, heart, logo, morph } from './lib/dom.js';
 import { t } from './lib/i18n.js';
 import * as store from './lib/state.js';
+import { vitalsInline } from './lib/vitals.js';
+
+const LINKED_BLE = ['connected', 'signal-lost', 'no-contact'];
 import * as live from './pages/live.js';
 import * as source from './pages/source.js';
 import * as overlay from './pages/overlay.js';
@@ -60,7 +63,9 @@ function titlebar(s) {
     s.update.state === 'available' ? h('button', { class: 'pill ok update-pill', onclick: () => go('settings') }, '↑ ' + t('update_pill', { version: s.update.version })) : null,
     h('span', { class: 'pill ' + (conn === 'on' ? 'ok' : conn === 'none' ? 'off' : 'warn') },
       h('span', { class: 'dot ' + (conn === 'on' ? 'live' : conn === 'none' ? '' : 'warn') }),
-      conn === 'on' && s.bpm != null ? h('span', { class: 'num' }, `${s.bpm} BPM`) : t('conn_' + conn)),
+      conn === 'on' && s.bpm != null ? h('span', { class: 'num' }, `${s.bpm} BPM`) : t('conn_' + conn),
+      // a strap or ring straight on this computer: its reception and battery next to the heart rate
+      s.source === 'ble' && s.bleVitals && LINKED_BLE.includes(s.ble.state) ? vitalsInline(s.bleVitals) : null),
     h('button', { class: 'win-btn', 'aria-label': t('minimize'), onclick: () => api.minimizeSettings() }, icon('minimize', 16)),
     h('button', { class: 'win-btn close', 'aria-label': t('close'), onclick: () => api.closeSettings() }, icon('close', 16)));
 }

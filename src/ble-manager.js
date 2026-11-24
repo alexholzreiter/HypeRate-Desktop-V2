@@ -8,6 +8,9 @@
 //   - a strap that stays connected but sends nothing is noticed: first "signal lost",
 //     then the connection is dropped and rebuilt
 //   - after sleep, or when Bluetooth comes back on, the connection is checked straight away
+//   - battery and reception of the connected device are reported (onVitals): the battery where
+//     the device tells it, reception from its signal strength where the platform has it, else
+//     from how regularly its measurements arrive
 //   - every step is logged, and the log can be copied for support
 //
 // Linux still connects through Web Bluetooth in the settings window (see preload.js) and does
@@ -24,7 +27,18 @@ const DEFAULTS = {
   stallAfterMs: 15000,     // no heart rate for this long: "signal lost" (or "no skin contact")
   dropAfterMs: 30000,      // no measurement at all for this long: drop and build it again
   logLines: 300,
+  rssiFreshMs: 15000,      // a signal strength older than this no longer counts
+  rateWindowMs: 10000,     // reception from the measurements of the last ten seconds
 };
+
+// Reception in bars (0–4) from the signal strength in dBm
+function barsFromRssi(rssi) {
+  return rssi >= -60 ? 4 : rssi >= -70 ? 3 : rssi >= -80 ? 2 : rssi >= -90 ? 1 : 0;
+}
+// … or from the share of expected measurements (about one a second) that arrived
+function barsFromRate(share) {
+  return share >= 0.8 ? 4 : share >= 0.6 ? 3 : share >= 0.3 ? 2 : share > 0 ? 1 : 0;
+}
 
 function createBleManager({
   driver,
@@ -33,6 +47,7 @@ function createBleManager({
   onDeviceFound = () => {}, // (id, name, rssi) while scanning
   onBpm,                    // (bpm)
   onSignalLost = () => {},  // heart rate went quiet while still connected
+  onVitals = () => {},      // ({ battery, rssi, bars, barsFrom }) of the connected device, or null
   writeLog = () => {},      // (line) -> persist a log line, e.g. to a file
   meta = {},                // { platform, version } for the diagnostics header
   timers = { setTimeout, clearTimeout, setInterval, clearInterval, now: () => Date.now() },
@@ -59,6 +74,10 @@ function createBleManager({
   let lastBpmAt = 0;
   let lastBpm = null;
   const lines = [];
+  // The connected device: its battery (%) and signal strength (dBm)
+  let vitals = null;
+  let packetTimes = [];
+  let lastVitals = 'null';
 
   function log(message) {
     const line = `${new Date(timers.now()).toISOString()} ${message}`;
@@ -85,6 +104,44 @@ function createBleManager({
     connecting = false;
     automatic = false;
     stopWatchdog();
+    vitals = null;
+    packetTimes = [];
+    sendVitals();
+  }
+
+  // ── Battery and reception ─────────────────────────────────────────────────
+
+  function currentVitals() {
+    if (!vitals || !link) return null;
+    const now = timers.now();
+    packetTimes = packetTimes.filter(t => now - t <= o.rateWindowMs);
+    const rssiFresh = vitals.rssi != null && now - vitals.rssiAt <= o.rssiFreshMs;
+    const window = Math.min(o.rateWindowMs, Math.max(1000, now - connectedAt)) / 1000;
+    const bars = rssiFresh ? barsFromRssi(vitals.rssi) : barsFromRate(Math.min(1, packetTimes.length / window));
+    return { battery: vitals.battery, rssi: rssiFresh ? vitals.rssi : null, bars, barsFrom: rssiFresh ? 'rssi' : 'rate' };
+  }
+
+  // Only when something changed, so the window is not redrawn for nothing
+  function sendVitals() {
+    const v = currentVitals();
+    const text = JSON.stringify(v);
+    if (text === lastVitals) return;
+    lastVitals = text;
+    onVitals(v);
+  }
+
+  function onDriverBattery(level) {
+    if (!vitals || !(level >= 0 && level <= 100)) return;
+    if (vitals.battery !== level) log(`battery ${level} %`);
+    vitals.battery = level;
+    sendVitals();
+  }
+
+  function onDriverRssi(rssi) {
+    if (!vitals || !Number.isFinite(rssi)) return;
+    vitals.rssi = rssi;
+    vitals.rssiAt = timers.now();
+    sendVitals();
   }
 
   // ── Reconnecting ──────────────────────────────────────────────────────────
@@ -130,6 +187,7 @@ function createBleManager({
 
   function checkSignal() {
     if (!link) return;
+    sendVitals();
     const now = timers.now();
     const sinceBpm = now - lastBpmAt;
     const sincePacket = now - (lastPacketAt || connectedAt);
@@ -158,6 +216,7 @@ function createBleManager({
 
   function onDriverPacket({ bpm, contact } = {}) {
     lastPacketAt = timers.now();
+    packetTimes.push(lastPacketAt);
     lastPacketEmpty = !(bpm > 0) || contact === false;
     if (++packets === 1) {
       attempt = 0;   // only a connection that delivers counts as good
@@ -182,8 +241,11 @@ function createBleManager({
         if (device && extra.name) device = { ...device, name: extra.name };
         if (device) persist({ device, active: true });
         lastBpmAt = timers.now();
+        vitals = { battery: null, rssi: null, rssiAt: 0 };
+        packetTimes = [];
         log(`connected to ${extra.name || device?.name}`);
         setState('connected', { name: extra.name || device?.name });
+        sendVitals();
         startWatchdog();
         break;
       }
@@ -252,6 +314,8 @@ function createBleManager({
     onStatus: onDriverStatus,
     onBpm: onDriverBpm,
     onPacket: (packet) => { driverReportsPackets = true; onDriverPacket(packet); },
+    onBattery: onDriverBattery,
+    onRssi: onDriverRssi,
   });
   // The drivers still carry their own reconnect logic from before; this module owns it now.
   driver.setAutoReconnect(false);
@@ -318,7 +382,7 @@ function createBleManager({
       }
     },
 
-    snapshot() { return { state, ...stateExtra }; },
+    snapshot() { return { state, ...stateExtra, vitals: currentVitals() }; },
 
     // The latest log lines, newest last, for the connection log in the window
     recentLog(count = 20) { return lines.slice(-count); },
@@ -332,6 +396,7 @@ function createBleManager({
         `device: ${device ? `${device.name} (…${String(device.id).slice(-4)})` : 'none'}`,
         `last heart rate: ${lastBpm ?? '-'} BPM, ${quiet}`,
         `measurements on this connection: ${link ? packets : '-'}${link && lastPacketEmpty ? ' (last one without skin contact)' : ''}`,
+        `battery: ${vitals?.battery ?? '-'} %  reception: ${currentVitals() ? `${currentVitals().bars}/4 (${currentVitals().barsFrom}${vitals?.rssi != null ? `, ${vitals.rssi} dBm` : ''})` : '-'}`,
         '',
         ...lines,
       ].join('\n');
@@ -339,4 +404,4 @@ function createBleManager({
   };
 }
 
-module.exports = { createBleManager, DEFAULTS };
+module.exports = { createBleManager, DEFAULTS, barsFromRssi, barsFromRate };

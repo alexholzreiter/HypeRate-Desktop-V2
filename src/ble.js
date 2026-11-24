@@ -1,5 +1,7 @@
 // BLE Heart Rate manager — wraps @abandonware/noble
 // HR Service: 0x180D | HR Measurement Characteristic: 0x2A37
+// Also: the Battery service (0x180F / 0x2A19) where a device has it, and the signal strength of
+// the connection.
 
 if (process.platform === 'win32') {
   module.exports = require('./ble-win');
@@ -8,6 +10,10 @@ if (process.platform === 'win32') {
 
 const HR_SERVICE        = '180d';
 const HR_CHARACTERISTIC = '2a37';
+const BATTERY_SERVICE   = '180f';
+const BATTERY_LEVEL     = '2a19';
+const RSSI_EVERY_MS     = 5000;
+const BATTERY_EVERY_MS  = 10 * 60 * 1000;
 const RECONNECT_DELAY   = 3000; // ms between reconnect attempts
 const CONNECT_TIMEOUT   = 20000;
 const DISCOVER_TIMEOUT  = 30000;
@@ -57,12 +63,21 @@ let onDeviceFound = null; // cb(id, name, rssi)
 let onStatus      = null; // cb(state, extra?)
 let onBpm         = null; // cb(bpm)
 let onPacket      = null; // cb({ bpm, contact }) for every measurement, valid or not
+let onBattery     = null; // cb(percent)
+let onRssi        = null; // cb(dBm) of the connection
 
 function init(callbacks) {
   onDeviceFound = callbacks.onDeviceFound;
   onStatus      = callbacks.onStatus;
   onBpm         = callbacks.onBpm;
   onPacket      = callbacks.onPacket;
+  onBattery     = callbacks.onBattery;
+  onRssi        = callbacks.onRssi;
+}
+
+function advertisedName(peripheral) {
+  const raw = peripheral.advertisement?.localName || peripheral.advertisement?.completeName || peripheral.name;
+  return raw && raw.trim() ? raw.trim() : null;
 }
 
 function setAutoReconnect(enabled) {
@@ -112,11 +127,7 @@ function stopScan({ silent = false } = {}) {
 
 function _onDiscover(peripheral) {
   peripheralCache.set(peripheral.id, peripheral);
-  const raw  = peripheral.advertisement?.localName
-            || peripheral.advertisement?.completeName
-            || peripheral.name;
-  const name = (raw && raw.trim()) ? raw.trim() : 'HR Monitor';
-  onDeviceFound?.(peripheral.id, name, peripheral.rssi);
+  onDeviceFound?.(peripheral.id, advertisedName(peripheral) || 'HR Monitor', peripheral.rssi);
 }
 
 async function connect(peripheralId, deviceName) {
@@ -177,6 +188,7 @@ async function _connect(peripheralId, deviceName, { retriedDiscovery }) {
     const { characteristics } = await discoverHeartRate(peripheral);
 
     const hrChar = characteristics.find(c => c.uuid === HR_CHARACTERISTIC);
+    const batteryChar = characteristics.find(c => c.uuid === BATTERY_LEVEL);
     if (!hrChar) {
       peripheral.disconnect();
       onStatus?.('connect-error', { reason: 'Heart Rate characteristic not found on this device.' });
@@ -184,14 +196,15 @@ async function _connect(peripheralId, deviceName, { retriedDiscovery }) {
     }
 
     hrChar.on('data', _onHrData);
-    await withTimeout(new Promise((resolve, reject) => {
-      hrChar.subscribe((err) => err ? reject(err) : resolve());
-    }), SUBSCRIBE_TIMEOUT, 'Connected, but could not subscribe to heart rate data.');
+    await subscribe(hrChar, 'Connected, but could not subscribe to heart rate data.');
 
     const raw  = peripheral.advertisement?.localName;
     const name = deviceName || ((raw && raw.trim()) ? raw.trim() : 'HR Monitor');
-    connectedDevice = { id: peripheralId, peripheral, characteristic: hrChar, name, disconnectHandler };
+    connectedDevice = { id: peripheralId, peripheral, characteristic: hrChar, name, disconnectHandler, timers: [] };
     lastConnected   = { id: peripheralId, name };
+    // Extras: they must never cost the connection
+    try { if (batteryChar) watchBattery(batteryChar); } catch {}
+    try { watchRssi(peripheral); } catch {}
     onStatus?.('connected', { name });
 
   } catch (err) {
@@ -216,10 +229,35 @@ async function _connect(peripheralId, deviceName, { retriedDiscovery }) {
 function discoverHeartRate(peripheral) {
   return withTimeout(new Promise((resolve, reject) => {
     peripheral.discoverSomeServicesAndCharacteristics(
-      [HR_SERVICE], [HR_CHARACTERISTIC],
-      (err, _svcs, chars) => err ? reject(err) : resolve({ characteristics: chars })
+      [HR_SERVICE, BATTERY_SERVICE], [HR_CHARACTERISTIC, BATTERY_LEVEL],
+      (err, _svcs, chars) => err ? reject(err) : resolve({ characteristics: chars || [] })
     );
   }), DISCOVER_TIMEOUT, 'Connected, but the heart rate service did not respond.');
+}
+
+function subscribe(characteristic, message) {
+  return withTimeout(new Promise((resolve, reject) => {
+    characteristic.subscribe((err) => err ? reject(err) : resolve());
+  }), SUBSCRIBE_TIMEOUT, message);
+}
+
+// The standard Battery service: read now and every ten minutes, and listen if it notifies
+function watchBattery(characteristic) {
+  const read = () => characteristic.read((err, data) => { if (!err && data?.length && data[0] <= 100) onBattery?.(data[0]); });
+  if ((characteristic.properties || []).includes('notify')) {
+    characteristic.on('data', (data) => { if (data?.length && data[0] <= 100) onBattery?.(data[0]); });
+    characteristic.subscribe(() => {});
+  }
+  read();
+  connectedDevice?.timers.push(setInterval(read, BATTERY_EVERY_MS));
+}
+
+// How strong the connection is (dBm), every few seconds
+function watchRssi(peripheral) {
+  if (typeof peripheral.updateRssi !== 'function') return;
+  const update = () => peripheral.updateRssi((err, rssi) => { if (!err && Number.isFinite(rssi) && rssi < 0) onRssi?.(rssi); });
+  update();
+  connectedDevice?.timers.push(setInterval(update, RSSI_EVERY_MS));
 }
 
 function isDiscoveryTimeout(err) {
@@ -228,8 +266,9 @@ function isDiscoveryTimeout(err) {
 
 function cleanupConnectedDevice() {
   if (!connectedDevice) return;
-  const { peripheral, characteristic, disconnectHandler } = connectedDevice;
+  const { peripheral, characteristic, disconnectHandler, timers } = connectedDevice;
   connectedDevice = null;
+  for (const t of timers || []) clearInterval(t);
   try { characteristic?.removeListener?.('data', _onHrData); } catch {}
   try { peripheral?.removeListener?.('disconnect', disconnectHandler); } catch {}
 }

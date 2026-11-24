@@ -3,6 +3,7 @@
 import { h, html, icon, svg } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
 import { bluetooth, cloud } from '../lib/state.js';
+import { signalBars, batteryIcon, barsFromRssi, receptionWord } from '../lib/vitals.js';
 
 export const id = 'source';
 
@@ -44,7 +45,7 @@ function bluetoothPart(s) {
   const hasDevice = ble.name && (LINKED.includes(ble.state) || TRYING.includes(ble.state));
   return h('div', { class: 'split' },
     h('div', { class: 'card stack' },
-      hasDevice ? deviceRow(ble) : null,
+      hasDevice ? deviceRow(ble, s.bleVitals) : null,
       h('div', { class: 'row between' },
         h('p', { class: 'label' }, t('nearby')),
         h('button', { class: 'btn small', onclick: () => (s.scan.active ? bluetooth.stopScan() : bluetooth.scan()) },
@@ -69,7 +70,7 @@ function bluetoothPart(s) {
         copied ? h('span', { class: 'small', style: { color: 'var(--ok-text)' } }, t('copied')) : null)));
 }
 
-function deviceRow(ble) {
+function deviceRow(ble, v) {
   const tone = ble.state === 'connected' ? 'ok' : 'warn';
   const text = {
     connected: t('dev_connected'), 'signal-lost': t('dev_signal_lost'), 'no-contact': t('dev_no_contact'),
@@ -79,8 +80,16 @@ function deviceRow(ble) {
     h('span', { class: 'dot ' + (ble.state === 'connected' ? 'live' : 'warn') }),
     h('div', { style: { flex: 1, minWidth: 0 } },
       h('p', { style: { margin: 0, fontWeight: 600 } }, ble.name),
-      h('p', { class: 'small', style: { margin: '2px 0 0', color: tone === 'ok' ? 'var(--ok-text)' : 'var(--warn-text)' } }, text)),
+      h('p', { class: 'small', style: { margin: '2px 0 0', color: tone === 'ok' ? 'var(--ok-text)' : 'var(--warn-text)' } }, text),
+      v && LINKED.includes(ble.state) ? vitalsRow(v) : null),
     h('button', { class: 'btn small', onclick: () => bluetooth.disconnect() }, t('disconnect')));
+}
+
+// Reception and battery of the connected device
+function vitalsRow(v) {
+  return h('div', { class: 'vitals-row small muted' },
+    h('span', { class: 'vital' }, signalBars(v.bars), receptionWord(v.bars) + (v.rssi != null ? ` (${v.rssi} dBm)` : '')),
+    h('span', { class: 'vital' }, batteryIcon(v.battery ?? 0), v.battery != null ? t('battery') + ' ' + v.battery + ' %' : t('battery_unknown')));
 }
 
 function deviceList(s) {
@@ -92,20 +101,11 @@ function deviceList(s) {
   }
   return h('div', { class: 'stack', style: { gap: '8px' } }, devices.map(d =>
     h('div', { class: 'device' },
-      bars(d.rssi),
+      signalBars(barsFromRssi(d.rssi)),
       h('div', { style: { flex: 1, minWidth: 0 } },
         h('p', { style: { margin: 0, fontWeight: 600 } }, d.name),
-        d.rssi != null ? h('p', { class: 'small muted', style: { margin: '2px 0 0' } }, t(signalWord(d.rssi))) : null),
+        d.rssi != null ? h('p', { class: 'small muted', style: { margin: '2px 0 0' } }, receptionWord(barsFromRssi(d.rssi))) : null),
       h('button', { class: 'btn small primary', onclick: () => bluetooth.connect(d.id, d.name) }, t('connect')))));
-}
-
-function signalWord(rssi) { return rssi >= -65 ? 'signal_strong' : rssi >= -80 ? 'signal_medium' : 'signal_weak'; }
-
-function bars(rssi) {
-  const level = rssi == null ? 0 : rssi >= -65 ? 4 : rssi >= -75 ? 3 : rssi >= -85 ? 2 : 1;
-  const color = level >= 3 ? 'var(--ok)' : level === 2 ? 'var(--warn)' : 'var(--bad)';
-  return svg('svg', { width: 18, height: 14, viewBox: '0 0 18 14', 'aria-hidden': 'true' },
-    [0, 1, 2, 3].map(i => svg('rect', { x: i * 5, y: 9 - i * 3, width: 3, height: 5 + i * 3, rx: 1, fill: i < level ? color : '#4a4e72' })));
 }
 
 function logLine(line) {

@@ -644,7 +644,10 @@
       "addons_docs": "Guide & examples",
       "addons_no_ai": "HypeRate Desktop contains no AI and sends nothing to AI services.",
       "addons_install_text": "Downloaded a finished addon? Copy its folder into the addons folder; it shows up by itself.",
-      "addons_open_folder_link": "Open the addons folder"
+      "addons_open_folder_link": "Open the addons folder",
+      "reception": "Reception",
+      "battery": "Battery",
+      "battery_unknown": "Battery: not reported"
     }
   },
   "de": {
@@ -1289,7 +1292,10 @@
       "addons_docs": "Anleitung & Beispiele",
       "addons_no_ai": "HypeRate Desktop enthält keine KI und sendet nichts an KI-Dienste.",
       "addons_install_text": "Ein fertiges Addon heruntergeladen? Kopier seinen Ordner in den Addon-Ordner, es erscheint dann von selbst.",
-      "addons_open_folder_link": "Addon-Ordner öffnen"
+      "addons_open_folder_link": "Addon-Ordner öffnen",
+      "reception": "Empfang",
+      "battery": "Akku",
+      "battery_unknown": "Akku: wird nicht gemeldet"
     }
   },
   "zh-CN": {
@@ -1934,7 +1940,10 @@
       "addons_docs": "说明与示例",
       "addons_no_ai": "HypeRate Desktop 不包含任何 AI，也不会向 AI 服务发送任何内容。",
       "addons_install_text": "下载了现成的插件？将其文件夹复制到插件文件夹中，它会自动出现。",
-      "addons_open_folder_link": "打开插件文件夹"
+      "addons_open_folder_link": "打开插件文件夹",
+      "reception": "信号",
+      "battery": "电量",
+      "battery_unknown": "电量：未报告"
     }
   }
 };

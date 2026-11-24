@@ -380,3 +380,32 @@ check('diagnostics show how many measurements the connection delivered', () => {
   assert.match(text, /measurements on this connection: 2 \(last one without skin contact\)/);
   assert.match(text, /first measurement: 0 BPM, skin contact no/);
 });
+
+// ── Battery and reception ──
+{
+  const { createBleManager, barsFromRssi, barsFromRate } = require('../src/ble-manager');
+  const chk = (n, ok, i = '') => console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `→ ${i}`);
+  let now = 0; const jobs = [];
+  const timers = { now: () => now, setTimeout: (fn, ms) => { jobs.push({ fn, at: now + ms }); return jobs.length; }, clearTimeout: () => {},
+    setInterval: (fn, ms) => { jobs.push({ fn, at: now + ms, every: ms }); return jobs.length; }, clearInterval: (i) => { if (jobs[i - 1]) jobs[i - 1].dead = true; } };
+  const run = (ms) => { const end = now + ms; for (;;) { const j = jobs.filter(x => !x.dead && x.at <= end).sort((a, b) => a.at - b.at)[0]; if (!j) break; now = j.at; if (j.every) j.at += j.every; else j.dead = true; j.fn(); } now = end; };
+  let cb = {}; const seen = [];
+  const driver = { init: (c) => { cb = c; }, setAutoReconnect: () => {}, connect: () => {}, disconnect: () => {}, startScan: () => {}, stopScan: () => {} };
+  const m = createBleManager({ driver, store: { get: () => ({}), set: () => {} }, emit: () => {}, onBpm: () => {}, onVitals: (v) => seen.push(v), timers });
+  m.connect('strap-1', 'Polar H10');
+  cb.onStatus('connected', { name: 'Polar H10' });
+  chk('a connected strap reports its vitals, battery still unknown', seen.at(-1)?.battery === null, JSON.stringify(seen.at(-1)));
+  cb.onBattery(64);
+  chk('its battery is passed on', seen.at(-1)?.battery === 64, JSON.stringify(seen.at(-1)));
+  for (let i = 0; i < 10; i++) { run(1000); cb.onPacket({ bpm: 80, contact: true }); cb.onBpm(80); }
+  run(100);
+  chk('without a signal strength, reception comes from regular measurements', seen.at(-1)?.bars === 4 && seen.at(-1)?.barsFrom === 'rate', JSON.stringify(seen.at(-1)));
+  cb.onRssi(-84);
+  chk('with a signal strength, reception comes from it', seen.at(-1)?.bars === 1 && seen.at(-1)?.rssi === -84 && seen.at(-1)?.barsFrom === 'rssi', JSON.stringify(seen.at(-1)));
+  run(20000);
+  chk('an old signal strength no longer counts, and missing measurements lower the bars', seen.at(-1)?.barsFrom === 'rate' && seen.at(-1)?.bars === 0, JSON.stringify(seen.at(-1)));
+  m.disconnect();
+  chk('disconnecting clears it', seen.at(-1) === null);
+  chk('bars from signal strength and from the share of measurements',
+    barsFromRssi(-55) === 4 && barsFromRssi(-75) === 2 && barsFromRssi(-95) === 0 && barsFromRate(1) === 4 && barsFromRate(0.5) === 2 && barsFromRate(0) === 0);
+}

@@ -38,11 +38,15 @@ const ble = require('../src/ble');
 const statuses = [];
 const bpms = [];
 const packets = [];
+const batteries = [];
+const rssis = [];
 ble.init({
   onDeviceFound: () => {},
   onStatus: (state, extra) => statuses.push({ state, ...extra }),
   onBpm: (bpm) => bpms.push(bpm),
   onPacket: (p) => packets.push(p),
+  onBattery: (b) => batteries.push(b),
+  onRssi: (r) => rssis.push(r),
 });
 
 const flush = () => new Promise((r) => setImmediate(r));
@@ -105,6 +109,25 @@ async function run() {
   noble.emit('stateChange', 'poweredOn');
   assert.deepEqual(noble.calls, ['start'], 'one scan, not one per request');
   console.log('PASS a scan waiting for Bluetooth starts exactly once');
+
+  // A strap with the Battery service
+  {
+    await ble.disconnect();
+    batteries.length = 0; rssis.length = 0;
+    const p = fakePeripheral('strap-2');
+    p.updateRssi = (cb) => cb(null, -66);
+    const battery = new EventEmitter(); battery.uuid = '2a19'; battery.properties = ['read'];
+    battery.read = (cb) => cb(null, Buffer.from([88]));
+    p.discoverSomeServicesAndCharacteristics = (s2, c, cb) => cb(null, [], [p.characteristic, battery]);
+    const connecting = ble.connect('strap-2', 'Polar H10');
+    await flush();
+    noble.emit('discover', p);
+    await flush(); await connecting;
+    assert.deepEqual(batteries, [88]);
+    assert.deepEqual(rssis, [-66]);
+    console.log('PASS a strap reports its battery (Battery service) and the signal strength');
+    await ble.disconnect();   // also ends its battery and signal polling
+  }
 
   mock.timers.reset();
 }
