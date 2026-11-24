@@ -475,13 +475,26 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
   return;   // CommonJS: ends this module, nothing below is set up for the second instance
 }
+// Started again (Dock, Finder, a shortcut): bring the window back, and mend it if it broke, so
+// starting the app always gets it back. A window that had lost its page used to swallow every
+// later start.
 app.on('second-instance', () => {
-  if (settingsWindow && !settingsWindow.isDestroyed()) {
-    if (settingsWindow.isMinimized()) settingsWindow.restore();
-    settingsWindow.show();
-    settingsWindow.focus();
-  }
+  if (!app.isReady()) return;
+  if (!settingsWindow || settingsWindow.isDestroyed()) createSettingsWindow();
+  else if (settingsWindow.webContents.isCrashed()) settingsWindow.reload();
+  if (settingsWindow.isMinimized()) settingsWindow.restore();
+  settingsWindow.show();
+  settingsWindow.focus();
 });
+
+// A window whose page crashed or was ended by the system loads it again by itself
+function reloadWhenGone(win, label, after = () => {}) {
+  win.webContents.on('render-process-gone', (_, details) => {
+    console.error(`[${label}] page gone: ${details.reason} (exit code ${details.exitCode})`);
+    if (app.isQuitting || win.isDestroyed() || details.reason === 'clean-exit') return;
+    setTimeout(() => { if (!win.isDestroyed()) { win.reload(); after(); } }, 500);
+  });
+}
 
 // A plain "please quit" from the system (an installer, a Steam update, kill) ends the app the
 // same way the tray's Quit does, so the current session is written first.
@@ -648,6 +661,7 @@ function createSettingsWindow() {
   }
 
   settingsWindow.loadFile(path.join(__dirname, kind.file));
+  reloadWhenGone(settingsWindow, 'window');
 
   // Coming forward is when an in-app message can be read: ask for one (throttled)
   settingsWindow.on('show', () => inAppOnShow());
@@ -749,6 +763,8 @@ function createOverlayWindow() {
     icon: path.join(__dirname,'../assets/icon.png'),
   });
   overlayWindow.loadFile(path.join(__dirname,'windows/overlay/index.html'));
+  // after a reload the overlay needs its settings again
+  reloadWhenGone(overlayWindow, 'overlay', () => setTimeout(() => { const cfg = loadStore().config; if (cfg) sendToOverlay('config-update', cfg); }, 400));
   overlayWindow.setAlwaysOnTop(true,'screen-saver');
   applyOverlaySpaces(store.overlayAllSpaces === true);
 
@@ -1134,7 +1150,9 @@ app.on('before-quit', (event) => {
   addons.stopAll();
   event.preventDefault();
   const released = Promise.resolve().then(() => ble.shutdown?.()).catch(() => {});
-  Promise.race([released, new Promise((r) => setTimeout(r, 2000))]).then(() => app.quit());
+  // The second quit must come after this one has been cancelled completely: called straight away
+  // (nothing to release, no strap) Electron ignored it, closed the windows and kept running.
+  Promise.race([released, new Promise((r) => setTimeout(r, 2000))]).then(() => setTimeout(() => app.quit(), 50));
 });
 app.on('will-quit', () => globalShortcut.unregisterAll());
 // App lives in tray — never auto-quit when windows are closed
