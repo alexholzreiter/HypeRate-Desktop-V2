@@ -4,6 +4,7 @@
 import { h, svg } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
 import { get } from '../lib/state.js';
+import { dayScene } from '../lib/scene.js';
 import { withDefaults, heartShapes, drawPreview, DEFAULT_ZONES, customFile, assetUrl, fontFor } from '../lib/overlay-config.js';
 
 export const id = 'overlay';
@@ -54,6 +55,8 @@ function change(patch) {
 }
 
 const rerender = () => window.dispatchEvent(new Event('hr-rerender'));
+// The sun and the colours move with the clock; once a minute is enough
+setInterval(() => { if (document.querySelector('.day-scene')) rerender(); }, 60 * 1000);
 
 export function render(s) {
   const c = config();
@@ -79,11 +82,8 @@ function scene(c, bpm) {
   drawPreview(preview, c, bpm);
   return h('div', { class: 'card scene-card' },
     h('div', { class: 'scene' },
-      svg('svg', { class: 'scene-art', viewBox: '0 0 900 300', preserveAspectRatio: 'none', 'aria-hidden': 'true' },
-        svg('circle', { cx: 640, cy: 150, r: 44, fill: '#ffd9a8', opacity: '.7' }),
-        svg('polygon', { points: '0,190 90,130 170,170 260,105 350,160 440,120 540,175 640,118 740,165 820,128 900,160 900,300 0,300', fill: '#2b2140' }),
-        svg('polygon', { points: '0,230 120,190 230,220 330,180 460,225 560,195 690,232 800,200 900,222 900,300 0,300', fill: '#1a1527' }),
-        svg('polygon', { points: '0,265 160,245 320,262 520,240 720,262 900,248 900,300 0,300', fill: '#0e0c16' })),
+      // the landscape follows the time of day (lib/scene.js)
+      dayScene(),
       h('span', { class: 'scene-note' }, t(c.showWidget ? 'preview_note' : 'preview_no_widget')),
       c.showWidget ? h('div', { class: 'scene-widget' }, preview) : null));
 }

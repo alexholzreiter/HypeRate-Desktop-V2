@@ -494,3 +494,28 @@ input[type="range"] { accent-color: var(--accent); }
 .tile-pill { min-width: 0; max-width: calc(100% - 70px); }
 .tile-pill .dot { flex: none; }
 .pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+/* Heart rate source: the two choices and the cards below them on one grid */
+.source-grid { display: grid; gap: 18px; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+.source-grid > .choice { align-self: stretch; }
+.source-grid > .wide { grid-column: 1 / -1; }
+.source-grid .row > .field { flex: 1; min-width: 0; }
+@media (max-width: 860px) { .source-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* ── The landscape behind the overlay preview (lib/scene.js) ── */
+.day-scene { position: absolute; inset: 0; overflow: hidden; }
+.day-scene > * { position: absolute; inset: 0; }
+.day-sky { transition: background 1.5s ease; }
+.day-stars span, .day-bokeh span { position: absolute; border-radius: 50%; transform: translate(-50%, -50%); }
+.day-stars span { background: #fff; }
+.day-bokeh span { filter: blur(1.6px); }
+.sky-body { position: absolute; inset: auto; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; }
+.sky-body.sun { width: calc(var(--size) * 5); height: calc(var(--size) * 5); background: radial-gradient(circle, var(--glow) 0%, transparent 70%); opacity: .7; }
+.sky-body.sun-core { width: 52px; height: 52px; }
+.sky-body.moon { width: 36px; height: 36px; background: radial-gradient(circle at 35% 50%, #f4f2ff 0%, #c8cdf2 60%, transparent 72%);
+  -webkit-mask: radial-gradient(circle at 72% 36%, transparent 0 46%, #000 48%); mask: radial-gradient(circle at 72% 36%, transparent 0 46%, #000 48%);
+  box-shadow: 0 0 60px 26px rgba(185, 195, 255, .16); }
+.day-ridges { width: 100%; height: 100%; }
+.day-vignette { background: radial-gradient(78% 120% at 50% 45%, transparent 55%, rgba(0, 0, 0, .42) 100%); }
+.day-grain { background-size: 180px 180px; mix-blend-mode: soft-light; opacity: .5; pointer-events: none; }
+.scene .scene-note, .scene .scene-widget { z-index: 2; }

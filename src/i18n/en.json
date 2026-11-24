@@ -257,7 +257,7 @@
     "copied": "Copied",
     "session_label": "HypeRate session ID",
     "session_placeholder": "e.g. abc123",
-    "session_hint_html": "Find your session ID in the HypeRate app. No app yet? <a data-external=\"https://hyperate.io\">hyperate.io</a>",
+    "session_hint_html": "Find your session ID in the HypeRate app. No app yet? <a data-external=\"https://www.hyperate.io/downloads\">hyperate.io</a>",
     "cloud_connected": "Connected to session {id}",
     "cloud_connecting": "Connecting…",
     "cloud_error": "Could not connect: {reason}",

@@ -22,7 +22,8 @@ export function render(s) {
       h('div', {},
         h('h1', { class: 'h1' }, t('nav_source')),
         h('p', { class: 'sub' }, t('source_sub')))),
-    h('div', { class: 'grid', role: 'radiogroup', 'aria-label': t('nav_source') },
+    // Choices and what is below them share one two-column grid, so all edges line up
+    h('div', { class: 'source-grid', role: 'radiogroup', 'aria-label': t('nav_source') },
       choice('ble', 'source', t('choice_ble'), t('choice_ble_sub')),
       choice('cloud', 'cloud', t('choice_cloud'), t('choice_cloud_sub'))),
     mode === 'ble' ? bluetoothPart(s) : cloudPart(s));
@@ -43,7 +44,7 @@ function choice(value, iconName, title, sub) {
 function bluetoothPart(s) {
   const ble = s.ble;
   const hasDevice = ble.name && (LINKED.includes(ble.state) || TRYING.includes(ble.state));
-  return h('div', { class: 'split' },
+  return h('div', { class: 'source-grid' },
     h('div', { class: 'card stack' },
       hasDevice ? deviceRow(ble, s.bleVitals) : null,
       h('div', { class: 'row between' },
@@ -130,7 +131,7 @@ function cloudPart(s) {
     error: s.cloud.message ? t('cloud_error', { reason: s.cloud.message }) : t('cloud_error_plain'),
     closed: t('cloud_closed'),
   }[status];
-  return h('div', { class: 'card stack', style: { maxWidth: '620px' } },
+  return h('div', { class: 'source-grid' }, h('div', { class: 'card stack wide' },
     h('label', { class: 'label', for: 'sessionId' }, t('session_label')),
     h('div', { class: 'row' },
       h('input', {
@@ -145,5 +146,5 @@ function cloudPart(s) {
     statusText ? h('div', { class: 'row small' },
       h('span', { class: 'dot ' + (connected ? 'live' : status === 'connecting' ? 'warn' : 'bad') }),
       h('span', { style: { color: connected ? 'var(--ok-text)' : status === 'connecting' ? 'var(--warn-text)' : 'var(--bad-text)' } }, statusText)) : null,
-    h('p', { class: 'small muted', style: { margin: 0 } }, html(t('session_hint_html'))));
+    h('p', { class: 'small muted', style: { margin: 0 } }, html(t('session_hint_html')))));
 }

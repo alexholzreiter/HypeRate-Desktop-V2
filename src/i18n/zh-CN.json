@@ -257,7 +257,7 @@
     "copied": "已复制",
     "session_label": "HypeRate 会话 ID",
     "session_placeholder": "例如 abc123",
-    "session_hint_html": "会话 ID 可以在 HypeRate App 中找到。还没有 App？<a data-external=\"https://hyperate.io\">hyperate.io</a>",
+    "session_hint_html": "会话 ID 可以在 HypeRate App 中找到。还没有 App？<a data-external=\"https://www.hyperate.io/downloads\">hyperate.io</a>",
     "cloud_connected": "已连接到会话 {id}",
     "cloud_connecting": "正在连接…",
     "cloud_error": "无法连接：{reason}",
