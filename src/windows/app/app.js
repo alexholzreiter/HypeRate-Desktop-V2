@@ -15,6 +15,8 @@ import * as sessionsPage from './pages/sessions.js';
 import * as settingsPage from './pages/settings.js';
 import * as welcome from './pages/welcome.js';
 import * as inAppDialog from './pages/inapp.js';
+import * as devtools from './pages/devtools.js';
+import * as fx from './lib/fx.js';
 import { setKnownHearts } from './lib/overlay-config.js';
 
 const api = window.electronAPI;
@@ -42,11 +44,13 @@ function go(id) {
 }
 
 // Gradients the hearts and the graph refer to by id
-function defs() {
+function defs(s) {
+  // Valentine's Day: the hearts in red
+  const [top, bottom] = fx.active(s) === 'valentine' ? ['#ff6b95', '#e11d48'] : ['#5b9bff', '#1d4ed8'];
   return svg('svg', { width: 0, height: 0, style: 'position:absolute', 'aria-hidden': 'true' },
     svg('defs', {},
       svg('linearGradient', { id: 'hr-gradient', x1: 0, y1: 0, x2: 0, y2: 1 },
-        svg('stop', { offset: 0, 'stop-color': '#5b9bff' }), svg('stop', { offset: 1, 'stop-color': '#1d4ed8' })),
+        svg('stop', { offset: 0, 'stop-color': top }), svg('stop', { offset: 1, 'stop-color': bottom })),
       svg('linearGradient', { id: 'hr-area', x1: 0, y1: 0, x2: 0, y2: 1 },
         svg('stop', { offset: 0, 'stop-color': '#3b82f6', 'stop-opacity': '.45' }), svg('stop', { offset: 1, 'stop-color': '#3b82f6', 'stop-opacity': 0 })),
       svg('linearGradient', { id: 'hr-line', x1: 0, y1: 0, x2: 1, y2: 0 },
@@ -113,13 +117,17 @@ function render() {
   queued = false;
   const s = store.get();
   document.documentElement.lang = s.lang;
-  document.documentElement.dataset.theme = s.settings?.theme === 'glass' ? 'glass' : 'classic';
+  const theme = ['glass', 'alive'].includes(s.settings?.theme) ? s.settings.theme : 'classic';
+  // "Alive" is the glass look with a background that beats with the heart rate
+  document.documentElement.dataset.theme = theme === 'classic' ? 'classic' : 'glass';
+  if (theme === 'alive') { document.documentElement.dataset.alive = ''; pulse(s); } else delete document.documentElement.dataset.alive;
   setKnownHearts(s.settings.customHearts);
+  fx.update(s, store.connection(s) === 'on' ? s.bpm : null);
   // First start: the wizard takes the whole window until it is finished or skipped
   if (s.settings.onboarded !== true) {
     const el = document.activeElement;
     if (el?.closest?.('.welcome') && el.tagName === 'INPUT') return;
-    update(defs(), welcome.render(s));
+    update(defs(s), welcome.render(s));
     return;
   }
   const item = NAV.find(n => n.id === current) || NAV[1];
@@ -129,10 +137,46 @@ function render() {
     morph(document.querySelector('.sidebar'), sidebar(s));
     return;
   }
-  update(defs(), h('div', { class: 'app' },
+  update(defs(s), h('div', { class: 'app' },
+    theme === 'alive' ? ambient() : null,
     titlebar(s),
     h('div', { class: 'body' }, sidebar(s), h('main', { class: 'content' }, item.page.render(s, go))),
+    devtools.render(s),
     inAppDialog.render(s)));
+}
+
+// ── Design "Alive": the background beats with the heart rate ──
+// Everything moves in CSS animations on transform and opacity, which the GPU runs on its own; the
+// page only sets three variables when the heart rate or the zone changes, not every frame.
+const ROOT_STYLE = document.documentElement.style;
+function pulse(s) {
+  const conn = store.connection(s);
+  const bpm = conn === 'on' && s.bpm ? s.bpm : null;
+  const zone = bpm && s.settings.config?.zonesEnabled === true ? store.zoneFor(bpm, s) : null;
+  // one beat per heartbeat; without a heart rate a slow, calm breath
+  const beat = bpm ? (60 / Math.max(40, Math.min(200, bpm))).toFixed(3) + 's' : '5s';
+  // the specks rise faster the higher the heart rate: 26 s at 60, 8 s at 160
+  const rise = bpm ? Math.max(8, Math.min(26, 26 - (bpm - 60) * 0.18)).toFixed(1) + 's' : '30s';
+  const set = (k, v) => { if (ROOT_STYLE.getPropertyValue(k) !== v) ROOT_STYLE.setProperty(k, v); };
+  set('--beat-time', beat);
+  set('--rise-time', rise);
+  set('--glow', zone?.color || '#3b7bff');
+}
+
+// The light layer behind the window: three glows that beat and drift, and specks of light that
+// rise. Built the same every time, so redraws never restart an animation.
+let ambientNode = null;
+function ambient() {
+  if (ambientNode) return ambientNode.cloneNode(true);
+  let seed = 7;
+  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  const specks = Array.from({ length: 22 }, (_, i) => h('span', { class: 'speck', style: {
+    left: (rnd() * 100).toFixed(1) + '%', '--size': (2 + rnd() * 4).toFixed(1) + 'px',
+    '--delay': (-rnd() * 30).toFixed(1) + 's', '--drift': ((rnd() - 0.5) * 80).toFixed(0) + 'px', '--speed': (0.7 + rnd() * 0.6).toFixed(2) } }));
+  ambientNode = h('div', { class: 'ambient', 'aria-hidden': 'true' },
+    ['a', 'b', 'c'].map(k => h('div', { class: 'glow-drift ' + k }, h('div', { class: 'glow' }))),
+    h('div', { class: 'specks' }, specks));
+  return ambientNode.cloneNode(true);
 }
 
 // The screen is patched, not rebuilt: see morph() in lib/dom.js

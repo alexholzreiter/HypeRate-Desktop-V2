@@ -18,6 +18,7 @@ let lastUpdate  = 0;
 let lastData    = null;  // latest presence — re-sent after a reconnect
 let updateTimer = null;
 let onStatus    = null;  // cb(state: 'waiting' | 'connected' | 'error', extra?)
+let addonText   = null;  // a text an addon put under the heart rate (instead of the zone)
 
 function init(callbacks) {
   onStatus = callbacks.onStatus;
@@ -143,7 +144,7 @@ function _flush() {
   const isBle = connectionType === 'ble';
   client.setActivity({
     details: `❤️  ${bpm} BPM`,
-    state:   zoneName || 'Active session',
+    state:   addonText || zoneName || 'Active session',
     timestamps: { start: startTime.getTime() },
     assets: {
       large_image: zoneColor ? colorToAsset(zoneColor) : 'hyperate_logo',
@@ -158,6 +159,15 @@ function _flush() {
   }).catch(() => {});
 }
 
+// An addon's text in the status, under the heart rate (null removes it). Shown with the next
+// update; false while Discord is switched off in the app.
+function setAddonText(text) {
+  if (!enabled) return false;
+  addonText = text || null;
+  if (lastData) updatePresence(lastData);
+  return true;
+}
+
 function clearPresence() {
   clearTimeout(updateTimer);
   updateTimer = null;
@@ -165,4 +175,4 @@ function clearPresence() {
   client?.clearActivity().catch(() => {});
 }
 
-module.exports = { init, connect, disconnect, updatePresence, clearPresence, colorToAsset };
+module.exports = { init, connect, disconnect, updatePresence, clearPresence, colorToAsset, setAddonText };

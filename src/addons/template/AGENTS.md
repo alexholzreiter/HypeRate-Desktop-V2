@@ -47,6 +47,13 @@ listed below and allowed in `addon.json`.
   - `notifications` – system notifications (at most one every 10 seconds)
   - `overlay` – show `overlay.html` in the overlay (needs that file and the `overlay` entry below)
   - `sound` – play sounds (Web Audio, or `new Audio('alarm.mp3')` with a file from this folder)
+  - `discord` – put a short text of its own in the user's Discord status, under the heart rate
+  - `vrchat` – write to the VRChat chatbox and set avatar parameters (over OSC)
+  - `homeAssistant` – send events of its own to Home Assistant (over MQTT)
+
+  These three go through the connections the user already set up in HypeRate Desktop
+  (Integrations): the addon needs no `network` entry, no address and no key for them, and they
+  only work while the user has that integration switched on.
 - `network`: host names (no `https://`, no paths) the addon may call with `fetch`, for example
   `["api.example.com"]`. Only `https` works. Every other request is blocked. Leave it empty
   unless the addon must talk to a web service.
@@ -90,6 +97,22 @@ hyperate.on('settings', (values) => { … });             // the user changed a 
 hyperate.send({ any: 'data' });                          // to the other part: main.js → overlay.html or back
 hyperate.on('message', (data) => { … });                // what the other part sent
 hyperate.log('anything');                                // shows in the addon's log in the app
+
+// Through the app's integrations; each returns a promise of { ok, reason }. reason: 'off' (the
+// user has that integration off or it is not connected), 'too-fast', 'invalid' or 'permission'
+await hyperate.discord.setStatus('Boss down at 142 BPM'); // needs "discord"; 2–100 characters, under the
+                                                         // heart rate; null removes it; one change every 5 s,
+                                                         // Discord itself shows one update per 15 s
+await hyperate.vrchat.chatbox('GG! 142 BPM');            // needs "vrchat"; 144 characters, one every 2 s;
+                                                         // stays up 10 s before the heart rate line comes back
+await hyperate.vrchat.parameter('BossDown', true);      // needs "vrchat"; an avatar parameter (the name as in
+                                                         // the avatar, without /avatar/parameters/); true/false
+                                                         // = Bool, whole number = Int, decimal = Float; 20 a second
+await hyperate.homeAssistant.event('boss_down', { bpm: 142 }); // needs "homeAssistant"; name: letters, digits,
+                                                         // _ . -; data JSON-able, 8 KB at most; 5 a second.
+// In Home Assistant it arrives on the MQTT topic hyperate/<device>/addon/<addon id> as
+// { addon, event, data, at }; tell the user to use an automation with an MQTT trigger on that
+// topic (the device part is the one shown under Integrations › Home Assistant).
 fetch('https://api.example.com/…')                       // only hosts listed in "network"
 ```
 
@@ -148,6 +171,10 @@ hyperate.on('message', ({ deaths }) => { document.getElementById('count').textCo
 
 - Clicking things in the overlay: a window can only be dragged, a screen overlay lets clicks
   through. There are no buttons for the user to press there.
+- Discord, VRChat or Home Assistant other than through `hyperate.discord`, `hyperate.vrchat` and
+  `hyperate.homeAssistant`: no direct connection to them (OSC, Discord's local connection, a local
+  Home Assistant address), and nothing beyond what those calls offer (no Discord messages, no
+  reading from VRChat or Home Assistant).
 - Keyboard shortcuts, reading or writing files outside this folder, other apps or windows,
   the microphone, the camera, the clipboard, starting programs.
 - Running while HypeRate Desktop is closed. More than 1 MB of storage.

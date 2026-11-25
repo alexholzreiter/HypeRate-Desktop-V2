@@ -218,9 +218,8 @@ code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: .92em;
 .heart-wrap svg { position: relative; width: 84px; height: 84px; }
 .beat { animation: beat var(--beat, .6s) ease-in-out infinite; transform-origin: 50% 60%; }
 .zonebar { position: relative; display: flex; height: 8px; gap: 3px; }
-.zonebar > div { border-radius: 2px; }
-.zonebar > div:first-child { border-radius: 999px 2px 2px 999px; }
-.zonebar > div:last-of-type { border-radius: 2px 999px 999px 2px; }
+.zonebar-names { display: flex; gap: 3px; font-size: 11px; color: var(--label); }
+.zonebar-names span { min-width: 0; white-space: nowrap; }
 .zonebar .marker { position: absolute; top: -5px; width: 4px; height: 18px; border-radius: 2px; background: #fff; box-shadow: 0 0 0 3px rgba(10, 11, 20, .9), 0 0 12px rgba(255, 255, 255, .6); transform: translateX(-2px); }
 .spark { width: 100%; height: 190px; overflow: visible; }
 .empty {
@@ -326,6 +325,7 @@ input[type="range"] { accent-color: var(--accent); }
 .font-row.on { background: #18214a; box-shadow: inset 0 0 0 1px rgba(127, 176, 255, .35); }
 .font-pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .font-sample { font-size: 24px; min-width: 64px; text-align: center; }
+.zone-suggest { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border-radius: 13px; background: rgba(59, 123, 255, .07); box-shadow: inset 0 0 0 1px rgba(127, 176, 255, .16); }
 .zone-table { display: flex; flex-direction: column; gap: 8px; overflow-x: auto; }
 .zone-row { display: grid; grid-template-columns: 44px minmax(140px, 1fr) 90px 90px 40px; gap: 8px; align-items: center; min-width: 440px; }
 .zone-row .field { min-height: 40px; font-size: 14px; }
@@ -603,3 +603,287 @@ input[type="range"] { accent-color: var(--accent); }
   background: rgba(5, 6, 14, .35);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, .4), inset 0 0 0 1px rgba(255, 255, 255, .08);
 }
+
+/* ── Design "Alive" (Settings → Design): Liquid Glass, and the light behind it beats with the heart
+   rate. --beat-time (one heartbeat), --rise-time and --glow (accent or zone colour) are set from
+   app.js when they change. Only transform and opacity are animated, so the GPU runs it without
+   the page; the glass over it is not blurred, because a blur over moving light is redrawn every
+   frame. */
+@property --glow { syntax: '<color>'; inherits: true; initial-value: #3b7bff; }
+:root[data-alive] { transition: --glow 2.5s ease; }
+:root[data-alive] .ambient { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+:root[data-alive] .body { position: relative; z-index: 1; background: none; }
+:root[data-alive] .sidebar, :root[data-alive] .card, :root[data-alive] .tabs, :root[data-alive] .btn,
+:root[data-alive] .side-status, :root[data-alive] .pill { backdrop-filter: none; }
+:root[data-alive] .sidebar { background: linear-gradient(180deg, rgba(14, 16, 34, .62), rgba(10, 11, 24, .55)); }
+:root[data-alive] .card { background: linear-gradient(160deg, rgba(255, 255, 255, .085) 0%, rgba(255, 255, 255, .03) 38%, rgba(255, 255, 255, .02) 100%), rgba(16, 18, 36, .58); }
+:root[data-alive] .card .card { background: linear-gradient(160deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .015)); }
+:root[data-alive] .scene-card { background: none; }
+
+/* three glows: each drifts slowly around, and beats with every heartbeat */
+.ambient .glow-drift { position: absolute; width: 62vmax; height: 62vmax; animation: glow-drift 46s ease-in-out infinite alternate; will-change: transform; }
+.ambient .glow-drift.a { left: -18vmax; top: -10vmax; }
+.ambient .glow-drift.b { right: -22vmax; top: 18vh; animation-duration: 58s; animation-delay: -20s; }
+.ambient .glow-drift.c { left: 18vw; bottom: -34vmax; animation-duration: 64s; animation-delay: -38s; }
+.ambient .glow {
+  width: 100%; height: 100%; border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--glow) 46%, transparent), color-mix(in srgb, var(--glow) 16%, transparent) 55%, transparent);
+  animation: heartbeat var(--beat-time, 5s) ease-out infinite; will-change: transform, opacity;
+}
+.ambient .glow-drift.b .glow { animation-delay: calc(var(--beat-time, 5s) * -.18); opacity: .8; }
+.ambient .glow-drift.c .glow { animation-delay: calc(var(--beat-time, 5s) * -.36); }
+@keyframes heartbeat {
+  0% { transform: scale(1); opacity: .62; }
+  12% { transform: scale(1.07); opacity: 1; }
+  24% { transform: scale(1.02); opacity: .78; }
+  34% { transform: scale(1.05); opacity: .9; }
+  100% { transform: scale(1); opacity: .62; }
+}
+@keyframes glow-drift {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(6vw, 5vh); }
+  100% { transform: translate(-4vw, 9vh); }
+}
+
+/* specks of light that rise and fade, faster with a higher heart rate */
+.ambient .specks { position: absolute; inset: 0; }
+.ambient .speck {
+  position: absolute; bottom: -12px; width: var(--size); height: var(--size); border-radius: 50%;
+  background: color-mix(in srgb, var(--glow) 55%, #fff); box-shadow: 0 0 calc(var(--size) * 3) color-mix(in srgb, var(--glow) 70%, transparent);
+  opacity: 0; will-change: transform, opacity;
+  animation: rise calc(var(--rise-time, 30s) * var(--speed)) linear infinite; animation-delay: var(--delay);
+}
+@keyframes rise {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: .55; }
+  70% { opacity: .35; }
+  100% { transform: translate(var(--drift), -105vh); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ambient .glow-drift, .ambient .glow, .ambient .speck { animation: none; }
+  .ambient .speck { display: none; }
+}
+
+/* ── Celebrations (lib/fx.js): a small scene behind the page, filmed with depth of field, a vignette
+   and grain. Only the line of text after confetti sits over the page.
+   Nothing here takes clicks; only transform, opacity and filter move. ── */
+#app { position: relative; z-index: 1; }
+#fx-back, #fx-front { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+/* the back layer paints the window's own background, so the grain has something to blend into */
+#fx-back { z-index: 0; background: var(--bg); }
+#fx-front { z-index: 40; }
+.fx-scene, .fx-bursts, .fx-burst { position: absolute; inset: 0; }
+.fx-scene span, .fx-scene .fx-bat-flight, .fx-burst span { will-change: transform, opacity; }
+/* the film look, only while something is on */
+.fx-vignette, .fx-grain { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s ease; }
+.fx-vignette { background: radial-gradient(120% 95% at 50% 45%, transparent 55%, rgba(0, 0, 0, .55) 100%); }
+.fx-grain { background-size: 180px 180px; mix-blend-mode: soft-light; }
+#fx-back.on .fx-vignette, #fx-back.bursting .fx-vignette { opacity: 1; }
+#fx-back.on .fx-grain, #fx-back.bursting .fx-grain { opacity: .3; }
+.fx-sky { position: absolute; inset: 0; }
+/* While a scene runs, the cards turn to frosted glass in every design: the scene shows through
+   them, out of focus */
+:root[data-season]:not([data-season=""]) .content .card:not(.card .card) {
+  background: linear-gradient(180deg, rgba(22, 24, 44, .72), rgba(16, 18, 37, .8));
+  backdrop-filter: blur(18px) saturate(140%);
+}
+
+/* Christmas: snow in depth, a cold blue night */
+.fx-sky-winter { background: radial-gradient(90% 70% at 70% 0%, rgba(120, 160, 255, .16), transparent 70%), linear-gradient(180deg, rgba(40, 60, 120, .18), transparent 60%); }
+.fx-flake {
+  position: absolute; top: -40px; width: var(--size); height: var(--size); border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, .95), rgba(255, 255, 255, .45) 55%, transparent 72%);
+  animation: fx-fall linear infinite;
+}
+@keyframes fx-fall {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(var(--sway), 27vh); }
+  50% { transform: translate(0, 54vh); }
+  75% { transform: translate(calc(var(--sway) * -1), 81vh); }
+  100% { transform: translate(0, calc(100vh + 80px)); }
+}
+/* Valentine's Day: hearts rising in depth, and the big heart in red */
+.fx-sky-rose { background: radial-gradient(80% 60% at 50% 100%, rgba(255, 60, 120, .16), transparent 70%); }
+.fx-heart { position: absolute; bottom: -60px; display: block; opacity: 0; animation: fx-rise-heart linear infinite; }
+.fx-heart svg { display: block; }
+@keyframes fx-rise-heart {
+  0% { transform: translate(0, 0) rotate(0); opacity: 0; }
+  10% { opacity: var(--alpha); }
+  75% { opacity: calc(var(--alpha) * .7); }
+  100% { transform: translate(var(--drift), calc(-100vh - 80px)) rotate(var(--spin)); opacity: 0; }
+}
+:root[data-season="valentine"] .heart-wrap:not(.idle)::before { background: radial-gradient(circle, rgba(255, 77, 125, .45) 0%, rgba(255, 77, 125, 0) 65%); }
+
+/* Chinese New Year: red lanterns swaying, gold sparks rising */
+.fx-sky-lunar { background: radial-gradient(60% 55% at 85% 0%, rgba(255, 60, 30, .2), transparent 70%), radial-gradient(70% 50% at 30% 100%, rgba(255, 170, 40, .1), transparent 70%); }
+.fx-lantern {
+  position: absolute; top: 0; width: 2px; height: var(--string); margin-left: -1px;
+  background: linear-gradient(180deg, rgba(255, 200, 90, 0), rgba(255, 200, 90, .55));
+  transform-origin: 50% 0; animation: fx-swing ease-in-out infinite alternate;
+}
+.fx-lantern-body {
+  position: absolute; top: 100%; left: 50%; width: 44px; height: 54px; margin-left: -22px;
+  transform: scale(var(--scale)); transform-origin: 50% 0; border-radius: 48% / 42%;
+  background:
+    linear-gradient(90deg, transparent 22%, rgba(120, 10, 10, .35) 23% 24%, transparent 25% 49%, rgba(120, 10, 10, .35) 50% 51%, transparent 52% 75%, rgba(120, 10, 10, .35) 76% 77%, transparent 78%),
+    radial-gradient(60% 55% at 50% 50%, #ff7a45, #e0201b 62%, #9e0f12);
+  box-shadow: 0 -5px 0 -1px #e8b04a, 0 5px 0 -1px #e8b04a, 0 0 34px rgba(255, 70, 40, .55);
+}
+.fx-lantern-tassel {
+  position: absolute; top: calc(100% + 54px * var(--scale) + 4px); left: 50%; width: 3px; height: calc(16px * var(--scale)); margin-left: -1.5px;
+  border-radius: 2px; background: linear-gradient(180deg, #e8b04a, rgba(232, 176, 74, 0));
+}
+@keyframes fx-swing { 0% { transform: rotate(-4deg); } 100% { transform: rotate(4deg); } }
+.fx-spark {
+  position: absolute; bottom: -20px; width: var(--size); height: var(--size); border-radius: 50%;
+  background: #ffd36b; box-shadow: 0 0 8px rgba(255, 190, 70, .9); opacity: 0; animation: fx-rise linear infinite;
+}
+@keyframes fx-rise {
+  0% { transform: translate(0, 0); opacity: 0; }
+  12% { opacity: .85; }
+  70% { opacity: .5; }
+  100% { transform: translate(var(--drift), calc(-100vh - 40px)); opacity: 0; }
+}
+
+/* Halloween: violet night, an orange moon, fog, bats flying out of the moon towards you */
+.fx-sky-halloween { background: linear-gradient(180deg, rgba(70, 20, 110, .36), rgba(20, 8, 40, .1) 55%, rgba(255, 100, 20, .14)); }
+.fx-moon { position: absolute; border-radius: 50%; }
+.fx-moon-orange {
+  right: 9vw; top: 2vh; width: 150px; height: 150px; filter: blur(1.2px);
+  background:
+    radial-gradient(16% 16% at 36% 40%, rgba(170, 70, 20, .35), transparent 70%),
+    radial-gradient(11% 11% at 63% 62%, rgba(170, 70, 20, .3), transparent 70%),
+    radial-gradient(circle at 42% 38%, #ffe2b0, #ffad5c 58%, #e0662a);
+  box-shadow: 0 0 70px rgba(255, 140, 50, .55), 0 0 220px rgba(255, 110, 30, .3);
+  animation: fx-moonglow 8s ease-in-out infinite alternate;
+}
+@keyframes fx-moonglow { 0% { opacity: .9; } 100% { opacity: 1; } }
+.fx-fog { position: absolute; width: 90vw; height: 38vh; bottom: -12vh; border-radius: 50%; background: radial-gradient(closest-side, rgba(150, 120, 190, .2), transparent); animation: fx-drift-x ease-in-out infinite alternate; }
+.fx-fog.a { left: -30vw; animation-duration: 38s; }
+.fx-fog.b { left: 20vw; bottom: -16vh; animation-duration: 52s; animation-delay: -20s; opacity: .8; }
+.fx-fog.c { left: 50vw; animation-duration: 44s; animation-delay: -10s; }
+@keyframes fx-drift-x { 0% { transform: translateX(-8vw); } 100% { transform: translateX(10vw); } }
+.fx-bat-flight {
+  position: absolute; left: -46px; top: -23px; opacity: 0;
+  animation: fx-flight linear infinite;
+}
+@keyframes fx-flight {
+  0% { transform: translate(var(--x0), var(--y0)) scale(var(--s0)); opacity: 0; filter: blur(0); animation-timing-function: cubic-bezier(.4, .1, .8, .6); }
+  2% { opacity: 1; }
+  16% { transform: translate(var(--xm), var(--ym)) scale(var(--sm)); filter: blur(.4px); animation-timing-function: cubic-bezier(.3, .4, .9, .9); }
+  30% { transform: translate(var(--x1), var(--y1)) scale(var(--s1)); opacity: 1; filter: blur(var(--b1)); }
+  30.5%, 100% { transform: translate(var(--x1), var(--y1)) scale(var(--s1)); opacity: 0; filter: blur(var(--b1)); }
+}
+.fx-bat-flight.long { animation-name: fx-flight-long; }
+@keyframes fx-flight-long {
+  0% { transform: translate(var(--x0), var(--y0)) scale(var(--s0)); opacity: 0; }
+  4% { opacity: .9; }
+  22% { transform: translate(var(--xm), var(--ym)) scale(var(--sm)); }
+  40% { transform: translate(var(--x1), var(--y1)) scale(var(--s1)); opacity: .9; }
+  42%, 100% { transform: translate(var(--x1), var(--y1)) scale(var(--s1)); opacity: 0; }
+}
+.fx-bat { display: block; fill: #0d0714; overflow: visible; }
+.fx-wing { transform-box: fill-box; transform-origin: 100% 40%; animation: fx-wing ease-in-out infinite alternate; }
+@keyframes fx-wing { 0% { transform: rotate(-32deg) scaleY(.9); } 100% { transform: rotate(38deg) scaleY(1.05); } }
+.fx-scare { position: absolute; inset: 0; opacity: 0; transition: opacity 1.5s ease; background: radial-gradient(75% 85% at 50% 50%, transparent 45%, rgba(150, 0, 30, .75) 100%); }
+#fx-back.scary .fx-scare { opacity: 1; animation: fx-scare var(--fx-beat, .33s) ease-out infinite; }
+@keyframes fx-scare { 0% { opacity: .45; } 14% { opacity: 1; } 100% { opacity: .45; } }
+
+/* Mid-Autumn Festival: the full moon rising behind thin clouds, sky lanterns drifting up */
+.fx-sky-night { background: linear-gradient(180deg, rgba(20, 30, 80, .3), transparent 60%), radial-gradient(70% 40% at 50% 100%, rgba(255, 150, 60, .1), transparent 70%); }
+.fx-moon-rise { position: absolute; right: 12vw; top: 1vh; width: 150px; height: 150px; animation: fx-moonrise 240s ease-out infinite alternate; }
+@keyframes fx-moonrise { 0% { transform: translateY(6vh) scale(1.06); } 100% { transform: translateY(0) scale(1); } }
+.fx-halo { position: absolute; inset: -200px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 225, 160, .28), rgba(255, 210, 140, .08) 45%, transparent); animation: fx-moonglow 9s ease-in-out infinite alternate; }
+.fx-moon-full {
+  inset: 0;
+  background:
+    radial-gradient(17% 17% at 35% 38%, rgba(200, 160, 100, .4), transparent 70%),
+    radial-gradient(12% 12% at 62% 60%, rgba(200, 160, 100, .35), transparent 70%),
+    radial-gradient(8% 8% at 58% 29%, rgba(200, 160, 100, .3), transparent 70%),
+    radial-gradient(10% 10% at 30% 70%, rgba(200, 160, 100, .22), transparent 70%),
+    radial-gradient(circle at 40% 38%, #fffdf2, #ffeec4 60%, #f7d796);
+  box-shadow: 0 0 60px rgba(255, 228, 170, .6), inset -18px -14px 40px rgba(200, 150, 80, .25);
+  filter: blur(.8px);
+}
+.fx-cloud { position: absolute; height: 70px; border-radius: 50%; background: radial-gradient(closest-side, rgba(30, 34, 70, .85), rgba(30, 34, 70, .4) 55%, transparent); filter: blur(6px); animation: fx-cloud linear infinite; }
+.fx-cloud.a { top: 8vh; width: 520px; animation-duration: 95s; animation-delay: -30s; }
+.fx-cloud.b { top: 15vh; width: 380px; height: 50px; animation-duration: 130s; animation-delay: -90s; opacity: .8; }
+.fx-cloud.c { top: 3vh; width: 300px; height: 44px; animation-duration: 115s; animation-delay: -10s; opacity: .7; }
+@keyframes fx-cloud { 0% { transform: translateX(110vw); } 100% { transform: translateX(-600px); } }
+.fx-skylantern {
+  position: absolute; bottom: -80px; width: var(--w); height: calc(var(--w) * 1.25); opacity: 0;
+  border-radius: 34% 34% 22% 22% / 38% 38% 14% 14%;
+  background: radial-gradient(70% 60% at 50% 78%, #fff4c8, #ffb54a 48%, #d9541f 95%);
+  animation: fx-skylantern linear infinite;
+}
+.fx-skylantern-glow { position: absolute; inset: -80%; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 170, 70, .45), transparent); animation: fx-flicker 2.6s ease-in-out infinite alternate; }
+@keyframes fx-flicker { 0% { opacity: .6; } 100% { opacity: 1; } }
+@keyframes fx-skylantern {
+  0% { transform: translate(0, 0) rotate(-3deg); opacity: 0; }
+  8% { opacity: .95; }
+  50% { transform: translate(calc(var(--drift) * .5), -55vh) rotate(3deg); }
+  85% { opacity: .7; }
+  100% { transform: translate(var(--drift), calc(-100vh - 100px)) rotate(-2deg); opacity: 0; }
+}
+
+/* Easter: a spring morning, low warm sun with slow rays, cherry blossom drifting */
+.fx-sky-spring { background: linear-gradient(200deg, rgba(120, 200, 255, .1), transparent 45%), radial-gradient(80% 60% at 90% 100%, rgba(255, 190, 120, .2), transparent 70%); }
+.fx-sun { position: absolute; right: -14vmax; bottom: -16vmax; width: 52vmax; height: 52vmax; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 240, 200, .85), rgba(255, 200, 130, .35) 38%, transparent); animation: fx-moonglow 7s ease-in-out infinite alternate; }
+.fx-rays {
+  position: absolute; right: -60vmax; bottom: -60vmax; width: 120vmax; height: 120vmax; border-radius: 50%; opacity: .75;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 230, 180, .12) 0deg 4deg, transparent 4deg 13deg);
+  -webkit-mask: radial-gradient(closest-side, #000 15%, transparent 70%); mask: radial-gradient(closest-side, #000 15%, transparent 70%);
+  filter: blur(14px); animation: fx-turn 240s linear infinite;
+}
+@keyframes fx-turn { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
+.fx-blossom { position: absolute; top: -60px; display: block; opacity: .9; animation: fx-blossom linear infinite; }
+.fx-blossom svg { display: block; }
+@keyframes fx-blossom {
+  0% { transform: translate(0, 0) rotate(0); }
+  30% { transform: translate(var(--sway), 30vh) rotate(calc(var(--spin) * .3)); }
+  65% { transform: translate(calc(var(--sway) * -.4), 65vh) rotate(calc(var(--spin) * .65)); }
+  100% { transform: translate(calc(var(--sway) * .6), calc(100vh + 80px)) rotate(var(--spin)); }
+}
+
+/* Confetti: a shower for a record or the birthday, or a slow drizzle all birthday long */
+.fx-sky-party { background: radial-gradient(60% 50% at 20% 0%, rgba(91, 155, 255, .16), transparent 70%), radial-gradient(60% 50% at 85% 10%, rgba(255, 77, 125, .12), transparent 70%); }
+.fx-confetti { position: absolute; top: -30px; width: var(--w); height: var(--h); border-radius: 2px; animation: fx-confetti ease-in forwards; opacity: 0; }
+.fx-confetti.slow { animation-timing-function: linear; animation-iteration-count: infinite; opacity: .6; }
+@keyframes fx-confetti {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translate(var(--sway), calc(100vh + 60px)) rotate(var(--spin)); opacity: 0; }
+}
+.fx-toast {
+  position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); max-width: calc(100% - 48px);
+  padding: 12px 20px; border-radius: 14px; font-weight: 600; font-size: 15px; color: #fff; text-align: center;
+  background: rgba(16, 18, 36, .9); box-shadow: 0 18px 50px rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .12);
+  animation: fx-toast 6.5s ease forwards;
+}
+@keyframes fx-toast {
+  0% { opacity: 0; transform: translate(-50%, 16px); }
+  8%, 85% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, 8px); }
+}
+
+/* New Year's Eve: the fireworks canvas, drawn small and scaled up soft */
+.fx-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* Five quick taps on the big heart */
+.heart-wrap.hop svg { animation: hop 1.05s cubic-bezier(.3, .7, .4, 1); transform-origin: 50% 60%; }
+@keyframes hop {
+  0% { transform: none; }
+  14% { transform: translateY(4px) scale(1.18, .8); }
+  45% { transform: translateY(-52px) rotate(180deg) scale(.94, 1.08); }
+  72% { transform: translateY(0) rotate(360deg) scale(1.2, .84); }
+  86% { transform: rotate(360deg) scale(.96, 1.05); }
+  100% { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) { #fx-back .fx-scene { display: none; } .heart-wrap.hop svg { animation: none; } }
+
+/* ── Developer window (Konami code) ── */
+.devtools { width: min(640px, 100%); position: relative; gap: 18px; }
+.dev-section { display: flex; flex-direction: column; gap: 10px; }
+.dev-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.dev-info { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; color: var(--label); user-select: text; }

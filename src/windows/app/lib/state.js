@@ -447,8 +447,10 @@ export const app = {
   // Show the app in the Dock (macOS) or the taskbar (Windows) besides the menu bar / tray
   setDockIcon(on) { state.settings.showInDock = !!on; api.dockSet(!!on); changed(); },
   // Anonymous usage count, off until the user agrees
-  // Look of the window: 'classic' or 'glass' (Settings → Design)
-  setTheme(theme) { state.settings.theme = theme === 'glass' ? 'glass' : 'classic'; api.saveSettings({ theme: state.settings.theme }); changed(); },
+  // Look of the window: 'classic', 'glass' or 'alive' (Settings → Design)
+  // Snow at Christmas, fireworks on New Year's Eve and so on (lib/fx.js); on unless switched off
+  setSeasonal(on) { state.settings.seasonalEffects = !!on; api.saveSettings({ seasonalEffects: !!on }); changed(); },
+  setTheme(theme) { state.settings.theme = ['glass', 'alive'].includes(theme) ? theme : 'classic'; api.saveSettings({ theme: state.settings.theme }); changed(); },
   setAnalytics(on) { state.settings.analyticsEnabled = !!on; api.analyticsSet(!!on); changed(); },
   async checkUpdate() {
     if (state.update.state === 'available') return;
@@ -553,6 +555,11 @@ export const addons = {
 
 // ── In-app messages from HypeRate (see src/in-app.js) ──
 const shownInApp = new Set();   // impression reported in this run
+function sampleResults(m, optionId) {
+  const counts = m.options.map((o, i) => 40 - i * 12 + (o.id === optionId ? 1 : 0));
+  const total = counts.reduce((a, b) => a + b, 0);
+  return { totalVotes: total, options: m.options.map((o, i) => ({ id: o.id, label: o.label, percent: counts[i] / total * 100 })) };
+}
 export const inApp = {
   receive(message) {
     const cur = state.inApp;
@@ -561,21 +568,22 @@ export const inApp = {
     changed();
   },
   // Called when the dialog is on screen; tells the server once per run
+  // A sample from the developer window (preview: true) is never reported to HypeRate
   shown(id) {
-    if (shownInApp.has(id)) return;
+    if (state.inApp.message?.preview || shownInApp.has(id)) return;
     shownInApp.add(id);
     api.inAppEvent(id, 'impression');
   },
   dismiss() {
     const m = state.inApp.message;
-    if (m && !state.inApp.results) api.inAppEvent(m.id, 'dismiss');
+    if (m && !m.preview && !state.inApp.results) api.inAppEvent(m.id, 'dismiss');
     state.inApp = { message: null, results: null, voting: false };
     changed();
   },
   open() {
     const m = state.inApp.message;
     if (!m) return;
-    api.inAppEvent(m.id, 'click');
+    if (!m.preview) api.inAppEvent(m.id, 'click');
     if (m.link) api.openExternal(m.link);
     state.inApp = { message: null, results: null, voting: false };
     changed();
@@ -584,7 +592,7 @@ export const inApp = {
     const m = state.inApp.message;
     if (!m || state.inApp.voting) return;
     state.inApp.voting = optionId; changed();
-    const results = await api.inAppVote(m.id, optionId).catch(() => null);
+    const results = m.preview ? sampleResults(m, optionId) : await api.inAppVote(m.id, optionId).catch(() => null);
     state.inApp = { message: m, results: results || { failed: true }, voting: false, voted: optionId };
     changed();
   },

@@ -1,0 +1,2 @@
+{ "id": "bridge", "name": "Bridge", "version": "1.0.0", "description": "Talks to Discord, VRChat and Home Assistant through the app.",
+  "permissions": ["discord", "vrchat", "homeAssistant"] }

@@ -24,10 +24,19 @@ const hiddenOf = (id) => BrowserWindow.getAllWindows().find(w => w.webContents.g
 
 app.on('window-all-closed', () => {});
 app.whenReady().then(async () => {
+  // the app's integrations, as stand-ins: VRChat and Home Assistant on, Discord off
+  const sent = [];
+  const bridge = {
+    discordStatus: (text) => { sent.push(['discord', text]); return { ok: false, reason: 'off' }; },
+    vrchatChatbox: (text) => { sent.push(['chatbox', text]); return { ok: true }; },
+    vrchatParameter: (name, value) => { sent.push(['param', name, value]); return { ok: true }; },
+    homeAssistantEvent: (id, name, data) => { sent.push(['ha', id, name, data]); return { ok: true }; },
+  };
   const host = createAddonHost({
     root, dataDir: path.join(tmp, 'addon-data'), loadStore, saveStore,
     overlayInfo: () => ({ allSpaces: false, anchor: null }),
     cpu: { limit: 40, samples: 3, every: 500 },
+    bridge,
   });
   const item = (id) => host.list().addons.find(a => a.manifest?.id === id);
   const logText = (id) => host.logs(id).map(l => l.text).join('\n');
@@ -65,6 +74,17 @@ app.whenReady().then(async () => {
   check('inline script is blocked and named', blocked.includes('inline:') && windowOf('blocked')?.webContents.getTitle() !== 'INLINE RAN', blocked.join(', '));
   check('storage without the permission is refused and named', blocked.includes('permission:storage') && /storage false/.test(logText('blocked')), blocked.join(', '));
   check('… and the fetch never went through', !/FETCH WENT THROUGH/.test(logText('blocked')));
+
+  // Discord, VRChat and Home Assistant through the app
+  const bridgeLog = logText('bridge');
+  check('the bridge answers every call', /bridge done/.test(bridgeLog), bridgeLog);
+  check('VRChat chatbox and parameters go through, with their types', /chatbox ok/.test(bridgeLog) && /param-bool ok/.test(bridgeLog) && /param-int ok/.test(bridgeLog) && /param-float ok/.test(bridgeLog)
+    && JSON.stringify(sent.filter(s => s[0] === 'param')) === JSON.stringify([['param', 'BossDown', true], ['param', 'Kills', 3], ['param', 'Heat', 0.5]]), JSON.stringify(sent));
+  check('a parameter name with a path or a space is refused', /param-bad invalid/.test(bridgeLog) && !sent.some(s => s[1] === '/avatar/parameters/x y'));
+  check('a Home Assistant event carries the addon id, its name and data', sent.some(s => s[0] === 'ha' && s[1] === 'bridge' && s[2] === 'boss_down' && s[3].bpm === 142) && /ha-bad invalid/.test(bridgeLog), JSON.stringify(sent));
+  check('an integration that is off says so, on the addon page too', /discord off/.test(bridgeLog) && item('bridge').limits.some(l => l.kind === 'integration-off' && l.detail === 'discord'));
+  check('too many calls are refused, not passed on', /discord-again too-fast/.test(bridgeLog) && sent.filter(s => s[0] === 'discord').length === 1, JSON.stringify(sent));
+  check('without the permission nothing goes through', /discord permission/.test(logText('blocked')) && !sent.some(s => s[1] === 'not allowed') && blocked.includes('permission:discord'), logText('blocked'));
 
   check('an addon without "sound" is muted', hiddenOf('tile')?.webContents.isAudioMuted() === true);
   check('an addon with "sound" is not', hiddenOf('sound')?.webContents.isAudioMuted() === false);

@@ -225,6 +225,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sessionsList:       ()        => ipcRenderer.invoke('sessions-list'),
   sessionsDelete:     ()        => ipcRenderer.invoke('sessions-delete'),
   sessionsRead:       (startedAt) => ipcRenderer.invoke('sessions-read', startedAt),
+  sessionsZoneSuggestion: () => ipcRenderer.invoke('sessions-zone-suggestion'),
   sessionsCard:       (startedAt) => ipcRenderer.invoke('sessions-card', startedAt),
   sessionsCardPreview:(startedAt) => ipcRenderer.invoke('sessions-card-preview', startedAt),
   sessionsCardSave:   (startedAt) => ipcRenderer.invoke('sessions-card-save', startedAt),

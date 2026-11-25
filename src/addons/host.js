@@ -10,6 +10,8 @@
 // - no permissions (camera, microphone, location, web notifications …), no downloads, no new
 //   windows, no navigation away
 // - what it gets through window.hyperate is checked here against what the user approved
+// - Discord, VRChat and Home Assistant only through the app's own connections (`bridge`), with
+//   their permission, only while the user has that integration on, and only so often
 // - with the "overlay" permission, overlay.html shows in a window of its own next to the
 //   overlay: same session and rules, shown only while the overlay is. Like the heart rate
 //   widget it lets the mouse through, except while the pointer is over it: then it can be
@@ -30,6 +32,13 @@ const NOTIFY_EVERY_MS = 10 * 1000;
 const EVENT_PERMISSION = { heartRate: 'heartRate', zone: 'zones', gameMoment: 'gameMoments' };
 const FREE_EVENTS = ['settings', 'message'];   // its own settings and its own messages: no permission needed
 const MESSAGE_BYTES = 64 * 1024;
+// What an addon may send through the app's integrations, and how often (per addon)
+const BRIDGE = {
+  discordStatus:      { permission: 'discord',       max: 1,  per: 5000 },   // Discord itself takes one update per 15 s
+  vrchatChatbox:      { permission: 'vrchat',        max: 1,  per: 2000 },   // VRChat's own chatbox limit
+  vrchatParameter:    { permission: 'vrchat',        max: 20, per: 1000 },
+  homeAssistantEvent: { permission: 'homeAssistant', max: 5,  per: 1000 },
+};
 const LINUX = process.platform === 'linux';
 const WINDOW_SHARE = 1 / 3;          // an overlay window covers at most this much of its screen
 const CPU_LIMIT = 40;                // percent of one core, for all windows of one addon together
@@ -39,7 +48,9 @@ const OVERLAY_SCALES = [50, 75, 100, 125, 150, 200];
 // overlayInfo(): { allSpaces, anchor } – how the overlay is set up and where it is (its bounds),
 // so a new addon window can start next to it
 // cpu: { limit, samples, every } overrides the processor check (for tests)
-function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () => {}, appIcon, overlayInfo = () => ({}), cpu: cpuCheck = {} }) {
+// bridge: { discordStatus(text), vrchatChatbox(text), vrchatParameter(name, value),
+//   homeAssistantEvent(addonId, name, data) }, each returning { ok, reason }: the app's integrations
+function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () => {}, appIcon, overlayInfo = () => ({}), cpu: cpuCheck = {}, bridge = {} }) {
   const CPU = { limit: CPU_LIMIT, samples: CPU_SAMPLES, every: 5000, ...cpuCheck };
   const running = new Map();   // id → { win, overlay, manifest, dir, subs: Map(webContents id → Set), lastNotify }
   const logs = new Map();      // id → [{ t, level, text }]
@@ -335,6 +346,8 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
   function stop(id) {
     const r = running.get(id);
     if (!r) return;
+    // its text in the Discord status goes with it
+    if (discordOwner === id) { discordOwner = null; try { bridge.discordStatus?.(null); } catch {} }
     closeOverlay(r);
     byContents.delete(r.win.webContents?.id);
     running.delete(id);
@@ -391,6 +404,46 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
     const r = caller(event);
     return r ? valuesOf(r.manifest) : {};
   });
+  // Discord, VRChat and Home Assistant through the app's own connections
+  let discordOwner = null;    // the addon whose text is in the Discord status
+  const PARAM_RE = /^(?!\/)(?!.*\/\/)(?!.*\/$)[^\s\x00-\x1f#*,?\[\]{}]{1,128}$/;
+  const NAME_RE = /^[A-Za-z0-9_.-]{1,64}$/;
+  ipcMain.handle('addon-bridge', (event, kind, a, b) => {
+    const r = caller(event);
+    if (!r || !BRIDGE[kind]) return { ok: false, reason: 'unknown' };
+    const id = r.manifest.id, rule = BRIDGE[kind];
+    if (!r.manifest.permissions.includes(rule.permission)) { log(id, 'warn', `this needs the permission "${rule.permission}" in addon.json`); limit(id, 'permission', rule.permission); return { ok: false, reason: 'permission' }; }
+    r.bridgeAt ||= {};
+    const now = Date.now();
+    const recent = (r.bridgeAt[kind] || []).filter(at => now - at < rule.per);
+    r.bridgeAt[kind] = recent;
+    if (recent.length >= rule.max) return { ok: false, reason: 'too-fast' };
+    let args;
+    if (kind === 'discordStatus') {
+      if (a != null && typeof a !== 'string') return { ok: false, reason: 'invalid' };
+      const text = a == null ? null : a.replace(/\s+/g, ' ').trim().slice(0, 100);
+      args = [text && text.length >= 2 ? text : null];
+    } else if (kind === 'vrchatChatbox') {
+      if (typeof a !== 'string' || !a.trim()) return { ok: false, reason: 'invalid' };
+      args = [a.slice(0, 144)];
+    } else if (kind === 'vrchatParameter') {
+      const valid = typeof b === 'boolean' || (typeof b === 'number' && Number.isFinite(b));
+      if (typeof a !== 'string' || !PARAM_RE.test(a) || !valid) { log(id, 'warn', 'vrchat.parameter(name, value): a parameter name without spaces or wildcards, and true/false or a number'); return { ok: false, reason: 'invalid' }; }
+      args = [a, b];
+    } else {
+      let text;
+      try { text = JSON.stringify(b ?? null); } catch { text = undefined; }
+      if (typeof a !== 'string' || !NAME_RE.test(a) || text === undefined || text.length > 8192) { log(id, 'warn', 'homeAssistant.event(name, data): a name of letters, digits, _ . -, and JSON data up to 8 KB'); return { ok: false, reason: 'invalid' }; }
+      args = [id, a, JSON.parse(text)];
+    }
+    recent.push(now);
+    let result;
+    try { result = bridge[kind]?.(...args) || { ok: false, reason: 'off' }; } catch (error) { result = { ok: false, reason: 'error' }; log(id, 'error', error.message); }
+    if (kind === 'discordStatus' && result.ok) discordOwner = args[0] ? id : (discordOwner === id ? null : discordOwner);
+    if (!result.ok && result.reason === 'off') limit(id, 'integration-off', rule.permission);
+    return result;
+  });
+
   ipcMain.handle('addon-notify', (event, title, body) => {
     const r = caller(event);
     if (!r) return false;

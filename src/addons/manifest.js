@@ -10,7 +10,8 @@
 //     "version": "1.0.0",
 //     "description": "What it does",
 //     "author": "Someone",
-//     "permissions": ["heartRate", "zones", "gameMoments", "storage", "notifications", "overlay", "sound"],
+//     "permissions": ["heartRate", "zones", "gameMoments", "storage", "notifications", "overlay", "sound",
+//                     "discord", "vrchat", "homeAssistant"],
 //     "network": ["api.example.com"],    hosts it may talk to over https (needs no permission
 //                                        entry; listing a host is the request)
 //     "overlay": { "width": 300, "height": 120 }   with the "overlay" permission: the size of
@@ -33,6 +34,10 @@ const PERMISSIONS = {
   notifications: 'Show system notifications',
   overlay: 'Show something in the overlay',
   sound: 'Play sounds',
+  // through the app's own connections, which the user set up under Integrations
+  discord: 'Put a text of its own in your Discord status',
+  vrchat: 'Write to the VRChat chatbox and set avatar parameters',
+  homeAssistant: 'Send events of its own to Home Assistant',
 };
 const OVERLAY_SIZE = { width: [40, 1200, 300], height: [30, 800, 120] };   // min, max, default
 

@@ -38,6 +38,18 @@ const mische = (hex, mit, anteil) => {
   return '#' + a.map((v, i) => Math.round(v + (b[i] - v) * anteil).toString(16).padStart(2, '0')).join('');
 };
 
+// Colour stops for the zones between lo and hi, as fractions from 0 to 1; each colour blends into
+// the next over two BPM on both sides of the border (as the curves in the app)
+function zonenStops(zonen, lo, hi) {
+  const at = v => Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+  return zonen.flatMap((z, i) => [
+    { offset: at(i === 0 ? lo : z.min - 0.5 + 2), color: z.color },
+    { offset: at(i === zonen.length - 1 ? hi : z.max + 0.5 - 2), color: z.color },
+  ]);
+}
+
+// mittel.zones: the zones set in the app right now, when zone colours are on. The line and the
+// zone figures then follow them, as the curves in the app do; otherwise the session's own zones.
 function bauen(sitzung, sprache = 'de', mittel = {}) {
   const t = TEXTE[sprache] || TEXTE.en;
   const loc = LANGS.localeFor(sprache);
@@ -51,10 +63,22 @@ function bauen(sitzung, sprache = 'de', mittel = {}) {
   const spitze = Math.max(...bpms), tiefster = Math.min(...bpms);
   const schnitt = Math.round(bpms.reduce((a, b) => a + b, 0) / bpms.length);
   const dauerMin = Math.round((sitzung.endedAt - sitzung.startedAt) / 60000);
-  const zonenZeit = sitzung.zones
-    .map(z => ({ ...z, minuten: Math.round(bpms.filter(b => b >= z.min && b <= z.max).length / 60) }))
+  const zonen = mittel.zones?.length ? mittel.zones : (sitzung.zones || []);
+  // Seconds per heart rate, by time: the HypeRate app sends irregularly, so a value counts until
+  // the next one, up to two minutes (a strap sends every second anyway)
+  const sekunden = [];
+  if (Array.isArray(sitzung.bpm)) {
+    let letzter = null, gehalten = 0;
+    for (const v of sitzung.bpm) {
+      if (v != null) { letzter = v; gehalten = 0; } else if (letzter != null && ++gehalten > 120) letzter = null;
+      if (letzter != null) sekunden.push(letzter);
+    }
+  } else sekunden.push(...bpms);
+  const zonenZeit = zonen
+    .map(z => ({ ...z, minuten: Math.round(sekunden.filter(b => b >= z.min && b <= z.max).length / 60) }))
     .filter(z => z.minuten > 0);
-  const obenZone = [...zonenZeit].reverse().find(z => z.min >= 140);
+  // Time in the top zone, if there was any; the lowest zone has nothing to say there
+  const obenZone = zonen.length > 1 ? zonenZeit.find(z => z.min === zonen[zonen.length - 1].min) : null;
   const zaehle = (typ) => sitzung.events.filter(e => (e.style || e.type) === typ).length;
 
   const uhr = (ms) => new Date(ms).toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
@@ -73,10 +97,13 @@ function bauen(sitzung, sprache = 'de', mittel = {}) {
   const linie = punkte.map((s, i) => `${i ? 'L' : 'M'}${px(s.t).toFixed(1)},${py(s.bpm).toFixed(1)}`).join('');
   const flaeche = `${linie}L${px(punkte.at(-1).t).toFixed(1)},${GRAPH.y + GRAPH.h}L${GRAPH.x},${GRAPH.y + GRAPH.h}Z`;
 
-  const baender = sitzung.zones.filter(z => z.max >= minY && z.min <= maxY).map(z => {
+  const baender = zonen.filter(z => z.max >= minY && z.min <= maxY).map(z => {
     const oben = py(Math.min(z.max, maxY)), unten = py(Math.max(z.min, minY));
     return `<rect x="${GRAPH.x}" y="${oben.toFixed(1)}" width="${GRAPH.w}" height="${Math.max(0, unten - oben).toFixed(1)}" fill="${z.color}" opacity=".055"/>`;
   }).join('');
+
+  // With zone colours on, the line and the area under it take the colour of the zone they are in
+  const zonenFarben = mittel.zones?.length ? zonenStops(zonen, minY, maxY) : null;
 
   const zeit = (e) => (e.t > 1e10 ? e.t : sitzung.startedAt + e.t * 1000);   // absolut oder Sekunden seit Start
   const marker = sitzung.events.map(e => {
@@ -105,11 +132,11 @@ function bauen(sitzung, sprache = 'de', mittel = {}) {
   const stark = typen.slice(0, 2);
   const kennzahlen = mitSpiel
     ? [kpi(schnitt, t.avg), kpi(spitze, t.peakL, FARBEN.peak),
-       obenZone ? kpi(minuten(obenZone.minuten), `${t.inZone} ${obenZone.name}`, obenZone.color) : '',
+       obenZone ? kpi(minuten(obenZone.minuten), (t.inZone || 'in zone {zone}').replace('{zone}', obenZone.name), obenZone.color) : '',
        ...stark.map(typ => kpi(zaehle(typ), t.titles[typ] || typ, FARBEN[typ])),
        kpi(sitzung.events.length, t.moments)]
     : [kpi(schnitt, t.avg), kpi(spitze, t.peakL, FARBEN.peak), kpi(tiefster, t.low, '#22c55e'),
-       obenZone ? kpi(minuten(obenZone.minuten), `${t.inZone} ${obenZone.name}`, obenZone.color) : ''];
+       obenZone ? kpi(minuten(obenZone.minuten), (t.inZone || 'in zone {zone}').replace('{zone}', obenZone.name), obenZone.color) : ''];
 
   const datum = new Date(sitzung.startedAt).toLocaleDateString(loc, { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -144,7 +171,8 @@ ${mittel.fonts ? `<link href="${mittel.fonts}" rel="stylesheet">` : ''}
   .foot{position:absolute;left:${PAD}px;right:${PAD}px;bottom:${PAD - 24}px;display:flex;align-items:center;justify-content:space-between}
   .brand{display:flex;align-items:center;gap:15px}
   .brand img{width:58px;height:58px;border-radius:15px;box-shadow:0 0 0 1px rgba(255,255,255,.1),0 8px 26px rgba(0,0,0,.6)}
-  .bn{font-family:'Space Mono',monospace;font-weight:700;font-size:23px}
+  .bn{font-family:Inter,'Segoe UI',system-ui,-apple-system,sans-serif;font-weight:800;font-size:23px;letter-spacing:.04em;color:#fff}
+  .bn em{font-style:normal;color:#5b9bff}   /* the wordmark as in the app's title bar */
   .bs{font-size:16px;color:#93a3c2;margin-top:3px;font-weight:300}
   .url{font-family:'Space Mono',monospace;font-weight:700;font-size:23px;color:#071427;padding:14px 28px;border-radius:999px;
        background:linear-gradient(180deg,#e6efff,${spiel.akzent});box-shadow:0 0 30px rgba(120,170,220,.22)}
@@ -157,17 +185,21 @@ ${mittel.fonts ? `<link href="${mittel.fonts}" rel="stylesheet">` : ''}
   <div class="achse"><span>${uhr(sitzung.startedAt)}</span><span>${uhr(sitzung.endedAt)}</span></div>
   <div class="kpis">${kennzahlen.filter(Boolean).join('')}</div>
   <div class="foot">
-    <div class="brand"><img src="${mittel.icon}"><div><div class="bn">HypeRate Desktop</div><div class="bs">${t.tagline}</div></div></div>
+    <div class="brand"><img src="${mittel.icon}"><div><div class="bn">HYPERATE<em>.DESKTOP</em></div><div class="bs">${t.tagline}</div></div></div>
     <div class="url">desktop.hyperate.io</div>
   </div>
 </div>
 <svg class="graph" viewBox="0 0 ${W} ${H}">
   <defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0%" stop-color="${spiel.akzent}" stop-opacity=".30"/><stop offset="100%" stop-color="${spiel.akzent}" stop-opacity="0"/>
-  </linearGradient></defs>
-  ${baender}
-  <path d="${flaeche}" fill="url(#fill)"/>
-  <path d="${linie}" fill="none" stroke="${spiel.akzent}" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/>
+  </linearGradient>${zonenFarben ? `
+  <linearGradient id="zline" gradientUnits="userSpaceOnUse" x1="0" y1="${GRAPH.y + GRAPH.h}" x2="0" y2="${GRAPH.y}">${zonenFarben.map(s => `<stop offset="${s.offset.toFixed(4)}" stop-color="${s.color}"/>`).join('')}</linearGradient>
+  <linearGradient id="zfill" gradientUnits="userSpaceOnUse" x1="0" y1="${GRAPH.y + GRAPH.h}" x2="0" y2="${GRAPH.y}">${zonenFarben.map(s => `<stop offset="${s.offset.toFixed(4)}" stop-color="${s.color}" stop-opacity=".42"/>`).join('')}</linearGradient>
+  <linearGradient id="zfade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".8"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <mask id="zmask" maskContentUnits="userSpaceOnUse"><rect x="${GRAPH.x}" y="${GRAPH.y}" width="${GRAPH.w}" height="${GRAPH.h}" fill="url(#zfade)"/></mask>` : ''}</defs>
+  ${zonenFarben ? '' : baender}
+  <path d="${flaeche}" fill="${zonenFarben ? 'url(#zfill)' : 'url(#fill)'}"${zonenFarben ? ' mask="url(#zmask)"' : ''}/>
+  <path d="${linie}" fill="none" stroke="${zonenFarben ? 'url(#zline)' : spiel.akzent}" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/>
   ${marker}
   <circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="9" fill="${FARBEN.peak}"/>
   <text x="${sx.toFixed(1)}" y="${(sy - 26).toFixed(1)}" text-anchor="middle"

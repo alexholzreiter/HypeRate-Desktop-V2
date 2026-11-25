@@ -140,7 +140,7 @@ function overlayCard(s, item) {
 // What the addon tried that the app does not allow or offer, in plain words, and what the AI
 // wrote into WISHES.md; from here it goes to the AI (to adapt) or to HypeRate (as a wish)
 function limitText(l) {
-  const detail = l.kind === 'permission' ? t('addon_perm_short_' + l.detail) : l.detail;
+  const detail = l.kind === 'permission' || l.kind === 'integration-off' ? t('addon_perm_short_' + l.detail) : l.detail;
   return t('addons_limit_' + l.kind, { detail }) + (l.count > 1 ? ` (×${l.count})` : '');
 }
 const limitLines = (item) => [

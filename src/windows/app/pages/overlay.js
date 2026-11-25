@@ -15,6 +15,7 @@ let saveTimer = null;
 let displays = null;      // { displays, selected, supportsSpaces, allSpaces }
 let systemFonts = null;
 let uploadError = null;   // { kind, text } after a refused upload
+let suggestion = null;    // zones from the user's own sessions, { at, data }
 
 // ── Uploaded hearts and fonts ──
 async function upload(kind) {
@@ -245,12 +246,55 @@ function layoutTab(c) {
       switchRow('showBorder', t('show_border'))));
 }
 
+// Zones from the user's own sessions. Asked again after a minute, so new sessions count.
+function suggestedZones(sg) {
+  return [
+    { name: t('zone_calm'), min: 0, max: sg.calmMax, color: '#22c55e' },
+    { name: t('zone_excited'), min: sg.calmMax + 1, max: sg.excitedMax, color: '#f59e0b' },
+    { name: t('zone_peak'), min: sg.excitedMax + 1, max: 999, color: '#ef4444' },
+  ];
+}
+
+function duration(minutes) {
+  return minutes >= 120 ? t('zone_sg_hours', { n: Math.round(minutes / 60) }) : t('zone_sg_minutes', { n: minutes });
+}
+
+function suggestBox(zones) {
+  if (!suggestion || Date.now() - suggestion.at > 60000) {
+    suggestion = { at: Date.now(), data: suggestion?.data ?? null };
+    api.sessionsZoneSuggestion?.().then(d => { suggestion = { at: Date.now(), data: d }; rerender(); }).catch(() => {});
+  }
+  const sg = suggestion.data;
+  if (!sg) return null;
+  if (!sg.enough) {
+    return h('div', { class: 'zone-suggest' },
+      h('p', { class: 'label' }, t('zone_sg_title')),
+      h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } },
+        t('zone_sg_wait', { sessions: sg.sessions, time: duration(sg.minutes) }),
+        get().settings.sessionsEnabled ? '' : ' ' + t('zone_sg_record')));
+  }
+  const next = suggestedZones(sg);
+  const applied = zones.length === 3 && next.every((z, i) => zones[i].min === z.min && zones[i].max === z.max);
+  return h('div', { class: 'zone-suggest' },
+    h('div', { class: 'row between', style: { flexWrap: 'wrap', gap: '12px' } },
+      h('div', { style: { minWidth: 0 } },
+        h('p', { class: 'label' }, t('zone_sg_title')),
+        h('p', { style: { margin: '6px 0 0', fontWeight: 600 } },
+          t('zone_sg_line', { calm: sg.calmMax, from: sg.calmMax + 1, to: sg.excitedMax, peak: sg.excitedMax + 1 }))),
+      applied
+        ? h('span', { class: 'pill ok' }, t('zone_sg_applied'))
+        : h('button', { class: 'btn small primary', onclick: () => { change({ zones: next }); rerender(); } }, t('zone_sg_apply'))),
+    h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } },
+      t('zone_sg_text', { sessions: sg.sessions, time: duration(sg.minutes) })));
+}
+
 function zonesTab(c) {
   const zones = c.zones?.length ? c.zones : DEFAULT_ZONES;
   const set = (i, patch) => change({ zones: zones.map((z, j) => (j === i ? { ...z, ...patch } : z)) });
   return h('div', { class: 'card stack' },
     switchRow('zonesEnabled', t('zones_enable'), t('zones_sub')),
     switchRow('zonesAffectFont', t('zones_font')),
+    suggestBox(zones),
     h('div', { class: 'zone-table' },
       h('div', { class: 'zone-row head' }, h('span', { class: 'label' }, t('color')), h('span', { class: 'label' }, t('zone_name')), h('span', { class: 'label' }, t('zone_from')), h('span', { class: 'label' }, t('zone_to')), h('span')),
       zones.map((z, i) => h('div', { class: 'zone-row' },

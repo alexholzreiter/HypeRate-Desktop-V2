@@ -101,6 +101,24 @@ sessions.prune(T);
 check('a session past the retention is removed', !fs.existsSync(path.join(dir, `${alt}.json`)));
 check('recent sessions survive the pruning', fs.existsSync(path.join(dir, `${T}.json`)));
 
+// ── zones from the user's own sessions ──
+sessions.deleteAll();
+check('no suggestion without sessions', sessions.zoneSuggestion().enough === false);
+const fake = (startedAt, bpm) => fs.writeFileSync(path.join(dir, `${startedAt}.json`), JSON.stringify({ v: 1, startedAt, endedAt: startedAt + bpm.length * 1000, bpm, events: [] }));
+// a strap: one value a second, mostly 80 to 89, now and then up to 120
+const strap = Array.from({ length: 20 * 60 }, (_, i) => (i % 100 < 80 ? 80 + (i % 10) : i % 100 < 96 ? 95 + (i % 8) : 115 + (i % 6)));
+fake(T + 1000 * MIN, strap);
+fake(T + 1100 * MIN, strap);
+check('two sessions are not enough yet', sessions.zoneSuggestion().enough === false && sessions.zoneSuggestion().sessions === 2);
+// the HypeRate app: a value every ten seconds, held until the next one
+const sparse = []; for (let i = 0; i < 15 * 60; i++) sparse.push(i % 10 ? null : 86);
+fake(T + 1200 * MIN, sparse);
+const sg = sessions.zoneSuggestion();
+check('three sessions and 55 minutes make a suggestion', sg.enough === true && sg.sessions === 3 && sg.minutes === 55, JSON.stringify(sg));
+check('sparse values count for the time they hold, so calm stays in the usual range', sg.calmMax >= 85 && sg.calmMax <= 95, JSON.stringify(sg));
+check('the peak zone only holds the top moments', sg.excitedMax >= 100 && sg.excitedMax < 115, JSON.stringify(sg));
+check('the excited zone is never only a few BPM wide', sg.excitedMax - sg.calmMax >= 5, JSON.stringify(sg));
+
 // ── the one call that removes everything ──
 sessions.deleteAll();
 check('delete all empties the folder', sessions.list().length === 0 && fs.readdirSync(dir).length === 0, fs.readdirSync(dir).join(','));

@@ -24,6 +24,7 @@ function topics() {
   return {
     state: `${base}/${id}/state`,
     event: `${base}/${id}/event`,
+    addon: (addonId) => `${base}/${id}/addon/${addonId}`,
     availability: `${base}/${id}/availability`,
     discovery: (component, key) => `${clean(options.discoveryPrefix, 'homeassistant')}/${component}/hyperate_${id}/${key}/config`,
     uid: `hyperate_${id}`,
@@ -208,6 +209,14 @@ function publishMoment(moment) {
   client.publish(topics().event, JSON.stringify(payload));
 }
 
+// An addon's own event, on hyperate/<device>/addon/<addon id>: for an MQTT trigger in a Home
+// Assistant automation. False while not connected.
+function publishAddonEvent(addonId, name, data) {
+  if (!options || !client?.connected) return false;
+  client.publish(topics().addon(addonId), JSON.stringify({ addon: addonId, event: name, data, at: new Date().toISOString() }));
+  return true;
+}
+
 // ── Status ───────────────────────────────────────────────────────────────────
 // 'connected' | 'connecting' | 'error'
 function emitStatus(force = false) {
@@ -231,4 +240,4 @@ function test() {
   return true;
 }
 
-module.exports = { init, start, stop, setOptions, publishBpm, publishMoment, test, EVENT_TYPES };
+module.exports = { init, start, stop, setOptions, publishBpm, publishMoment, publishAddonEvent, test, EVENT_TYPES };

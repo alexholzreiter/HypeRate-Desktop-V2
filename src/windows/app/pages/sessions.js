@@ -3,7 +3,8 @@
 
 import { h, svg } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
-import { sessions } from '../lib/state.js';
+import { sessions, zones } from '../lib/state.js';
+import { zoneGradient, fadeMask } from '../lib/zone-colours.js';
 
 export const id = 'sessions';
 
@@ -63,7 +64,7 @@ function detail(s) {
       stat(t('sess_avg'), item.avg + ' BPM'),
       stat(t('sess_peak'), item.peak + ' BPM', '#ffb3a0'),
       stat(t('sess_moments'), String(item.events || 0))),
-    d ? curve(d) : h('div', { class: 'spark sess-wait' }, t(item.live ? 'sess_live_wait' : 'graph_waiting')),
+    d ? curve(d, s) : h('div', { class: 'spark sess-wait' }, t(item.live ? 'sess_live_wait' : 'graph_waiting')),
     events.length ? h('div', { class: 'stack', style: { gap: '6px' } },
       h('p', { class: 'label' }, t('sess_moments')),
       events.map(e => h('div', { class: 'sess-moment' },
@@ -106,7 +107,7 @@ const markClass = style => ({ boss: 'good', death: 'bad', close: 'warn', closest
 
 // The whole session as one line, at most ~600 points. Stretches without a value are bridged:
 // the HypeRate app sends irregularly, sometimes nothing for a minute or two
-function curve(d) {
+function curve(d, s) {
   const W = 640, H = 170;
   const values = d.bpm || [];
   if (values.filter(v => v != null).length < 2) return h('div', { class: 'spark sess-wait' }, t('graph_waiting'));
@@ -122,13 +123,19 @@ function curve(d) {
   const x = i => (i / n) * W;
   const y = v => H - ((v - lo) / (hi - lo)) * H;
   const line = pts.map(p => `${x(p.i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
+  // With zone colours on, the line takes the colour of the zone it is in, as on Live
+  const zoned = s.settings.config?.zonesEnabled === true;
   const peakIdx = values.indexOf(Math.max(...values.filter(v => v != null)));
   return h('div', { class: 'stack', style: { gap: '6px' } },
     h('div', { class: 'sess-curve' },
       svg('svg', { class: 'spark', viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', role: 'img', 'aria-label': t('sess_curve_label') },
+        zoned ? svg('defs', {}, zoneGradient('sess-zone-line', zones(s), lo, hi, H), zoneGradient('sess-zone-area', zones(s), lo, hi, H, .42), fadeMask('sess-zone-mask', W, H)) : null,
         [34, 68, 102, 136].map(yy => svg('line', { x1: 0, y1: yy, x2: W, y2: yy, stroke: 'rgba(255,255,255,.06)', 'stroke-dasharray': '3 5' })),
         (d.events || []).map(e => svg('line', { x1: x(e.t), y1: 0, x2: x(e.t), y2: H, stroke: markColor(e.style), 'stroke-opacity': .55, 'stroke-width': 1.5, 'vector-effect': 'non-scaling-stroke' })),
-        svg('polyline', { points: line, fill: 'none', stroke: 'url(#hr-line)', 'stroke-width': 2.2, 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke' })),
+        // the area under the curve, fading out towards the bottom, as on Live
+        svg('path', { d: `M${x(pts[0].i).toFixed(1)},${H} L${line.replaceAll(' ', ' L')} L${x(pts[pts.length - 1].i).toFixed(1)},${H} Z`,
+          fill: zoned ? 'url(#sess-zone-area)' : 'url(#hr-area)', mask: zoned ? 'url(#sess-zone-mask)' : null }),
+        svg('polyline', { points: line, fill: 'none', stroke: zoned ? 'url(#sess-zone-line)' : 'url(#hr-line)', 'stroke-width': 2.2, 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke' })),
       // A round dot in HTML: inside the stretched SVG a circle would come out as an egg
       peakIdx >= 0 ? h('span', { class: 'sess-peak-dot', title: values[peakIdx] + ' BPM', style: { left: (x(peakIdx) / W * 100) + '%', top: (y(values[peakIdx]) / H * 100) + '%' } }) : null),
     h('div', { class: 'row between', style: { fontSize: '11px', color: 'var(--label)' } },

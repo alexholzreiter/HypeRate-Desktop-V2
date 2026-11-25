@@ -379,6 +379,7 @@ function oscSend(host, port, address, args) {
 }
 
 let _chatboxLastSent = 0;
+let _addonChatUntil = 0;   // an addon's chatbox message stays up a while before the heart rate takes over again
 
 const OSC_OUTPUT_DEFAULTS = {
   oscHost: '127.0.0.1', oscPort: 9000,
@@ -450,7 +451,7 @@ function sendHeartRateOsc(bpm, settings = loadStore(), test = false) {
   if (!Number.isFinite(bpm) || bpm < 0 || bpm > 2147483647) return;
   try {
     const packets = avatarHeartRatePackets(store, bpm);
-    if (store.oscChatbox && (test || Date.now() - _chatboxLastSent >= 2000)) {
+    if (store.oscChatbox && (test || (Date.now() - _chatboxLastSent >= 2000 && Date.now() >= _addonChatUntil))) {
       const text = (store.oscChatboxFormat || '♥ {bpm} BPM').replace('{bpm}', bpm);
       packets.push({ address: '/chatbox/input', args: [{ t:'s', v: text }, { t:'T' }, { t:'F' }] });
       if (!test) _chatboxLastSent = Date.now();
@@ -955,7 +956,33 @@ function hotkeyInfo() {
 // this version and what it asks for.
 let lastAddonZone = null;
 let addonsChangedTimer = null;
+// What addons may send through the app's own integrations (permissions discord, vrchat and
+// homeAssistant; checked and rate limited in src/addons/host.js). Only while the user has that
+// integration on: { ok: false, reason: 'off' } otherwise.
+const bridged = (ok) => (ok ? { ok: true } : { ok: false, reason: 'off' });
+const addonBridge = {
+  discordStatus: (text) => bridged(discordEnabled && discord.setAddonText(text)),
+  vrchatChatbox(text) {
+    const cfg = oscSettings(loadStore());
+    if (!cfg.oscEnabled) return { ok: false, reason: 'off' };
+    oscSend(cfg.oscHost, cfg.oscPort, '/chatbox/input', [{ t: 's', v: text }, { t: 'T' }, { t: 'F' }]);
+    _chatboxLastSent = Date.now();
+    _addonChatUntil = Date.now() + 10000;
+    return { ok: true };
+  },
+  vrchatParameter(name, value) {
+    const cfg = oscSettings(loadStore());
+    if (!cfg.oscEnabled) return { ok: false, reason: 'off' };
+    const arg = typeof value === 'boolean' ? { t: value ? 'T' : 'F' }
+      : Number.isInteger(value) && Math.abs(value) < 2 ** 31 ? { t: 'i', v: value } : { t: 'f', v: value };
+    oscSend(cfg.oscHost, cfg.oscPort, `/avatar/parameters/${name}`, [arg]);
+    return { ok: true };
+  },
+  homeAssistantEvent: (addonId, name, data) => bridged(mqtt.publishAddonEvent(addonId, name, data)),
+};
+
 const addons = createAddonHost({
+  bridge: addonBridge,
   root: path.join(app.getPath('userData'), 'addons'),
   dataDir: path.join(app.getPath('userData'), 'addon-data'),
   loadStore, saveStore,
@@ -1373,6 +1400,8 @@ ipcMain.handle('sessions-list',   () => sessions.list());
 ipcMain.handle('sessions-delete', () => { sessions.deleteAll(); return true; });
 // One whole session for the detail view: the curve and its moments
 ipcMain.handle('sessions-read', (_, startedAt) => sessions.read(Number(startedAt)));
+// Heart rate zones from the user's own sessions (Overlay → Zones)
+ipcMain.handle('sessions-zone-suggestion', () => sessions.zoneSuggestion());
 // Rendering the card needs the icon and the headline font as siblings of the html file,
 // because a file:// page may not reach across directories for a font. They are copied into
 // userData once and reused.
@@ -1399,14 +1428,18 @@ let lastCard = null;   // { startedAt, image }
 async function renderCard(startedAt) {
   const lang = appLang();
   // reused for a minute: long enough for show, save and copy, short enough not to go stale
-  if (lastCard?.startedAt === startedAt && lastCard.lang === lang && Date.now() - lastCard.at < 60000) return lastCard.image;
+  // The line in zone colours while they are on, with the zones set right now (as in the app)
+  const config = loadStore().config || {};
+  const zones = config.zonesEnabled === true && Array.isArray(config.zones) && config.zones.length ? config.zones : null;
+  const key = JSON.stringify(zones);
+  if (lastCard?.startedAt === startedAt && lastCard.lang === lang && lastCard.key === key && Date.now() - lastCard.at < 60000) return lastCard.image;
   const session = sessions.read(startedAt);
   if (!session) return null;
 
   const dir = cardAssets();
   const seite = path.join(dir, 'card.html');
   fs.writeFileSync(seite, sessionCard.build(session, lang,
-    { icon: 'icon.png', alegreya: 'Alegreya.ttf', fonts: 'fonts/fonts.css' }));
+    { icon: 'icon.png', alegreya: 'Alegreya.ttf', fonts: 'fonts/fonts.css', zones }));
 
   // Halbe Fenstergröße bei doppelter Pixeldichte ergibt genau 1920x1080
   const win = new BrowserWindow({
@@ -1418,7 +1451,7 @@ async function renderCard(startedAt) {
     win.webContents.setZoomFactor(0.5);
     await new Promise(r => setTimeout(r, 1500));               // Schriften und Layout
     const image = (await win.webContents.capturePage()).resize({ width: sessionCard.W, height: sessionCard.H });
-    lastCard = { startedAt, lang, at: Date.now(), image };
+    lastCard = { startedAt, lang, key, at: Date.now(), image };
     return image;
   } catch (err) {
     console.error('[session card]', err.message);
@@ -1681,7 +1714,8 @@ lol.init({
 ipcMain.on('lol-enable',      (_, opts) => lol.start(opts || {}));
 ipcMain.on('lol-disable',     ()        => lol.stop());
 ipcMain.on('lol-set-options', (_, opts) => lol.setOptions(opts || {}));
-ipcMain.on('lol-test',        (_, style) => emitGameMoment({ game: 'lol', card: lol.demoCard(style) }));
+// Test cards carry test: true, so the overlay shows them even while that game is switched off
+ipcMain.on('lol-test',        (_, style) => emitGameMoment({ game: 'lol', card: lol.demoCard(style), test: true }));
 
 // Preview a result card; uses real BPM history when there is some
 const WOW_TEST_RESULTS = {
@@ -1690,7 +1724,7 @@ const WOW_TEST_RESULTS = {
   death: { durationMs: 112000, lowestHealthPct: 0,  peakBpm: 164, hrIncrease: 47 },
 };
 ipcMain.on('wow-test', (_, type) => {
-  if (type === 'insight') { emitGameMoment({ game: 'wow', card: wow.demoInsight() }); return; }
+  if (type === 'insight') { emitGameMoment({ game: 'wow', card: wow.demoInsight(), test: true }); return; }
   const demo = WOW_TEST_RESULTS[type];
   if (!demo) return;
   const now = Date.now();
@@ -1700,6 +1734,7 @@ ipcMain.on('wow-test', (_, type) => {
   });
   moment.peakBpm    ??= demo.peakBpm;
   moment.hrIncrease ??= demo.hrIncrease;
+  moment.test = true;
   emitGameMoment(moment);
 });
 // ─────────────────────────────────────────────────────────────────────────────

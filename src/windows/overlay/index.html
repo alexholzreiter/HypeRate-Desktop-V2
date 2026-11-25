@@ -788,7 +788,8 @@
   function showMoment(m) {
     const card = cardFor(m);
     const target = card && THEMES[card.game];
-    if (!target || !enabledThemes.includes(card.game) || !target.styles[card.style]) return;
+    // a test card (Games page, developer window) shows even while its game is switched off
+    if (!target || !(enabledThemes.includes(card.game) || m.test) || !target.styles[card.style]) return;
     queue.push(card);
     if (hoverOpen) { clearTimeout(hoverTimer); hoverClose(); }  // a hover replay makes room right away
     else if (!busy) next();
@@ -798,6 +799,8 @@
     const card = queue.shift();
     if (!card) {
       busy = false;
+      // after a test card of a game that is off, back to the look the settings ask for
+      if (theme && !enabledThemes.includes(theme.name)) { showTheme(enabledThemes.length ? THEMES[enabledThemes[0]] : null); lastCard = null; }
       theme?.clip.classList.remove('scroll');   // no marquee while collapsed
       reportSize();
       if (hovering) hoverTimer = setTimeout(hoverReplay, HOVER_OPEN_MS); // pointer came back while closing

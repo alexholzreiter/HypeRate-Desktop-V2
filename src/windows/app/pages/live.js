@@ -2,6 +2,7 @@
 
 import { h, svg, icon, heart } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
+import { zoneStops, zoneGradient, fadeMask } from '../lib/zone-colours.js';
 import { connection, stats, recent, zones, zoneFor, showOverlay } from '../lib/state.js';
 
 export const id = 'live';
@@ -49,7 +50,7 @@ function hero(s, conn) {
         h('p', { class: 'label' }, t('live_now')),
         zone ? h('span', { class: 'pill warn', style: { color: zone.color, boxShadow: `inset 0 0 0 1px ${zone.color}55`, background: `${zone.color}1f` } }, zone.name) : null),
       h('div', { class: 'row', style: { gap: '18px' } },
-        h('div', { class: bpm ? 'heart-wrap' : 'heart-wrap idle' },
+        h('div', { class: (bpm ? 'heart-wrap' : 'heart-wrap idle') + (Date.now() < hopUntil ? ' hop' : ''), onclick: tapHeart },
           heart({ size: 84, className: bpm ? 'beat' : '', fill: bpm ? 'url(#hr-gradient)' : '#3a3e5c' })),
         h('div', { class: 'row', style: { gap: '10px', alignItems: 'baseline' } },
           h('span', { class: 'num bpm-big' }, bpm ?? '--'),
@@ -62,6 +63,18 @@ function hero(s, conn) {
           statItem(t('min'), st.min), statItem(t('avg'), st.avg), statItem(t('max'), st.max, '#ffb3a0')) : null),
       graph(s),
       axis(s)));
+}
+
+// Five quick taps on the big heart make it jump
+let taps = [], hopUntil = 0;
+function tapHeart() {
+  const now = Date.now();
+  taps = [...taps.filter(at => now - at < 1500), now];
+  if (taps.length < 5 || now < hopUntil) return;
+  taps = [];
+  hopUntil = now + 1100;
+  window.dispatchEvent(new Event('hr-rerender'));
+  setTimeout(() => window.dispatchEvent(new Event('hr-rerender')), 1150);
 }
 
 // The graph spans ten minutes once there are ten minutes of data; before that it starts at the
@@ -87,14 +100,22 @@ function statItem(label, value, color) {
 
 function zoneBar(s, bpm) {
   const list = zones(s);
-  const lo = list[0]?.min ?? 0;
-  const hi = Math.min(220, list[list.length - 1]?.max ?? 200);
+  // The bar shows a useful stretch, not 0 to 999: from 40 (nobody sits below that) to 30 above
+  // where the last zone starts
+  const lo = Math.max(40, list[0]?.min ?? 0);
+  const lastZone = list[list.length - 1];
+  const hi = Math.max(lo + 30, Math.min(220, lastZone?.max ?? 200, (lastZone?.min ?? 170) + 30));
   const span = Math.max(1, hi - lo);
-  const parts = list.map(z => h('div', { style: { flex: Math.max(1, Math.min(z.max ?? hi, hi) - (z.min ?? lo)), background: z.color } }));
+  const width = z => Math.max(1, Math.min(z.max ?? hi, hi) - Math.max(z.min ?? lo, lo));
+  // one bar, the zone colours flowing into each other
+  const stops = zoneStops(list, lo, hi, Math.max(2, span * 0.04));
+  const parts = h('div', { style: { flex: 1, borderRadius: '999px', background: `linear-gradient(90deg, ${stops.map(st => `${st.color} ${(st.offset * 100).toFixed(1)}%`).join(', ')})` } });
   const pos = bpm == null ? null : Math.max(0, Math.min(100, ((bpm - lo) / span) * 100));
   return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
     h('div', { class: 'zonebar' }, parts, pos == null ? null : h('div', { class: 'marker', style: { left: pos + '%' } })),
-    h('div', { class: 'row between', style: { fontSize: '11px', color: 'var(--label)' } }, list.map(z => h('span', {}, z.name))));
+    // each name under its own stretch of the bar: the first at the left, the last at the right
+    h('div', { class: 'zonebar-names' }, list.map((z, i) => h('span', {
+      style: { flex: width(z), textAlign: i === 0 ? 'left' : i === list.length - 1 ? 'right' : 'center' } }, z.name))));
 }
 
 function graph(s) {
@@ -110,11 +131,17 @@ function graph(s) {
   const y = p => H - ((p.bpm - lo) / (hi - lo)) * H;
   const line = pts.map(p => `${x(p).toFixed(1)},${y(p).toFixed(1)}`).join(' ');
   const last = pts[pts.length - 1];
+  // With zone colours on, the line takes the colour of the zone it is in, blending at the borders.
+  // The gradient runs bottom to top in the graph's own BPM scale.
+  const zoned = s.settings.config?.zonesEnabled === true;
+  const grad = (id, opacity) => zoneGradient(id, zones(s), lo, hi, H, opacity);
   return h('div', { class: 'sess-curve' },
     svg('svg', { class: 'spark', viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', role: 'img', 'aria-label': t('graph_label') },
+      // the area under the line in the zone colours too, fading out towards the bottom
+      zoned ? svg('defs', {}, grad('hr-zone-line', 1), grad('hr-zone-area', .42), fadeMask('hr-zone-mask', W, H)) : null,
       [34, 68, 102, 136].map(yy => svg('line', { x1: 0, y1: yy, x2: W, y2: yy, stroke: 'rgba(255,255,255,.06)', 'stroke-dasharray': '3 5' })),
-      svg('path', { d: `M${x(pts[0]).toFixed(1)},${H} L${line.replaceAll(' ', ' L')} L${x(last).toFixed(1)},${H} Z`, fill: 'url(#hr-area)' }),
-      svg('polyline', { points: line, fill: 'none', stroke: 'url(#hr-line)', 'stroke-width': 2.5, 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke' })),
+      svg('path', { d: `M${x(pts[0]).toFixed(1)},${H} L${line.replaceAll(' ', ' L')} L${x(last).toFixed(1)},${H} Z`, fill: zoned ? 'url(#hr-zone-area)' : 'url(#hr-area)', mask: zoned ? 'url(#hr-zone-mask)' : null }),
+      svg('polyline', { points: line, fill: 'none', stroke: zoned ? 'url(#hr-zone-line)' : 'url(#hr-line)', 'stroke-width': 2.5, 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke' })),
     // Round in HTML; a circle inside the stretched SVG would be drawn as an egg
     h('span', { class: 'live-dot', style: { left: (x(last) / W * 100) + '%', top: (y(last) / H * 100) + '%' } }));
 }

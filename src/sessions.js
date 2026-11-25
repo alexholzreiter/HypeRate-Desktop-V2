@@ -161,6 +161,40 @@ function prune(now = Date.now()) {
   }
 }
 
+// Heart rate zones from the user's own sessions instead of fixed numbers: "calm" is where they
+// spend most of the time, "excited" clearly above it, "peak" only their top moments. Time
+// weighted: the HypeRate app sends irregularly, so a value counts until the next one (up to two
+// minutes), and a strap that sends every second does not outweigh it.
+const SUGGEST = { minSessions: 3, minSeconds: 30 * 60, holdSeconds: 120, calm: 0.75, peak: 0.95 };
+
+function zoneSuggestion() {
+  const counts = new Map();   // bpm → seconds
+  let seconds = 0, used = 0;
+  for (const f of files()) {
+    const s = read(Number(path.basename(f, '.json')));
+    if (!s || !Array.isArray(s.bpm)) continue;
+    let last = null, held = 0, own = 0;
+    for (const v of s.bpm) {
+      if (v != null) { last = v; held = 0; } else if (last != null && ++held > SUGGEST.holdSeconds) last = null;
+      if (last == null) continue;
+      counts.set(last, (counts.get(last) || 0) + 1);
+      own++;
+    }
+    if (own) { used++; seconds += own; }
+  }
+  const out = { sessions: used, minutes: Math.round(seconds / 60) };
+  if (used < SUGGEST.minSessions || seconds < SUGGEST.minSeconds) return { ...out, enough: false };
+  const sorted = [...counts.entries()].sort((a, b) => a[0] - b[0]);
+  const at = (share) => {
+    let sum = 0;
+    for (const [bpm, n] of sorted) { sum += n; if (sum >= seconds * share) return bpm; }
+    return sorted[sorted.length - 1][0];
+  };
+  const calmMax = at(SUGGEST.calm);
+  const excitedMax = Math.max(calmMax + 5, at(SUGGEST.peak));   // never a zone only a few BPM wide
+  return { ...out, enough: true, calmMax, excitedMax };
+}
+
 function deleteAll() {
   current = null;
   for (const f of files()) { try { fs.unlinkSync(path.join(dir, f)); } catch {} }
@@ -202,7 +236,7 @@ function stop() {
 }
 
 module.exports = {
-  init, setOptions, dropTooShort, recordBpm, recordMoment, check, close, list, read, deleteAll, prune, stop,
+  init, setOptions, dropTooShort, recordBpm, recordMoment, check, close, list, read, deleteAll, prune, stop, zoneSuggestion,
   get options() { return { ...options }; },
   get current() { return current ? { startedAt: current.startedAt, samples: current.bpm.length, events: current.events.length } : null; },
   FLUSH_MS, CHECK_MS,
