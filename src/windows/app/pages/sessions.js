@@ -79,7 +79,7 @@ function detail(s) {
 function shareView(s) {
   const share = s.sessions.share;
   const item = s.sessions.list.find(x => x.startedAt === share.startedAt);
-  const resultText = { save: t('sess_saved'), copy: t('sess_copied'), failed: t('sess_failed') }[share.result];
+  const resultText = { save: t('sess_saved'), copy: t('sess_copied'), failed: t('sess_failed') + (share.reason ? ` (${share.reason})` : '') }[share.result];
   return h('div', { class: 'modal-backdrop', onclick: e => { if (e.target === e.currentTarget) sessions.closeShare(); } },
     h('div', { class: 'card modal stack', role: 'dialog', 'aria-modal': 'true', 'aria-label': t('sess_share_title') },
       h('div', { class: 'row between' },

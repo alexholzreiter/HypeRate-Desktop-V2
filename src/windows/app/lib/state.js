@@ -433,10 +433,11 @@ export const sessions = {
     const share = state.sessions.share;
     if (!share || share.state !== 'ready') return;
     share.busy = kind; share.result = null; changed();
-    const ok = kind === 'save' ? !!(await api.sessionsCardSave(share.startedAt).catch(() => null))
-      : await api.sessionsCardCopy(share.startedAt).catch(() => false);
+    const res = kind === 'save' ? !!(await api.sessionsCardSave(share.startedAt).catch(() => null))
+      : await api.sessionsCardCopy(share.startedAt).catch(e => e?.message || 'ipc');
     if (state.sessions.share !== share) return;
-    share.busy = null; share.result = ok ? kind : 'failed'; changed();
+    // copy answers true or the reason it failed; the reason is shown next to the message
+    share.busy = null; share.result = res === true ? kind : 'failed'; share.reason = res === true || res === false ? null : String(res); changed();
   },
 };
 

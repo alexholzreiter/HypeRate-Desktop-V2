@@ -3,7 +3,7 @@
 process.stdout.on('error', () => {});
 process.stderr.on('error', () => {});
 
-const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell, dialog, safeStorage, Notification, powerMonitor, clipboard, protocol, session } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, Menu, nativeImage, shell, dialog, safeStorage, Notification, powerMonitor, clipboard, ClipboardItem, protocol, session } = require('electron');
 
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-experimental-web-platform-features');
@@ -1486,11 +1486,18 @@ ipcMain.handle('sessions-card-save', async (_, startedAt) => {
   const image = await renderCard(startedAt);
   return image ? saveCard(startedAt, image) : null;
 });
+// Answers true, or the reason it failed, so the window can show it. Electron 45's clipboard is
+// asynchronous and takes ClipboardItems (writeImage and readImage are gone): the card goes in as PNG.
 ipcMain.handle('sessions-card-copy', async (_, startedAt) => {
   const image = await renderCard(startedAt);
-  if (!image) return false;
-  clipboard.writeImage(image);
-  return true;
+  if (!image) return 'render';
+  try {
+    await clipboard.write([new ClipboardItem({ 'image/png': new Blob([image.toPNG()], { type: 'image/png' }) })]);
+    return (await clipboard.has('image/png')) ? true : 'empty';
+  } catch (err) {
+    console.error('[session card] copy:', err.message);
+    return err.message || 'clipboard';
+  }
 });
 
 ipcMain.on('sessions-set-options', (_, data = {}) => {
@@ -1620,8 +1627,7 @@ ipcMain.handle('ble-copy-diagnostics', () => {
   const text = process.platform === 'linux'
     ? 'Bluetooth on Linux runs in the settings window; no diagnostics are collected here yet.'
     : bleManager.diagnostics();
-  clipboard.writeText(text);
-  return true;
+  return clipboard.writeText(text).then(() => true, () => false);
 });
 
 ipcMain.on('ble-web-status', (_, { state, ...extra }) => {
