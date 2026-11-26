@@ -6,7 +6,11 @@
 // - its own session (persist:addon-<id>): own storage and cookies, no access to the app's
 // - its code is served from hr-addon://<id>/ out of its own folder only
 // - network: a content security policy in its page, plus every request of its session checked
-//   here; only https to the hosts listed in its addon.json passes, all else is cancelled
+//   here; only https to the hosts listed in its addon.json passes, all else is cancelled; and
+//   the session's proxy leads nowhere for any other host, with WebRTC only allowed through it,
+//   so a WebRTC connection (which neither of the two sees) gets nowhere either
+// - no graphics card: no WebGL in its windows, no WebGPU in the app (both could compute there,
+//   out of reach of the CPU watch)
 // - no permissions (camera, microphone, location, web notifications …), no downloads, no new
 //   windows, no navigation away
 // - what it gets through window.hyperate is checked here against what the user approved
@@ -142,6 +146,10 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
       }
       done({ cancel: !ok });
     });
+    // Everything that is not one of its hosts goes into a proxy that does not exist, and WebRTC
+    // may only go through a proxy: so neither a request the checks above missed nor a WebRTC
+    // connection (which they do not see) gets anywhere. The addon's own files are not affected.
+    ses.hrReady = ses.setProxy({ proxyRules: 'http://127.0.0.1:9', proxyBypassRules: manifest.network.join(',') || 'none.invalid' }).catch(() => {});
     ses.setPermissionRequestHandler((_, __, callback) => callback(false));
     ses.setPermissionCheckHandler(() => false);
     ses.on('will-download', (event) => event.preventDefault());
@@ -151,6 +159,11 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
   const webPreferences = (ses) => ({
     session: ses, sandbox: true, contextIsolation: true, nodeIntegration: false,
     preload: path.join(__dirname, 'preload.js'), webviewTag: false, spellcheck: false,
+    // no graphics card: WebGL could compute there (mining, say), out of reach of the CPU watch
+    // below; no addon needs it for an overlay. WebGPU is off for the whole app (src/main.js).
+    webgl: false,
+    // the preload (and its lock on WebRTC) in every frame of the page, iframes too
+    nodeIntegrationInSubFrames: true,
     backgroundThrottling: false,
     autoplayPolicy: 'no-user-gesture-required',   // nobody clicks a hidden window; sound needs the "sound" permission
   });
@@ -158,6 +171,8 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
   // The same rules for the hidden window and the overlay window of an addon
   function guard(wc, id, tag) {
     byContents.set(wc.id, id);
+    // WebRTC only through a proxy (and the session's proxy leads nowhere, see prepareSession)
+    wc.setWebRTCIPHandlingPolicy('disable_non_proxied_udp');
     // Web Audio needs no file, so the CSP alone would not keep an addon quiet: mute it
     const r = running.get(id);
     wc.setAudioMuted(!r?.manifest.permissions.includes('sound'));
@@ -188,7 +203,8 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
     wc.on('render-process-gone', (_, details) => { log(id, 'error', `stopped: ${details.reason}`); stop(id); halt(id, `stopped: ${details.reason}`); });
     wc.on('unresponsive', () => { log(id, 'error', 'not responding, stopped'); stop(id); halt(id, 'not responding'); });
     log(id, 'info', `started ${manifest.name} ${manifest.version}`);
-    win.loadURL(`hr-addon://${id}/`);
+    // only once the network rules are in place
+    Promise.resolve(ses.hrReady).then(() => { if (!win.isDestroyed()) win.loadURL(`hr-addon://${id}/`); });
     openOverlay(r);
     watchCpu();
     onChange();
@@ -295,7 +311,7 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
         saveAddon(id, { overlay: { ...overlayPrefs(id), x, y } });
       }, 400);
     });
-    win.loadURL(`hr-addon://${id}/overlay.html`);
+    Promise.resolve(r.ses.hrReady).then(() => { if (!win.isDestroyed()) win.loadURL(`hr-addon://${id}/overlay.html`); });
     win.once('ready-to-show', () => {
       if (!overlayShown) return;
       win.showInactive();

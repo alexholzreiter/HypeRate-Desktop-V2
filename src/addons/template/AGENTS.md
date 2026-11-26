@@ -250,7 +250,9 @@ if needed, push, then **Send a new version** in the app.
   overlay is on.
 - Showing anything over games in **exclusive full screen** (some Windows games): nothing can be
   drawn over those, not even the heart rate widget. In the game, "borderless window" works.
-- Any network access not listed in `"network"`, and plain `http://`.
+- Any network access not listed in `"network"`, and plain `http://`. That includes WebRTC
+  (it cannot connect anywhere) and WebSockets to other hosts.
+- WebGL and WebGPU (no graphics card): draw with CSS, SVG or a 2D `<canvas>`.
 
 ## When something the user wants is not possible
 

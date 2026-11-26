@@ -3,7 +3,19 @@
 // actually get is decided in the main process (src/addons/host.js), which also knows which addon
 // is calling: this file only passes messages along.
 
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webFrame } = require('electron');
+
+// No WebRTC: it connects past the network rules (src/addons/host.js stops it there as well).
+// Taken out of the page before any of its scripts run, in every frame (the window sets
+// nodeIntegrationInSubFrames, so this file runs in iframes too).
+const LOCKDOWN = `(() => {
+  for (const name of ['RTCPeerConnection', 'webkitRTCPeerConnection', 'RTCDataChannel', 'RTCSessionDescription',
+    'RTCIceCandidate', 'RTCRtpSender', 'RTCRtpReceiver', 'RTCRtpTransceiver', 'RTCDtlsTransport', 'RTCIceTransport', 'RTCSctpTransport']) {
+    try { Object.defineProperty(window, name, { value: undefined, configurable: false, writable: false }); } catch {}
+  }
+})();`;
+if (typeof contextBridge.executeInMainWorld === 'function') contextBridge.executeInMainWorld({ func: new Function(LOCKDOWN) });
+else webFrame.executeJavaScript(LOCKDOWN);
 
 const listeners = { heartRate: [], zone: [], gameMoment: [], settings: [], message: [] };
 ipcRenderer.on('addon-event', (_, { type, data }) => {

@@ -8,6 +8,10 @@ const { app, BrowserWindow, ipcMain, screen, globalShortcut, nativeTheme, Tray, 
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-experimental-web-platform-features');
 }
+// No WebGPU anywhere in the app: nothing of ours uses it, and an addon could compute on the
+// graphics card with it (mining, say), out of reach of its CPU watch. The per-window setting
+// (disableBlinkFeatures) does not take it away; without the service no adapter is handed out.
+app.commandLine.appendSwitch('disable-features', 'WebGPUService');
 
 const edition = require('./edition');
 const storeMigration = require('./store-migration');
