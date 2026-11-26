@@ -31,7 +31,7 @@ const customAssets = require('./custom-assets');
 const LANGS = require('./i18n/languages');
 const usageStats = require('./usage-stats');
 const { createAddonHost, ADDON_SCHEME } = require('./addons/host');
-const { readManifest: readAddonManifest, fingerprint: addonFingerprint } = require('./addons/manifest');
+const { readManifest: readAddonManifest, fingerprint: addonFingerprint, scan: scanAddons } = require('./addons/manifest');
 const { fetchLatestRelease } = require('./desktop-update');
 const { fitOverlay, restoreOverlayPlacement, overlayPlacementPreferences } = require('./overlay-placement');
 const crypto = require('crypto');
@@ -1116,6 +1116,96 @@ ipcMain.handle('addons-shared', async () => {
   } catch { return null; }
 });
 ipcMain.handle('addons-share-form', (_, id) => loadStore().addonShare?.[String(id)] || null);
+
+// ── The gallery: approved addons from HypeRate Push, installed from GitHub ──
+// Installing takes exactly the approved commit and checks its fingerprint against the one
+// from the review: if GitHub hands out anything else, nothing is installed. Afterwards the
+// addon asks for approval like any other. Installed ones are noted in addonGallery (version,
+// commit), so updates can be offered and only they can be rated. An addon of the user's own
+// with the same id is never replaced.
+const GITHUB_API = (!app.isPackaged && process.env.HYPERATE_GITHUB_API) || 'https://api.github.com';
+const GITHUB_RAW = (!app.isPackaged && process.env.HYPERATE_GITHUB_RAW) || 'https://raw.githubusercontent.com';
+async function galleryList() {
+  const response = await pushRequest('gallery', 'GET');
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return (await response.json())?.addons || [];
+}
+function installedAddons() {
+  const fromGallery = loadStore().addonGallery || {};
+  return Object.fromEntries(scanAddons(ADDONS_ROOT).filter(e => e.manifest).map(e =>
+    [e.manifest.id, { folder: e.folder, version: e.manifest.version, gallery: fromGallery[e.manifest.id] || null }]));
+}
+ipcMain.handle('gallery-list', async () => {
+  try { return { ok: true, addons: await galleryList(), installed: installedAddons() }; }
+  catch (error) { console.error('[Gallery] list failed:', error.message); return { ok: false, installed: installedAddons() }; }
+});
+const SKIP_IN_ADDON = (rel) => /(^|\/)(\.DS_Store|Thumbs\.db)$/.test(rel) || rel === 'AGENTS.md' || rel === 'WISHES.md';
+ipcMain.handle('gallery-install', async (_, addonId) => {
+  const id = String(addonId);
+  let temp = null;
+  try {
+    const entry = (await galleryList()).find(a => a.addonId === id);
+    if (!entry) return { ok: false, reason: 'gone' };
+    const installed = installedAddons()[id];
+    if (installed && !installed.gallery) return { ok: false, reason: 'own' };
+    const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'HypeRate-Desktop' };
+    const tree = await fetch(`${GITHUB_API}/repos/${entry.repoOwner}/${entry.repoName}/git/trees/${entry.commitSha}?recursive=1`, { headers, signal: AbortSignal.timeout(15000) });
+    if (!tree.ok) return { ok: false, reason: 'github' };
+    const prefix = entry.path ? entry.path.replace(/\/$/, '') + '/' : '';
+    const files = ((await tree.json()).tree || []).filter(f => f.path.startsWith(prefix) && f.path.length > prefix.length)
+      .map(f => ({ ...f, rel: f.path.slice(prefix.length) }));
+    if (files.some(f => f.mode === '120000' || f.type === 'commit')) return { ok: false, reason: 'mismatch' };
+    const blobs = files.filter(f => f.type === 'blob' && !SKIP_IN_ADDON(f.rel));
+    if (blobs.length > 200 || blobs.some(f => f.rel.split('/').some(p => p === '..' || p === '.' || !p))) return { ok: false, reason: 'mismatch' };
+    temp = path.join(app.getPath('userData'), 'addon-downloads', `${id}-${Date.now()}`);
+    let bytes = 0;
+    for (const f of blobs) {
+      const target = path.join(temp, ...f.rel.split('/'));
+      if (!target.startsWith(temp + path.sep)) return { ok: false, reason: 'mismatch' };
+      const response = await fetch(`${GITHUB_RAW}/${entry.repoOwner}/${entry.repoName}/${entry.commitSha}/${f.path.split('/').map(encodeURIComponent).join('/')}`, { headers: { 'User-Agent': 'HypeRate-Desktop' }, signal: AbortSignal.timeout(15000) });
+      if (!response.ok) return { ok: false, reason: 'github' };
+      const data = Buffer.from(await response.arrayBuffer());
+      bytes += data.length;
+      if (bytes > 5 * 1024 * 1024) return { ok: false, reason: 'mismatch' };
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, data);
+    }
+    // exactly what was reviewed, or nothing
+    let manifest;
+    try { manifest = readAddonManifest(temp); } catch { return { ok: false, reason: 'mismatch' }; }
+    if (manifest.id !== id || addonFingerprint(temp) !== entry.fingerprint) return { ok: false, reason: 'mismatch' };
+    fs.mkdirSync(ADDONS_ROOT, { recursive: true });
+    let folder = installed?.folder || id;
+    if (!installed) { let n = 2; while (fs.existsSync(path.join(ADDONS_ROOT, folder))) folder = `${id}-${n++}`; }
+    const dest = path.join(ADDONS_ROOT, folder);
+    if (installed) {
+      addons.reload(id);
+      try { await shell.trashItem(dest); } catch { fs.rmSync(dest, { recursive: true, force: true }); }
+    }
+    fs.renameSync(temp, dest);
+    temp = null;
+    // the guide for AI assistants, so it can be changed with one like any other addon
+    try { fs.copyFileSync(path.join(__dirname, 'addons', 'template', 'AGENTS.md'), path.join(dest, 'AGENTS.md')); } catch {}
+    const store = loadStore();
+    saveStore({ ...store, addonGallery: { ...(store.addonGallery || {}), [id]: { version: entry.version, commitSha: entry.commitSha, installedAt: Date.now() } } });
+    addons.reload();
+    return { ok: true, folder };
+  } catch (error) {
+    console.error('[Gallery] install failed:', error.message);
+    return { ok: false, reason: 'offline' };
+  } finally {
+    if (temp) fs.rmSync(temp, { recursive: true, force: true });
+  }
+});
+ipcMain.handle('gallery-rate', async (_, addonId, stars) => {
+  const id = String(addonId), n = Math.round(Number(stars));
+  const mine = loadStore().addonGallery?.[id];
+  if (!mine || !(n >= 1 && n <= 5)) return { ok: false };
+  try {
+    const response = await pushRequest('gallery/rate', 'POST', { addonId: id, stars: n, version: mine.version });
+    return response.ok ? { ok: true, ...(await response.json()) } : { ok: false };
+  } catch { return { ok: false }; }
+});
 
 // ── Hearts and fonts the user brings along ───────────────────────────────────
 // Served as hr-asset://a/<file> from one folder only; see custom-assets.js

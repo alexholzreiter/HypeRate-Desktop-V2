@@ -31,6 +31,8 @@ const state = {
   inApp: { message: null, results: null, voting: false },   // announcement or poll from HypeRate
   // user addons (src/addons); dialog: null | { type: 'allow' | 'create' | 'prompt', … }; guide: step shown or null
   addons: { master: false, root: '', addons: [], approving: null, logs: {}, dialog: null, guide: null, sentWishes: null, shared: null },
+  // the gallery of shared addons: list null until loaded; busy: { [addonId]: 'install' | 'rate' }
+  gallery: { list: null, installed: {}, failed: false, busy: {}, sort: 'popular', error: {} },
   overlayOpen: false,
 };
 
@@ -537,6 +539,7 @@ export const addons = {
     return res || { ok: false, problems: ['error'] };
   },
   shareForm: (id) => api.addonsShareForm(id).catch(() => null),
+
   // a test run (heart rate rises, falls, through the zones) or a game moment; null stops it
   async simulate(id, kind) { addons.apply(await api.addonsSimulate(id, kind)); },
   async setValue(id, key, value) { addons.apply(await api.addonsSetValue(id, key, value)); },
@@ -573,6 +576,40 @@ export const addons = {
   closeGuide() {
     state.addons.guide = null;
     if (!state.settings.addonsGuideSeen) { state.settings.addonsGuideSeen = true; api.saveSettings({ addonsGuideSeen: true }); }
+    changed();
+  },
+};
+
+// ── The gallery: approved shared addons (src/main.js › gallery-*) ──
+export const gallery = {
+  async load() {
+    const res = await api.galleryList?.().catch(() => null);
+    const g = state.gallery;
+    g.installed = res?.installed || g.installed;
+    if (res?.ok) { g.list = res.addons; g.failed = false; } else { g.list ||= []; g.failed = true; }
+    changed();
+  },
+  sort(by) { state.gallery.sort = by; changed(); },
+  // the folder it went into, or null (the reason is kept per addon)
+  async install(addonId) {
+    const g = state.gallery;
+    g.busy = { ...g.busy, [addonId]: 'install' }; g.error = { ...g.error, [addonId]: null }; changed();
+    const res = await api.galleryInstall(addonId).catch(() => ({ ok: false, reason: 'offline' }));
+    g.busy = { ...g.busy, [addonId]: null };
+    if (!res?.ok) g.error = { ...g.error, [addonId]: res?.reason || 'offline' };
+    await Promise.all([gallery.load(), addons.refresh()]);
+    return res?.ok ? res.folder : null;
+  },
+  // shown at once; the average comes back from the server
+  async rate(addonId, stars) {
+    const g = state.gallery;
+    const item = (g.list || []).find(a => a.addonId === addonId);
+    const before = item ? { myRating: item.myRating, rating: item.rating } : null;
+    if (item) item.myRating = stars;
+    changed();
+    const res = await api.galleryRate(addonId, stars).catch(() => null);
+    if (item && res?.ok) { item.rating = res.rating; item.myRating = res.myRating; }
+    else if (item && before) { Object.assign(item, before); g.error = { ...g.error, [addonId]: 'rate' }; }
     changed();
   },
 };
