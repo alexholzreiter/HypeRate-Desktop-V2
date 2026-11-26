@@ -59,10 +59,17 @@ export function sourceKind(s = state) {
   return s.source || null;
 }
 
+// Connected to the HypeRate cloud, but no value for this long: the phone app sends nothing
+// (values come about every 5 s, gaps of half a minute happen)
+export const CLOUD_QUIET_MS = 45000;
+export const cloudQuiet = (s = state) => s.cloud.status === 'connected' && Date.now() - Math.max(s.bpmAt || 0, s.cloud.since || 0) > CLOUD_QUIET_MS;
+
 export function connection(s = state) {
   const ble = s.ble.state;
   if (ble === 'signal-lost' || ble === 'no-contact') return 'quiet';
+  if (ble !== 'connected' && cloudQuiet(s)) return 'quiet';
   if (ble === 'connected' || s.cloud.status === 'connected') return 'on';
+  if (s.cloud.status === 'reconnecting') return 'lost';
   if (ble === 'reconnecting' || ble === 'connecting' || ble === 'ble-unavailable') return 'lost';
   // The cloud connection is not retried on its own, so a drop is "dropped", not "reconnecting"
   if (s.cloud.status === 'closed' || s.cloud.status === 'error') return 'dropped';
@@ -142,12 +149,21 @@ export async function start() {
     changed();
   });
 
-  api.onWsStatus(({ status, sessionId, message }) => {
+  api.onWsStatus(({ status, sessionId, message, attempt }) => {
     // Disconnecting on purpose also ends in "closed"; that is off, not a problem
     if ((status === 'closed' || status === 'error') && !state.settings.cloudAutoConnect) status = 'idle';
-    state.cloud = { status, sessionId, message };
+    // since: when it (re)connected, so "the app sends nothing" counts from then
+    const since = status === 'connected' ? (state.cloud.status === 'connected' ? state.cloud.since : Date.now()) : null;
+    state.cloud = { status, sessionId, message, attempt, since };
+    // the connection is gone: its last value is not today's heart rate any more
+    if (status === 'reconnecting' || status === 'closed') state.bpm = null;
     changed();
   });
+  // The network is back: the main process connects the cloud again at once
+  window.addEventListener('online', () => api.netOnline?.());
+  // Quiet is a matter of time passing (no event says so): look every few seconds
+  let lastConn = null;
+  setInterval(() => { const c = connection(); if (c !== lastConn) { lastConn = c; changed(); } }, 5000);
 
   // The app may already be connected (or reconnecting) when this window opens
   const ble = await api.bleGetState?.();

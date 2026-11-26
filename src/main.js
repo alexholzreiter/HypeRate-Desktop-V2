@@ -897,29 +897,51 @@ function createOverlayWindow(initialConfig = null) {
 // ── WebSocket ──
 let ws = null, heartbeatInt = null, wsSessionId = null;
 
+// The HypeRate cloud keeps itself up. wsWanted is the session the user connected to (null after
+// "Disconnect" or switching to Bluetooth); while it is set, a dropped connection is opened again
+// after a growing pause, a connection the server has gone quiet on (not even its heartbeat echo
+// for a minute: dead after sleep or a network change) is replaced, and waking up or the network
+// coming back connects again at once.
+const WS_RETRY_MS = [2000, 5000, 15000, 30000, 60000];
+const WS_SILENT_MS = 60000;
+let wsWanted = null, wsRetry = 0, wsRetryTimer = null, wsLastMessageAt = 0;
+
 function wsConnect(sessionId) {
-  wsDisconnect();
+  wsWanted = sessionId;
+  wsRetry = 0;
+  clearTimeout(wsRetryTimer);
+  openWs(sessionId);
+}
+
+function openWs(sessionId) {
+  closeWs();
   wsSessionId = sessionId;
   if (HYPERAID_TRACE) tracePulse('WS', 'connecting');
-  const url = `wss://app.hyperate.io/socket/websocket?token=${HYPERATE_API_KEY}`;
-  ws = new WebSocket(url);
+  // a development run can point at a local stand-in (HYPERATE_WS_URL=ws://localhost:…)
+  const base = (!app.isPackaged && process.env.HYPERATE_WS_URL) || 'wss://app.hyperate.io/socket/websocket';
+  const url = `${base}?token=${HYPERATE_API_KEY}`;
+  const socket = ws = new WebSocket(url);
 
-  ws.on('open', () => {
+  socket.on('open', () => {
     currentConnType = 'cloud';
-    ws.send(JSON.stringify({ topic:`hr:${sessionId}`, event:'phx_join', payload:{}, ref:'join' }));
+    wsLastMessageAt = Date.now();
+    socket.send(JSON.stringify({ topic:`hr:${sessionId}`, event:'phx_join', payload:{}, ref:'join' }));
     heartbeatInt = setInterval(() => {
-      if (ws?.readyState === WebSocket.OPEN)
-        ws.send(JSON.stringify({ topic:'phoenix', event:'heartbeat', payload:{}, ref:'hb' }));
+      if (socket.readyState === WebSocket.OPEN)
+        socket.send(JSON.stringify({ topic:'phoenix', event:'heartbeat', payload:{}, ref:'hb' }));
     }, 25000);
   });
 
-  ws.on('message', (data) => {
+  socket.on('message', (data) => {
+    wsLastMessageAt = Date.now();   // anything, the heartbeat echo too: the line is alive
     let msg; try { msg = JSON.parse(data.toString()); } catch { return; }
     if (HYPERAID_TRACE && ['phx_reply', 'heartbeat', 'hr_update', 'hr_feed'].includes(msg.event)) {
       tracePulse('WS', msg.event);
     }
     if (msg.event === 'phx_reply') {
-      sendToSettings('ws-status', { status: msg.payload?.status === 'ok' ? 'connected' : 'error', sessionId });
+      const ok = msg.payload?.status === 'ok';
+      if (ok && msg.ref === 'join') wsRetry = 0;   // in again: the next drop starts with a short pause
+      sendToSettings('ws-status', { status: ok ? 'connected' : 'error', sessionId });
       return;
     }
     if (msg.event === 'hr_update' || msg.event === 'hr_feed') {
@@ -928,19 +950,57 @@ function wsConnect(sessionId) {
     }
   });
 
-  ws.on('error', (err) => sendToSettings('ws-status', { status:'error', message: err.message }));
-  ws.on('close', (code) => {
+  socket.on('error', (err) => { console.warn('[cloud] socket error:', err.message); });
+  socket.on('close', (code) => {
+    if (socket !== ws) return;   // an old socket, already replaced
     clearInterval(heartbeatInt); heartbeatInt = null;
-    sendToSettings('ws-status', { status:'closed', code });
+    ws = null;
+    if (wsWanted && !app.isQuitting) scheduleWsRetry(code);
+    else sendToSettings('ws-status', { status:'closed', code });
   });
 }
 
-function wsDisconnect() {
+function scheduleWsRetry(code) {
+  const wait = WS_RETRY_MS[Math.min(wsRetry, WS_RETRY_MS.length - 1)];
+  wsRetry++;
+  console.warn(`[cloud] connection lost (${code}); trying again in ${wait / 1000} s`);
+  sendToSettings('ws-status', { status: 'reconnecting', sessionId: wsWanted, inMs: wait, attempt: wsRetry });
+  clearTimeout(wsRetryTimer);
+  wsRetryTimer = setTimeout(() => { if (wsWanted) openWs(wsWanted); }, wait);
+}
+
+// The user's session again right now (woken up, network back): not after the pause
+function wsReconnectNow(why) {
+  if (!wsWanted) return;
+  console.warn(`[cloud] ${why}: connecting again`);
+  wsRetry = 0;
+  clearTimeout(wsRetryTimer);
+  openWs(wsWanted);
+}
+
+// A socket that is open but hears nothing any more is dead: close it, and the retry follows
+setInterval(() => {
+  if (ws?.readyState === WebSocket.OPEN && Date.now() - wsLastMessageAt > WS_SILENT_MS) {
+    console.warn('[cloud] no message from the server for a minute; replacing the connection');
+    ws.terminate();
+  }
+}, 10000);
+
+// Closes the socket without a retry (a new one comes, or the user disconnected)
+function closeWs() {
   clearInterval(heartbeatInt); heartbeatInt = null;
-  if (ws) { try { ws.terminate(); } catch {} ws = null; }
+  if (ws) { const old = ws; ws = null; try { old.terminate(); } catch {} }
+}
+
+function wsDisconnect() {
+  wsWanted = null;
+  clearTimeout(wsRetryTimer);
+  closeWs();
   if (process.platform === 'darwin' && tray) tray.setTitle('');
   discord.clearPresence(); // don't keep (or re-send after a Discord reconnect) a stale BPM
 }
+
+ipcMain.on('net-online', () => { if (!ws || ws.readyState !== WebSocket.OPEN) wsReconnectNow('network back'); });
 
 // During shutdown a window can still exist while its webContents is already gone
 const alive = (w) => !!w && !w.isDestroyed() && !w.webContents.isDestroyed();
@@ -1390,6 +1450,9 @@ app.whenReady().then(() => {
     setInterval(() => checkForUpdate(), UPDATE_EVERY_MS);
     powerMonitor.on('resume', () => checkForUpdate());   // ein Notebook schläft auch mal drei Tage
   }
+
+  // The HypeRate cloud after sleep: the old socket is likely dead without knowing it
+  powerMonitor.on('resume', () => wsReconnectNow('woke up'));
 
   // Bluetooth: connect the remembered strap again, and check it after sleep or unlock,
   // because a connection can die during sleep without the driver ever reporting it.

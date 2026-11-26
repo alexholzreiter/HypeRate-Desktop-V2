@@ -124,6 +124,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   wsConnect:      (id)   => ipcRenderer.send('ws-connect', id),
   wsDisconnect:   ()     => ipcRenderer.send('ws-disconnect'),
   launchOverlay:  (cfg)  => ipcRenderer.send('launch-overlay', cfg),
+  netOnline:      ()     => ipcRenderer.send('net-online'),
   closeOverlay:   ()     => ipcRenderer.send('close-overlay'),
   updateConfig:   (cfg)  => ipcRenderer.send('update-config', cfg),
   minimizeSettings: ()   => ipcRenderer.send('minimize-settings'),

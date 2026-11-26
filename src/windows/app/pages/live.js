@@ -20,6 +20,7 @@ export function render(s, go) {
 
 function subline(s, conn) {
   if (conn === 'on') return sourceKind(s) === 'ble' ? t('live_sub_ble', { name: s.ble.name || 'HR Monitor' }) : t('live_sub_cloud');
+  if (conn === 'quiet' && sourceKind(s) === 'cloud') return t('live_quiet_cloud');
   if (conn === 'quiet') return s.ble.state === 'no-contact' ? t('live_quiet_contact', { name: s.ble.name || 'HR Monitor' }) : t('live_quiet_signal', { name: s.ble.name || 'HR Monitor' });
   if (conn === 'lost') return t('live_sub_lost');
   if (conn === 'dropped') return t('live_sub_dropped');

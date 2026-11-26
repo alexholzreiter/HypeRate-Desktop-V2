@@ -2,7 +2,7 @@
 
 import { h, html, icon, svg } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
-import { bluetooth, cloud } from '../lib/state.js';
+import { bluetooth, cloud, cloudQuiet } from '../lib/state.js';
 import { signalBars, batteryIcon, barsFromRssi, receptionWord } from '../lib/vitals.js';
 
 export const id = 'source';
@@ -122,12 +122,15 @@ function toggle(on, onChange, label) {
 
 // ── HypeRate app via the cloud ──
 function cloudPart(s) {
-  const status = s.cloud.status;
-  const connected = status === 'connected';
+  const status = s.cloud.status === 'connected' && cloudQuiet(s) ? 'quiet' : s.cloud.status;
+  // trying again on its own counts as connected here: "Disconnect" stops it
+  const connected = ['connected', 'quiet', 'reconnecting'].includes(status);
   const value = sessionDraft ?? s.settings.hrId ?? '';
   const statusText = {
     connected: t('cloud_connected', { id: s.cloud.sessionId || value }),
     connecting: t('cloud_connecting'),
+    reconnecting: t('cloud_reconnecting', { n: s.cloud.attempt || 1 }),
+    quiet: t('cloud_quiet'),
     error: s.cloud.message ? t('cloud_error', { reason: s.cloud.message }) : t('cloud_error_plain'),
     closed: t('cloud_closed'),
   }[status];
@@ -144,7 +147,7 @@ function cloudPart(s) {
         ? h('button', { class: 'btn', onclick: () => { sessionDraft = null; cloud.disconnect(); } }, t('disconnect'))
         : h('button', { class: 'btn primary', onclick: () => { cloud.connect(document.getElementById('sessionId').value); sessionDraft = null; } }, t('connect'))),
     statusText ? h('div', { class: 'row small' },
-      h('span', { class: 'dot ' + (connected ? 'live' : status === 'connecting' ? 'warn' : 'bad') }),
-      h('span', { style: { color: connected ? 'var(--ok-text)' : status === 'connecting' ? 'var(--warn-text)' : 'var(--bad-text)' } }, statusText)) : null,
+      h('span', { class: 'dot ' + (status === 'connected' ? 'live' : ['connecting', 'reconnecting', 'quiet'].includes(status) ? 'warn' : 'bad') }),
+      h('span', { style: { color: status === 'connected' ? 'var(--ok-text)' : ['connecting', 'reconnecting', 'quiet'].includes(status) ? 'var(--warn-text)' : 'var(--bad-text)' } }, statusText)) : null,
     h('p', { class: 'small muted', style: { margin: 0 } }, html(t('session_hint_html')))));
 }
