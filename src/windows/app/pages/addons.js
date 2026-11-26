@@ -28,28 +28,20 @@ function status(item, master = true) {
 }
 const dotFor = tone => ({ ok: 'live', warn: 'warn', bad: 'bad' }[tone] || '');
 
-// ── Tiles ──
-export function addonTiles(s, openAddon, where) {
-  if (where !== 'after') return null;
-  // Shown also while own addons are off, so they do not seem gone; they just do not run
-  const items = s.addons.addons || [];
-  return [
-    items.map(item => {
-      const st = status(item, s.addons.master);
-      return h('button', { class: 'card integ-card addon', onclick: () => openAddon(item.folder) },
-        h('div', { class: 'row between' },
-          h('span', { class: 'integ-mono addon-mono' }, initials(item)),
-          h('span', { class: 'pill tile-pill ' + st.tone, title: st.text }, h('span', { class: 'dot ' + dotFor(st.tone) }), h('span', { class: 'pill-text' }, st.text))),
-        h('div', { class: 'stack', style: { gap: '4px' } },
-          h('p', { style: { margin: 0, fontWeight: 600, fontSize: '17px' } }, item.manifest?.name || item.folder),
-          h('p', { class: 'small muted', style: { margin: 0 } }, item.manifest?.description || item.error || t('addons_own_tile'))),
-        h('span', { class: 'small', style: { color: 'var(--accent-text)', fontWeight: 600 } }, t('open') + ' →'));
-    }),
-    h('button', { class: 'card integ-card addon-plus', 'aria-label': t('addons_plus'), onclick: () => ad.plus() },
-      h('span', { class: 'addon-plus-sign' }, '+'),
-      h('p', { style: { margin: 0, fontWeight: 600, fontSize: '17px' } }, t('addons_plus')),
-      h('p', { class: 'small muted', style: { margin: 0, textAlign: 'center' } }, t('addons_plus_sub'))),
-  ];
+// ── One addon's tile (the list is on the Addons page, pages/addons-hub.js) ──
+// tone: ok (running), warn (changed or waiting for approval), bad (error), off
+export function addonState(item, master = true) { return status(item, master); }
+export function addonTile(s, item, openAddon, extra = null) {
+  const st = status(item, s.addons.master);
+  return h('button', { class: 'card integ-card addon', onclick: () => openAddon(item.folder) },
+    h('div', { class: 'row between' },
+      h('span', { class: 'integ-mono addon-mono' }, initials(item)),
+      h('span', { class: 'pill tile-pill ' + st.tone, title: st.text }, h('span', { class: 'dot ' + dotFor(st.tone) }), h('span', { class: 'pill-text' }, st.text))),
+    h('div', { class: 'stack', style: { gap: '4px' } },
+      h('p', { style: { margin: 0, fontWeight: 600, fontSize: '17px' } }, item.manifest?.name || item.folder),
+      h('p', { class: 'small muted', style: { margin: 0 } }, item.manifest?.description || item.error || t('addons_own_tile'))),
+    extra,
+    h('span', { class: 'small', style: { color: 'var(--accent-text)', fontWeight: 600 } }, t('open') + ' →'));
 }
 
 export function guideButton() {
@@ -70,7 +62,7 @@ export function addonPage(s, folder, back) {
   return h('div', { class: 'page' },
     h('div', { class: 'card integ-hero addon' },
       h('div', { class: 'row between' },
-        h('a', { class: 'small', onclick: back }, '← ' + t('nav_integrations')),
+        h('a', { class: 'small', onclick: back }, '← ' + t('nav_addons')),
         guideButton()),
       h('div', { class: 'row', style: { gap: '18px', flexWrap: 'wrap' } },
         h('span', { class: 'integ-mono big addon-mono' }, initials(item)),

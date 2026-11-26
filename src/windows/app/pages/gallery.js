@@ -1,4 +1,4 @@
-// Discover: addons other people shared, reviewed by HypeRate. Install puts exactly the
+// Discover (on the Addons page, pages/addons-hub.js): addons other people shared, reviewed by HypeRate. Install puts exactly the
 // approved version into the addons folder (it then asks for approval like any other); a
 // newer approved version shows as an update. Addons installed from here can be rated with
 // stars, by dragging across them: from two stars the card starts to shake, at five its
@@ -16,26 +16,24 @@ const LINKS = { x: 'X', youtube: 'YouTube', twitch: 'Twitch', website: 'Website'
 // second) keeps the stars and the shaking where the pointer is
 let drag = null;   // { addonId, stars }
 
-export function galleryPage(s, back, openAddon) {
-  const g = s.gallery;
-  if (g.list === null) { g.list = undefined; queueMicrotask(() => gallery.load()); }
-  const list = [...(g.list || [])];
-  const score = (a) => (a.rating.average * a.rating.count + 3.5 * 3) / (a.rating.count + 3);   // a few votes do not top many
-  list.sort(g.sort === 'new' ? (a, b) => String(b.approvedAt).localeCompare(String(a.approvedAt)) : (a, b) => score(b) - score(a));
-  return h('div', { class: 'page' },
-    h('div', { class: 'page-head row between', style: { alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' } },
-      h('div', {},
-        h('a', { class: 'small', onclick: back }, '← ' + t('nav_integrations')),
-        h('h1', { class: 'h1', style: { marginTop: '8px' } }, t('gallery_title')),
-        h('p', { class: 'sub' }, t('gallery_sub'))),
-      h('div', { class: 'row', role: 'group', style: { gap: '6px' }, 'aria-label': t('gallery_sort') },
-        ['popular', 'new'].map(by => h('button', { class: 'btn small' + (g.sort === by ? ' primary' : ''), 'aria-pressed': String(g.sort === by), onclick: () => gallery.sort(by) }, t('gallery_sort_' + by))))),
-    g.failed ? h('div', { class: 'note warn row between', style: { gap: '12px', flexWrap: 'wrap' } },
-      h('span', {}, t('gallery_failed')), h('button', { class: 'btn small', onclick: () => gallery.load() }, t('gallery_retry'))) : null,
-    g.list === undefined ? h('p', { class: 'muted' }, t('gallery_loading'))
-      : !list.length && !g.failed ? h('div', { class: 'card', style: { textAlign: 'center' } }, h('p', { class: 'muted', style: { margin: 0 } }, t('gallery_empty')))
-      : h('div', { class: 'gallery-grid' }, list.map(a => card(s, a, openAddon))));
+// Loaded once when first needed (the Addons page, or its badge)
+export function ensureGallery(s) {
+  if (s.gallery.list === null) { s.gallery.list = undefined; queueMicrotask(() => gallery.load()); }
 }
+
+// What a shared addon is to this computer, for the filters
+export function galleryFacts(s, a) {
+  const mine = s.gallery.installed[a.addonId];
+  return { installed: !!mine?.gallery, own: !!mine && !mine.gallery, update: !!mine?.gallery && mine.version !== a.version };
+}
+
+// Popular: a few votes do not top many. New: the latest approval first.
+export function sortGallery(list, by) {
+  const score = (a) => (a.rating.average * a.rating.count + 3.5 * 3) / (a.rating.count + 3);
+  return [...list].sort(by === 'new' ? (a, b) => String(b.approvedAt).localeCompare(String(a.approvedAt)) : (a, b) => score(b) - score(a));
+}
+
+export const galleryCard = (s, a, openAddon) => card(s, a, openAddon);
 
 function card(s, a, openAddon) {
   const g = s.gallery;

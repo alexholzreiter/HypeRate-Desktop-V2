@@ -11,6 +11,7 @@ import * as source from './pages/source.js';
 import * as overlay from './pages/overlay.js';
 import * as gamesPage from './pages/games.js';
 import * as integrations from './pages/integrations.js';
+import * as addonsHub from './pages/addons-hub.js';
 import * as sessionsPage from './pages/sessions.js';
 import * as settingsPage from './pages/settings.js';
 import * as welcome from './pages/welcome.js';
@@ -30,6 +31,7 @@ const NAV = [
   { id: 'source', icon: 'source', label: 'nav_source', page: source },
   { id: 'games', icon: 'games', label: 'nav_games', page: gamesPage },
   { id: 'integrations', icon: 'integrations', label: 'nav_integrations', page: integrations },
+  { id: 'addons', icon: 'puzzle', label: 'nav_addons', page: addonsHub, badge: addonsHub.badge },
   { id: 'settings', icon: 'settings', label: 'nav_settings', page: settingsPage },
 ];
 
@@ -37,6 +39,8 @@ let current = 'live';
 try { current = sessionStorage.getItem('page') || 'live'; } catch {}
 
 function go(id) {
+  // the page's own menu entry again: back to its start (an addon's page → the list)
+  if (id === current) NAV.find(n => n.id === id)?.page.reset?.();
   current = id;
   try { sessionStorage.setItem('page', id); } catch {}
   render();
@@ -85,7 +89,9 @@ function sidebar(s) {
     NAV.map(item => item.group
       ? h('p', { class: 'nav-group' }, h('span', { class: 'nav-text' }, t(item.group)))
       : h('button', { class: 'nav', 'aria-current': item.id === current ? 'page' : null, title: narrow ? t(item.label) : null, 'aria-label': narrow ? t(item.label) : null, onclick: () => go(item.id) },
-          icon(item.icon), h('span', { class: 'nav-text' }, t(item.label)))),
+          icon(item.icon), h('span', { class: 'nav-text' }, t(item.label)),
+          // what waits for the user there (an update, an approval)
+          item.badge?.(s) ? h('span', { class: 'nav-badge', 'aria-label': t('nav_badge', { n: item.badge(s) }) }, String(item.badge(s))) : null)),
     narrow
       ? h('div', { class: 'side-status' },
           h('span', { class: 'icon-tile side-who', title: who + ' · ' + t('conn_' + conn) },
@@ -110,6 +116,9 @@ let queued = false;
 function typing() {
   const el = document.activeElement;
   // Menus are not typed into, and patching keeps their choice, so they do not hold the page back
+  // A search field is the exception: the page is meant to follow what is typed (the field
+  // itself is left alone by morph() while it has the focus)
+  if (el?.hasAttribute?.('data-live-filter')) return false;
   return !!el && el.closest?.('.content') && ((el.tagName === 'INPUT' && !['range', 'color', 'checkbox'].includes(el.type)) || el.tagName === 'TEXTAREA');
 }
 

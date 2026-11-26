@@ -4,8 +4,6 @@
 import { h, html, icon } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
 import { integrations as ig } from '../lib/state.js';
-import { addonTiles, addonPage, addonOverlays, guideButton } from './addons.js';
-import { galleryPage } from './gallery.js';
 
 export const id = 'integrations';
 
@@ -26,24 +24,19 @@ const nameOf = it => it.nameKey ? t(it.nameKey) : it.name;
 // Pages elsewhere can open one integration directly (the WoW page links to HypeRaid)
 export function open(key) { detail = key; }
 
+// The menu entry clicked again: back to the overview
+export function reset() { detail = null; }
+
 export function render(s) {
-  const openAddon = folder => { detail = 'addon:' + folder; rerender(); };
-  const page = detail === 'gallery'
-    ? galleryPage(s, () => { detail = null; rerender(); }, openAddon)
-    : detail?.startsWith('addon:')
-    ? addonPage(s, detail.slice(6), () => { detail = null; rerender(); })
-    : detail ? detailPage(s, detail) : overview(s);
-  return [page, addonOverlays(s, folder => { detail = 'addon:' + folder; rerender(); })];
+  return detail ? detailPage(s, detail) : overview(s);
 }
 
 // ── Overview ──
 function overview(s) {
   return h('div', { class: 'page' },
-    h('div', { class: 'page-head row between', style: { alignItems: 'flex-start', gap: '16px' } },
-      h('div', {}, h('h1', { class: 'h1' }, t('nav_integrations')), h('p', { class: 'sub' }, t('integ_sub'))),
-      guideButton()),
+    h('div', { class: 'page-head' },
+      h('h1', { class: 'h1' }, t('nav_integrations')), h('p', { class: 'sub' }, t('integ_sub'))),
     h('div', { class: 'integ-grid' },
-      addonTiles(s, folder => { detail = 'addon:' + folder; rerender(); }, 'before'),
       Object.entries(LIST).map(([key, it]) => {
         const st = it.enabled(s) ? it.status(s) : { tone: 'off', text: t('off') };
         return h('button', { class: 'card integ-card ' + key, onclick: () => { detail = key; rerender(); } },
@@ -54,13 +47,7 @@ function overview(s) {
             h('p', { style: { margin: 0, fontWeight: 600, fontSize: '17px' } }, nameOf(it)),
             h('p', { class: 'small muted', style: { margin: 0 } }, t(it.desc))),
           h('span', { class: 'small', style: { color: 'var(--accent-text)', fontWeight: 600 } }, t('open') + ' →'));
-      }),
-      addonTiles(s, folder => { detail = 'addon:' + folder; rerender(); }, 'after'),
-      // other people's addons, reviewed by HypeRate
-      h('button', { class: 'card integ-card addon-plus gallery-tile', onclick: () => { detail = 'gallery'; rerender(); } },
-        h('span', { class: 'addon-plus-sign' }, icon('star', 22)),
-        h('p', { style: { margin: 0, fontWeight: 600, fontSize: '17px' } }, t('gallery_tile')),
-        h('p', { class: 'small muted', style: { margin: 0, textAlign: 'center' } }, t('gallery_tile_sub')))));
+      })));
 }
 
 const dotFor = tone => ({ ok: 'live', warn: 'warn', bad: 'bad' }[tone] || '');
