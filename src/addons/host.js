@@ -50,7 +50,7 @@ const OVERLAY_SCALES = [50, 75, 100, 125, 150, 200];
 // cpu: { limit, samples, every } overrides the processor check (for tests)
 // bridge: { discordStatus(text), vrchatChatbox(text), vrchatParameter(name, value),
 //   homeAssistantEvent(addonId, name, data) }, each returning { ok, reason }: the app's integrations
-function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () => {}, appIcon, overlayInfo = () => ({}), cpu: cpuCheck = {}, bridge = {}, zoneFor = () => null }) {
+function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () => {}, appIcon, overlayInfo = () => ({}), cpu: cpuCheck = {}, bridge = {}, zoneFor = () => null, tampered = () => false, onTampered = () => {} }) {
   const CPU = { limit: CPU_LIMIT, samples: CPU_SAMPLES, every: 5000, ...cpuCheck };
   const running = new Map();   // id → { win, overlay, manifest, dir, subs: Map(webContents id → Set), lastNotify }
   const logs = new Map();      // id → [{ t, level, text }]
@@ -637,6 +637,9 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
           simulating: id && running.get(id)?.sim ? { kind: running.get(id).sim.kind, endsAt: running.get(id).sim.endsAt } : null,
           limits: id ? [...(limits.get(id)?.values() || [])] : [],
           wishes: readWishes(entry.dir),
+          restoring: !!entry.manifest && tampered(entry),
+          // installed from the gallery (used, not edited, in the app)
+          fromGallery: !!(id && loadStore().addonGallery?.[id]),
         };
       }),
     };
@@ -676,6 +679,8 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
         const id = entry.manifest?.id;
         if (!id || entry.error) continue;
         const saved = addons[id] || {};
+        // installed from the gallery, but not the reviewed files any more: not run, restored
+        if (tampered(entry)) { onTampered(entry); continue; }
         if (!saved.enabled || halted.has(id) || needsApproval(entry.manifest, entry.fingerprint, saved.granted)) continue;
         wanted.add(id);
         const r = running.get(id);

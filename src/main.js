@@ -1072,6 +1072,8 @@ const addonBridge = {
 const addons = createAddonHost({
   bridge: addonBridge,
   zoneFor: (bpm) => zoneForBpm(bpm),   // for test runs through the zones
+  tampered: (entry) => galleryTampered(entry),
+  onTampered: (entry) => repairGalleryAddon(entry),
   root: path.join(app.getPath('userData'), 'addons'),
   dataDir: path.join(app.getPath('userData'), 'addon-data'),
   loadStore, saveStore,
@@ -1094,7 +1096,14 @@ ipcMain.handle('addons-approve', (_, id, print) => addons.approve(String(id), St
 ipcMain.handle('addons-reload', (_, id) => addons.reload(String(id)));
 ipcMain.handle('addons-simulate', (_, id, kind) => addons.simulate(String(id), kind == null ? null : String(kind)));
 ipcMain.handle('addons-logs', (_, id) => addons.logs(String(id)));
-ipcMain.handle('addons-remove', (_, folder) => addons.remove(String(folder)));
+ipcMain.handle('addons-remove', async (_, folder) => {
+  // an addon from the gallery leaves its note too (version, fingerprint), so it is not "installed"
+  const id = scanAddons(ADDONS_ROOT).find(e => e.folder === String(folder))?.manifest?.id;
+  await addons.remove(String(folder));
+  const store = loadStore();
+  if (id && store.addonGallery?.[id]) { const { [id]: _gone, ...rest } = store.addonGallery; saveStore({ ...store, addonGallery: rest }); }
+  return addons.list();
+});
 ipcMain.handle('addons-open-folder', () => { fs.mkdirSync(ADDONS_ROOT, { recursive: true }); return shell.openPath(ADDONS_ROOT); });
 // A new addon from a name and what it should do: its folder with AGENTS.md (the guide for
 // Claude, Codex and co.), the task written into it, and a main.js that only says it is ready.
@@ -1186,8 +1195,8 @@ ipcMain.handle('gallery-list', async () => {
   catch (error) { console.error('[Gallery] list failed:', error.message); return { ok: false, installed: installedAddons() }; }
 });
 const SKIP_IN_ADDON = (rel) => /(^|\/)(\.DS_Store|Thumbs\.db)$/.test(rel) || rel === 'AGENTS.md' || rel === 'WISHES.md';
-ipcMain.handle('gallery-install', async (_, addonId) => {
-  const id = String(addonId);
+ipcMain.handle('gallery-install', (_, addonId) => installFromGallery(String(addonId)));
+async function installFromGallery(id) {
   let temp = null;
   try {
     const entry = (await galleryList()).find(a => a.addonId === id);
@@ -1228,12 +1237,11 @@ ipcMain.handle('gallery-install', async (_, addonId) => {
       addons.reload(id);
       try { await shell.trashItem(dest); } catch { fs.rmSync(dest, { recursive: true, force: true }); }
     }
+    // noted first (with the reviewed fingerprint), so the new files are never taken for a changed copy
+    const store = loadStore();
+    saveStore({ ...store, addonGallery: { ...(store.addonGallery || {}), [id]: { version: entry.version, commitSha: entry.commitSha, fingerprint: entry.fingerprint, installedAt: Date.now() } } });
     fs.renameSync(temp, dest);
     temp = null;
-    // the guide for AI assistants, so it can be changed with one like any other addon
-    try { fs.copyFileSync(path.join(__dirname, 'addons', 'template', 'AGENTS.md'), path.join(dest, 'AGENTS.md')); } catch {}
-    const store = loadStore();
-    saveStore({ ...store, addonGallery: { ...(store.addonGallery || {}), [id]: { version: entry.version, commitSha: entry.commitSha, installedAt: Date.now() } } });
     addons.reload();
     return { ok: true, folder };
   } catch (error) {
@@ -1242,7 +1250,22 @@ ipcMain.handle('gallery-install', async (_, addonId) => {
   } finally {
     if (temp) fs.rmSync(temp, { recursive: true, force: true });
   }
-});
+}
+// An installed addon runs only as HypeRate reviewed it. Its files changed by hand (it cannot be
+// edited in the app): it does not start, and the reviewed version is fetched again.
+function galleryTampered(entry) {
+  const g = loadStore().addonGallery?.[entry.manifest?.id];
+  return !!(g?.fingerprint && entry.fingerprint !== g.fingerprint);
+}
+const galleryRepairing = new Set();
+function repairGalleryAddon(entry) {
+  const id = entry.manifest.id;
+  if (galleryRepairing.has(id)) return;
+  galleryRepairing.add(id);
+  console.warn(`[Gallery] ${id} differs from the reviewed version; fetching it again`);
+  installFromGallery(id).then(r => { if (!r.ok) console.warn(`[Gallery] ${id} could not be restored: ${r.reason}`); })
+    .finally(() => setTimeout(() => galleryRepairing.delete(id), 60000));   // offline: try again a minute later
+}
 ipcMain.handle('gallery-rate', async (_, addonId, stars) => {
   const id = String(addonId), n = Math.round(Number(stars));
   const mine = loadStore().addonGallery?.[id];

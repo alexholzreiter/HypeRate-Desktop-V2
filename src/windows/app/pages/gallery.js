@@ -35,6 +35,13 @@ export function sortGallery(list, by) {
 
 export const galleryCard = (s, a, openAddon) => card(s, a, openAddon);
 
+// The average, and for an addon installed from here your own stars (on an installed addon's page)
+export function ratingBlock(s, a) {
+  const f = galleryFacts(s, a);
+  const stars = drag?.addonId === a.addonId ? drag.stars : 0;
+  return [average(a.rating), f.installed && !a.own ? rater(a, stars) : null];
+}
+
 function card(s, a, openAddon) {
   const g = s.gallery;
   const mine = g.installed[a.addonId];
@@ -102,6 +109,7 @@ function rater(a, dragging) {
     el.setAttribute('aria-valuenow', String(n));
     el.querySelectorAll('.star').forEach((star, i) => star.classList.toggle('on', i < n));
     const cardEl = el.closest('.gallery-card');
+    if (!cardEl) return;
     if (n >= 2) cardEl.dataset.shake = String(n); else delete cardEl.dataset.shake;
     cardEl.classList.toggle('glow', n >= 5);
   };
@@ -110,8 +118,7 @@ function rater(a, dragging) {
     const n = drag.stars;
     drag = null;
     const cardEl = el.closest('.gallery-card');
-    delete cardEl.dataset.shake;
-    cardEl.classList.remove('glow');
+    if (cardEl) { delete cardEl.dataset.shake; cardEl.classList.remove('glow'); }
     gallery.rate(a.addonId, n);
   };
   return h('div', { class: 'row small', style: { gap: '10px', flexWrap: 'wrap' } },

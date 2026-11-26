@@ -4,7 +4,8 @@
 
 import { h, icon } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
-import { addons as ad, showOverlay } from '../lib/state.js';
+import { addons as ad, gallery as gal, showOverlay } from '../lib/state.js';
+import { galleryFacts, ratingBlock } from './gallery.js';
 import { FEEDBACK_URL } from './settings.js';
 
 // The guide for writing addons, with examples to download
@@ -59,6 +60,9 @@ export function addonPage(s, folder, back) {
   if (s.addons.sentWishes === null) { s.addons.sentWishes = []; queueMicrotask(() => ad.loadWishes()); }
   if (s.addons.shared === null) { s.addons.shared = []; queueMicrotask(() => ad.loadShared()); }
   const logs = (id && s.addons.logs[id]) || [];
+  // installed from the gallery: used, not edited (no AI task, editor, folder, sharing, wishes)
+  const fromGallery = item.fromGallery === true;
+  const shared = fromGallery ? (s.gallery.list || []).find(a => a.addonId === id) : null;
   return h('div', { class: 'page' },
     h('div', { class: 'card integ-hero addon' },
       h('div', { class: 'row between' },
@@ -70,7 +74,8 @@ export function addonPage(s, folder, back) {
           h('h1', { class: 'h1' }, m?.name || item.folder),
           h('div', { class: 'row small', style: { gap: '8px', marginTop: '6px', flexWrap: 'wrap' }, role: 'status' },
             h('span', { class: 'dot ' + dotFor(st.tone) }), h('span', {}, st.text),
-            m ? h('span', { class: 'muted' }, '· v' + m.version + (m.author ? ' · ' + m.author : '')) : null)),
+            m ? h('span', { class: 'muted' }, '· v' + m.version + (m.author ? ' · ' + m.author : '')) : null,
+            fromGallery ? h('span', { class: 'pill', style: { marginLeft: '4px' } }, t('addons_from_gallery')) : null)),
         m && s.addons.master ? h('div', { class: 'row' }, h('span', {}, t('addons_switch')), toggle(item.enabled && item.approved, v => ad.setEnabled(item, v), t('addons_switch'))) : null),
       m?.description ? h('p', { class: 'muted', style: { margin: 0 } }, m.description) : null,
       m ? h('p', { class: 'small muted', style: { margin: 0 } }, permissionSummary(m)) : null),
@@ -79,23 +84,25 @@ export function addonPage(s, folder, back) {
     !s.addons.master ? h('div', { class: 'note warn row between', style: { gap: '14px', flexWrap: 'wrap' } },
       h('span', {}, t('addons_master_off_text')),
       h('button', { class: 'btn small primary', onclick: () => ad.dialog({ type: 'allow', then: 'stay' }) }, t('addons_allow_yes'))) : null,
-    item.error ? errorCard(item, item.error) : null,
-    s.addons.master && changedSinceApproval(item) ? h('div', { class: 'note warn row between', style: { gap: '14px', flexWrap: 'wrap' } },
+    item.restoring ? h('div', { class: 'note', role: 'status' }, t('addons_restoring')) : null,
+    item.error ? errorCard(item, item.error, fromGallery) : null,
+    s.addons.master && !item.restoring && changedSinceApproval(item) ? h('div', { class: 'note warn row between', style: { gap: '14px', flexWrap: 'wrap' } },
       h('span', {}, t('addons_changed_text')),
       h('button', { class: 'btn small primary', onclick: () => ad.setEnabled(item, true) }, t('addons_review'))) : null,
 
     h('div', { class: 'split' },
       h('div', { class: 'stack', style: { gap: '18px', flex: '1.4 1 380px', minWidth: 0 } },
-        item.running ? testCard(s, item) : null,
+        item.running ? testCard(s, item, fromGallery) : null,
         m?.overlay ? overlayCard(s, item) : null,
         m?.settings?.length ? settingsCard(item) : null,
-        !item.error && item.lastError ? errorCard(item, item.lastError) : null,
-        item.limits?.length || item.wishes?.length ? limitsCard(s, item) : null,
+        !item.error && item.lastError ? errorCard(item, item.lastError, fromGallery) : null,
+        !fromGallery && (item.limits?.length || item.wishes?.length) ? limitsCard(s, item) : null,
         h('div', { class: 'card stack' },
           h('div', { class: 'row between' }, h('p', { class: 'label' }, t('addons_log')),
             item.running ? h('a', { class: 'small', onclick: () => ad.reload(id) }, t('addons_restart')) : null),
           logView(logs))),
       h('div', { class: 'stack', style: { gap: '18px', flex: '1 1 300px', minWidth: 0 } },
+      fromGallery ? galleryInfoCard(s, item, shared, back) : [
       h('div', { class: 'card stack' },
         h('p', { class: 'label' }, t('addons_edit')),
         h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('addons_edit_text')),
@@ -111,7 +118,30 @@ export function addonPage(s, folder, back) {
         h('hr', { class: 'divider' }),
         h('button', { class: 'btn small' + (s.addons.confirmRemove === folder ? ' danger' : ''), onclick: async () => { if (await ad.remove(folder)) back(); } },
           t(s.addons.confirmRemove === folder ? 'addons_remove_confirm' : 'addons_remove'))),
-      m ? shareCard(s, item) : null)));
+      m ? shareCard(s, item) : null])));
+}
+
+// An addon from the gallery: who made it, its rating, an update when there is one, removing it.
+// What it may do and its settings are on the left, as for every addon.
+function galleryInfoCard(s, item, a, back) {
+  const folder = item.folder;
+  const facts = a ? galleryFacts(s, a) : null;
+  const busy = a && s.gallery.busy[a.addonId];
+  const links = { x: 'X', youtube: 'YouTube', twitch: 'Twitch', website: 'Website' };
+  return h('div', { class: 'card stack gallery-card' },
+    h('p', { class: 'label' }, t('addons_from_gallery')),
+    a ? h('p', { style: { margin: 0 } }, t('gallery_by', { name: a.authorName }),
+      Object.entries(a.links || {}).map(([k, url]) => [' · ', h('a', { onclick: () => window.electronAPI.openExternal(url) }, links[k] || k)])) : null,
+    h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('addons_from_gallery_text')),
+    a ? ratingBlock(s, a) : null,
+    a && s.gallery.error[a.addonId] ? h('p', { class: 'small warn-text', role: 'alert', style: { margin: 0 } }, t('gallery_error_' + s.gallery.error[a.addonId])) : null,
+    h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
+      facts?.update ? h('button', { class: 'btn primary', disabled: busy ? true : null, onclick: () => gal.install(a.addonId) },
+        busy === 'install' ? t('gallery_installing') : t('gallery_update', { version: a.version })) : null,
+      a ? h('button', { class: 'btn small', onclick: () => window.electronAPI.openExternal(`https://github.com/${a.repoOwner}/${a.repoName}/tree/${a.commitSha}${a.path ? '/' + a.path : ''}`) }, t('gallery_code') + ' ↗') : null),
+    h('hr', { class: 'divider' }),
+    h('button', { class: 'btn small' + (s.addons.confirmRemove === folder ? ' danger' : ''), onclick: async () => { if (await ad.remove(folder)) back(); } },
+      t(s.addons.confirmRemove === folder ? 'addons_remove_confirm' : 'addons_remove')));
 }
 
 // Trying it out without waiting for a real moment: made-up values for this addon only (the
@@ -119,7 +149,7 @@ export function addonPage(s, folder, back) {
 const HEART_TESTS = ['rise', 'fall', 'zones'];
 const MOMENT_TESTS = ['boss', 'close', 'death', 'penta'];
 let simTick = null;
-function testCard(s, item) {
+function testCard(s, item, fromGallery = false) {
   const m = item.manifest, id = m.id, sim = item.simulating;
   const hears = (p) => m.permissions.includes(p);
   const kinds = [...(hears('heartRate') || hears('zones') ? HEART_TESTS : []), ...(hears('gameMoments') ? MOMENT_TESTS : [])];
@@ -139,7 +169,8 @@ function testCard(s, item) {
     sim ? h('div', { class: 'row between', role: 'status', style: { gap: '12px' } },
       h('span', { class: 'small' }, t('addons_test_running', { what: t('addons_test_' + sim.kind), s: left })),
       h('button', { class: 'btn small', onclick: () => ad.simulate(id, null) }, t('addons_test_stop'))) : null,
-    h('p', { class: 'small muted', style: { margin: 0 } }, t('addons_test_nothing'), ' ',
+    // fixing it is the author's job for an addon from the gallery
+    fromGallery ? null : h('p', { class: 'small muted', style: { margin: 0 } }, t('addons_test_nothing'), ' ',
       h('a', { onclick: () => ad.dialog({ type: 'prompt', kind: 'change', folder: item.folder, dir: item.dir, task: t('addons_test_fix_task') }) }, t('addons_test_fix'))));
 }
 
@@ -297,12 +328,12 @@ function permissionSummary(m) {
   return t('addons_may') + ' ' + (parts.length ? parts.join(' · ') : t('addons_no_perms'));
 }
 
-function errorCard(item, text) {
+function errorCard(item, text, fromGallery = false) {
   return h('div', { class: 'note warn stack', style: { gap: '10px' } },
     h('b', {}, t('addons_has_error')),
     h('code', { class: 'addon-error' }, text),
     h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
-      h('button', { class: 'btn small', onclick: () => ad.dialog({ type: 'prompt', kind: 'error', folder: item.folder, dir: item.dir, task: text }) }, t('addons_error_ai')),
+      fromGallery ? null : h('button', { class: 'btn small', onclick: () => ad.dialog({ type: 'prompt', kind: 'error', folder: item.folder, dir: item.dir, task: text }) }, t('addons_error_ai')),
       // stopped by the app (crash, hang, too much CPU): it waits for the user
       item.manifest && !item.running && item.enabled && item.approved ? h('button', { class: 'btn small', onclick: () => ad.reload(item.manifest.id) }, t('addons_restart')) : null));
 }
