@@ -211,7 +211,11 @@ code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: .92em;
 .hero-now { flex: 1 1 300px; padding: 26px 28px; display: flex; flex-direction: column; gap: 18px; min-width: 0; container-type: inline-size; }
 .hero-graph { flex: 1.6 1 380px; min-width: 0; padding: 26px 28px 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: inset 1px 0 0 var(--line); }
 /* As big as fits next to the heart and "BPM": three digits are about 1.8 em wide */
-.bpm-big { font-size: clamp(56px, calc((100cqi - 165px) / 1.85), 112px); line-height: .8; font-weight: 700; background: linear-gradient(180deg, #fff 0%, #c9d6ff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.bpm-big { font-size: clamp(56px, calc((100cqi - 165px) / 1.85), 112px); line-height: .8; font-weight: 700; background: linear-gradient(180deg, #fff 0%, #c9d6ff 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  /* The gradient only paints inside the element's box, and with line-height .8 the digits stick
+     out of it; Windows sets them lower than macOS, so their bottom came out empty. The padding
+     gives the gradient room below them, the negative margin keeps the layout as it was. */
+  padding-bottom: .22em; margin-bottom: -.22em; }
 .heart-wrap { position: relative; width: 84px; height: 84px; flex: none; }
 .heart-wrap::before { content: ''; position: absolute; inset: -18px; border-radius: 50%; background: radial-gradient(circle, rgba(59, 130, 246, .45) 0%, rgba(59, 130, 246, 0) 65%); }
 .heart-wrap.idle::before { background: radial-gradient(circle, rgba(127, 130, 171, .22) 0%, rgba(127, 130, 171, 0) 65%); }
