@@ -81,7 +81,7 @@ user decides.
 ## The API: `window.hyperate`
 
 ```js
-hyperate.on('heartRate', ({ bpm }) => { … });          // needs "heartRate"; about once a second
+hyperate.on('heartRate', ({ bpm }) => { … });          // needs "heartRate"; see "How often" below
 hyperate.on('zone', (zone) => { … });                   // needs "zones"; zone = { name, color, min, max } or null
 hyperate.on('gameMoment', ({ game, type, title, detail, bpm }) => { … });  // needs "gameMoments"
                                                          // game: "wow" | "lol"; title like "Boss Defeated";
@@ -115,6 +115,12 @@ await hyperate.homeAssistant.event('boss_down', { bpm: 142 }); // needs "homeAss
 // topic (the device part is the one shown under Integrations › Home Assistant).
 fetch('https://api.example.com/…')                       // only hosts listed in "network"
 ```
+
+How often `heartRate` comes depends on the source: a Bluetooth strap about once a second,
+the HypeRate app over the internet about every 5 seconds, and gaps of 10 to 30 seconds happen
+(a weak signal, a phone in the pocket). Never count samples or assume a fixed rate: work with
+the time each value arrived (`Date.now()`), and treat only a long silence (60 seconds or more)
+as a pause. A rule like "5 samples in 10 seconds" never fires over the internet.
 
 `console.log`, `console.warn` and `console.error` also go to the addon's log, and errors thrown
 by the addon show up there too. The user finds the log on the addon's own page in HypeRate
