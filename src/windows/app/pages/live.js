@@ -3,7 +3,7 @@
 import { h, svg, icon, heart } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
 import { zoneStops, zoneGradient, fadeMask } from '../lib/zone-colours.js';
-import { connection, stats, recent, zones, zoneFor, showOverlay } from '../lib/state.js';
+import { connection, sourceKind, stats, recent, zones, zoneFor, showOverlay } from '../lib/state.js';
 
 export const id = 'live';
 
@@ -19,7 +19,7 @@ export function render(s, go) {
 }
 
 function subline(s, conn) {
-  if (conn === 'on') return s.source === 'ble' ? t('live_sub_ble', { name: s.ble.name || 'HR Monitor' }) : t('live_sub_cloud');
+  if (conn === 'on') return sourceKind(s) === 'ble' ? t('live_sub_ble', { name: s.ble.name || 'HR Monitor' }) : t('live_sub_cloud');
   if (conn === 'quiet') return s.ble.state === 'no-contact' ? t('live_quiet_contact', { name: s.ble.name || 'HR Monitor' }) : t('live_quiet_signal', { name: s.ble.name || 'HR Monitor' });
   if (conn === 'lost') return t('live_sub_lost');
   if (conn === 'dropped') return t('live_sub_dropped');

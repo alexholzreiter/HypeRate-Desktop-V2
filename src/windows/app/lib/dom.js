@@ -112,6 +112,8 @@ const ICONS = {
   minimize: 'M5 12h14',
   close: 'M6 6l12 12M18 6L6 18',
   // the addon guide
+  // a plug: connected, whichever way (Bluetooth straight, or the HypeRate app)
+  connection: 'M9 2.5v4M15 2.5v4M6.5 6.5h11v4a5.5 5.5 0 0 1-11 0v-4zM12 15.5v6',
   star: 'M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9L12 3.5z',
   puzzle: 'M9 4.5a2 2 0 1 1 4 0V6h4a1 1 0 0 1 1 1v4h-1.5a2 2 0 1 0 0 4H18v4a1 1 0 0 1-1 1h-4v-1.5a2 2 0 1 0-4 0V20H5a1 1 0 0 1-1-1v-4h1.5a2 2 0 1 0 0-4H4V7a1 1 0 0 1 1-1h4z',
   shield: 'M12 3l7.5 3v5.5c0 4.6-3.2 8.2-7.5 9.5-4.3-1.3-7.5-4.9-7.5-9.5V6L12 3zM8.8 12l2.2 2.2 4.4-4.4',

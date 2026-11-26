@@ -28,7 +28,7 @@ const NAV = [
   { id: 'sessions', icon: 'sessions', label: 'nav_sessions', page: sessionsPage },
   { group: 'nav_setup' },
   { id: 'overlay', icon: 'overlay', label: 'nav_overlay', page: overlay },
-  { id: 'source', icon: 'source', label: 'nav_source', page: source },
+  { id: 'source', icon: 'connection', label: 'nav_source', page: source },
   { id: 'games', icon: 'games', label: 'nav_games', page: gamesPage },
   { id: 'integrations', icon: 'integrations', label: 'nav_integrations', page: integrations },
   { id: 'addons', icon: 'puzzle', label: 'nav_addons', page: addonsHub, badge: addonsHub.badge },
@@ -88,6 +88,9 @@ function titlebar(s) {
     h('button', { class: 'win-btn close', 'aria-label': t('close'), onclick: () => api.closeSettings() }, icon('close', 16)));
 }
 
+// The way the heart rate comes in: Bluetooth, the HypeRate app (cloud), or none yet (a plug)
+const sourceIcon = (s) => ({ ble: 'source', cloud: 'cloud' }[store.sourceKind(s)] || 'connection');
+
 function sidebar(s) {
   const conn = store.connection(s);
   const narrow = !!s.settings.sidebarCollapsed;
@@ -105,11 +108,12 @@ function sidebar(s) {
     narrow
       ? h('div', { class: 'side-status' },
           h('span', { class: 'icon-tile side-who', title: who + ' · ' + t('conn_' + conn) },
-            icon(s.source === 'cloud' ? 'cloud' : 'source', 16), h('span', { class: 'dot ' + (conn === 'on' ? 'live' : conn === 'none' ? '' : 'warn') })),
-          h('button', { class: 'btn icon-only' + (s.overlayOpen ? '' : ' primary'), title: t(s.overlayOpen ? 'overlay_hide' : 'overlay_show') + ' (' + keys + ')', 'aria-label': t(s.overlayOpen ? 'overlay_hide' : 'overlay_show'), 'aria-pressed': String(s.overlayOpen), onclick: () => store.toggleOverlay() }, icon('overlay', 18)))
+            icon(sourceIcon(s), 16), h('span', { class: 'dot ' + (conn === 'on' ? 'live' : conn === 'none' ? '' : 'warn') })),
+          // a switch here (icon only): blue while the overlay is shown
+          h('button', { class: 'btn icon-only' + (s.overlayOpen ? ' primary' : ''), title: t(s.overlayOpen ? 'overlay_hide' : 'overlay_show') + ' (' + keys + ')', 'aria-label': t(s.overlayOpen ? 'overlay_hide' : 'overlay_show'), 'aria-pressed': String(s.overlayOpen), onclick: () => store.toggleOverlay() }, icon('overlay', 18)))
       : h('div', { class: 'side-status' },
           h('div', { class: 'who' },
-            h('span', { class: 'icon-tile', style: { width: '34px', height: '34px', borderRadius: '10px' } }, icon(s.source === 'cloud' ? 'cloud' : 'source', 16)),
+            h('span', { class: 'icon-tile', style: { width: '34px', height: '34px', borderRadius: '10px' } }, icon(sourceIcon(s), 16)),
             h('div', {},
               h('p', { class: 'name', style: { margin: 0 } }, who),
               h('p', { class: 'sub', style: { margin: '1px 0 0', color: conn === 'on' ? 'var(--ok-text)' : 'var(--dim)' } }, t('conn_' + conn)))),

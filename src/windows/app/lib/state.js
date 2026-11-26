@@ -50,6 +50,15 @@ export function setLang(lang) {
 // ── What the pages derive from it ──
 
 // 'on' | 'quiet' | 'lost' | 'none'
+// Which way the heart rate comes in: from the connections themselves, so it is right before the
+// first value arrives too ('ble' | 'cloud' | null when there is none)
+const BLE_ACTIVE = ['connected', 'signal-lost', 'no-contact', 'reconnecting', 'connecting'];
+export function sourceKind(s = state) {
+  if (BLE_ACTIVE.includes(s.ble.state)) return 'ble';
+  if (s.cloud.status === 'connected') return 'cloud';
+  return s.source || null;
+}
+
 export function connection(s = state) {
   const ble = s.ble.state;
   if (ble === 'signal-lost' || ble === 'no-contact') return 'quiet';
