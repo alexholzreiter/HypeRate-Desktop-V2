@@ -129,6 +129,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimizeSettings: ()   => ipcRenderer.send('minimize-settings'),
   closeSettings:  ()     => ipcRenderer.send('close-settings'),
   overlayIsOpen:  ()     => ipcRenderer.invoke('overlay-is-open'),
+  // the overlay itself: its config before it first draws, and "drawn, show me"
+  overlayInitialConfig: () => ipcRenderer.invoke('overlay-initial-config'),
+  overlayReady:   ()     => ipcRenderer.send('overlay-ready'),
+  overlayAnchor:  ()     => ipcRenderer.invoke('overlay-anchor'),
+  onOverlayAnchor: (cb)  => ipcRenderer.on('overlay-anchor', (_, a) => cb(a)),
   assetsPick:     (kind) => ipcRenderer.invoke('assets-pick', kind),
   analyticsSet:   (on)   => ipcRenderer.invoke('analytics-set', !!on),
   dockSet:        (on)   => ipcRenderer.invoke('dock-set', !!on),

@@ -16,6 +16,14 @@
       display:flex; align-items:center; justify-content:center;
     }
 
+    /* Kept at an edge of the screen: the widget sits against that side of its window (the
+       margin GLOW_PAD away), so it stays flush with the edge when its number gets narrower */
+    body.anchor-left  { justify-content:flex-start; padding-left:48px; }
+    body.anchor-right { justify-content:flex-end;   padding-right:48px; }
+    body.anchor-top   { align-items:flex-start; padding-top:48px; }
+    body.anchor-bottom{ align-items:flex-end;   padding-bottom:48px; }
+    html, body { box-sizing:border-box; }
+
     #widget {
       display:inline-flex; align-items:center; gap:14px;
       padding:14px 20px; border-radius:16px;
@@ -107,11 +115,14 @@
       width:  var(--dot-size, 48px);
       height: var(--dot-size, 48px);
     }
+      /* Until it first shows, sizes and colours are set at once, not grown into: the window is
+       measured then, and a size halfway through a transition would make it jump afterwards */
+    body.starting, body.starting * { transition: none !important; }
   </style>
   <link rel="stylesheet" href="wow/wow.css" />
   <link rel="stylesheet" href="lol/lol.css" />
 </head>
-<body>
+<body class="starting">
 
 <div id="widget">
   <div class="drag-handle"></div>
@@ -281,12 +292,14 @@
     return CUSTOM_FILE.test(file) && file.startsWith(kind + '-') ? file : null;
   };
   const loadedFonts = new Set();
+  const fontLoads = [];   // the first appearance waits for these: text measured in a stand-in font is narrower
   function customFontFamily(file) {
     const family = 'hr-' + file.replace(/\W/g, '-');
     if (!loadedFonts.has(file)) {
       loadedFonts.add(file);
       const face = new FontFace(family, `url(hr-asset://a/${file})`);
-      face.load().then(f => { document.fonts.add(f); }).catch(() => {});
+      // once it is there the widget has its real width: measure again
+      fontLoads.push(face.load().then(f => { document.fonts.add(f); reportSize(); }).catch(() => {}));
     }
     return `'${family}',sans-serif`;
   }
@@ -902,6 +915,15 @@
     });
   }
 
+  function applyAnchor(a) {
+    if (!a) return;
+    document.body.classList.toggle('anchor-right', a.right === true);
+    document.body.classList.toggle('anchor-left', a.right === false);
+    document.body.classList.toggle('anchor-bottom', a.bottom === true);
+    document.body.classList.toggle('anchor-top', a.bottom === false);
+  }
+  window.electronAPI.onOverlayAnchor?.(applyAnchor);
+
   window.electronAPI.onConfigUpdate(cfg => {
     applyConfig(cfg);
     reportSize();
@@ -925,15 +947,33 @@
     // Nothing to do here, but hook is wired for future use.
   });
 
-  applyConfig({
+  const DEFAULTS = {
     heartAnim:'pulse', heartStyle:'filled', heartColor:'#2563eb', heartSize:48, heartGlow:true,
     fontStyle:'mono', bpmColor:'#ffffff', labelColor:'#aaaacc', bpmSize:40, numAnim:'flip',
     textGlow:true, bgStyle:'dark-pill', bgColor:'#000000', bgOpacity:70,
     layoutStyle:'horizontal', borderRadius:16, showLabel:true, showBorder:false,
-  });
-  // Resize window to widget immediately on load — avoids visible transparent
-  // area around the widget before the first config-update arrives from main.
-  reportSize();
+  };
+  // The window starts hidden: draw the user's own config first (heart, font, colours, size),
+  // wait until a custom heart's picture is there, then say "ready" and main shows the window.
+  // Otherwise the default heart would flash for a moment before the chosen one.
+  (async () => {
+    let initial = null;
+    try { initial = await window.electronAPI.overlayInitialConfig?.(); } catch {}
+    try { applyAnchor(await window.electronAPI.overlayAnchor?.()); } catch {}
+    if (!cfg) applyConfig(initial || DEFAULTS);   // a config-update may have come first
+    reportSize();
+    // a custom heart as a picture, or (tinted) as a mask over the heart colour
+    const masks = [...heart.querySelectorAll('.custom-heart.tinted')].map(el => (el.style.getPropertyValue('--mask').match(/url\((.*)\)/) || [])[1]).filter(Boolean);
+    const pictures = [...heart.querySelectorAll('img'), ...masks.map(src => Object.assign(new Image(), { src }))].map(img => img.decode().catch(() => {}));
+    await Promise.race([Promise.all([...pictures, ...fontLoads, document.fonts.ready]), new Promise(r => setTimeout(r, 800))]);
+    reportSize();   // with the real font and heart, so the window has its final size before it shows
+    // two frames: the size and the drawing are on screen before the window is
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.electronAPI.overlayReady?.();
+      // from now on changes may glide again (a new size in the settings)
+      setTimeout(() => document.body.classList.remove('starting'), 300);
+    }));
+  })();
 </script>
 </body>
 </html>

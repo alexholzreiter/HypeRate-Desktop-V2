@@ -1,9 +1,14 @@
-function fitOverlay(area, x, y, width, height) {
-  const w = Math.round(Math.min(area.width, Math.max(40, Number(width) || 300)));
-  const h = Math.round(Math.min(area.height, 500, Math.max(20, Number(height) || 160)));
+// The overlay window is the widget plus a transparent margin (GLOW_PAD in the overlay, so a
+// glow is never cut off). `pad` is how far that margin may hang over the screen's edge: the
+// widget itself can then sit flush against the edge, and never goes past it.
+const OVERLAY_PAD = 48;
+
+function fitOverlay(area, x, y, width, height, pad = 0) {
+  const w = Math.round(Math.min(area.width + 2 * pad, Math.max(40, Number(width) || 300)));
+  const h = Math.round(Math.min(area.height + 2 * pad, 500, Math.max(20, Number(height) || 160)));
   return {
-    x: Math.round(Math.max(area.x, Math.min(x, area.x + area.width - w))),
-    y: Math.round(Math.max(area.y, Math.min(y, area.y + area.height - h))),
+    x: Math.round(Math.max(area.x - pad, Math.min(x, area.x + area.width - w + pad))),
+    y: Math.round(Math.max(area.y - pad, Math.min(y, area.y + area.height - h + pad))),
     width: w, height: h,
   };
 }
@@ -37,4 +42,4 @@ function overlayPlacementPreferences(display, x, y) {
   };
 }
 
-module.exports = { fitOverlay, restoreOverlayPlacement, overlayPlacementPreferences };
+module.exports = { fitOverlay, restoreOverlayPlacement, overlayPlacementPreferences, OVERLAY_PAD };

@@ -33,7 +33,7 @@ const usageStats = require('./usage-stats');
 const { createAddonHost, ADDON_SCHEME } = require('./addons/host');
 const { readManifest: readAddonManifest, fingerprint: addonFingerprint, scan: scanAddons } = require('./addons/manifest');
 const { fetchLatestRelease } = require('./desktop-update');
-const { fitOverlay, restoreOverlayPlacement, overlayPlacementPreferences } = require('./overlay-placement');
+const { fitOverlay, restoreOverlayPlacement, overlayPlacementPreferences, OVERLAY_PAD } = require('./overlay-placement');
 const crypto = require('crypto');
 
 const { createInApp } = require('./in-app');
@@ -608,6 +608,10 @@ let overlayTrackedX = 0; // main-process position tracking — avoids stale getP
 let overlayTrackedY = 0;
 let overlayTrackedW = 300; // current window size, kept in sync with widget size
 let overlayTrackedH = 160;
+// The edge the user put the widget nearer to (per axis): that edge stays put when the widget
+// grows or shrinks, and the widget sits against that side of its window, so one at the screen's
+// right edge stays flush there whatever number it shows
+let overlayAnchor = { right: false, bottom: false };
 let overlayClampedX = null; // last position set by resize-overlay (may differ from tracked near screen edges)
 let overlayClampedY = null;
 let overlayDisplayId = null;
@@ -786,10 +790,33 @@ function createTray() {
 }
 
 // ── Overlay window ──
-function createOverlayWindow() {
+// The overlay starts hidden and with the user's own config at hand (overlay-initial-config),
+// and shows itself once it has drawn that (overlay-ready): no default heart for a moment
+// before the chosen one. If it never says so, it is shown after 2 s anyway.
+let overlayInitialConfig = null;
+let overlayWanted = false;   // shown as soon as it is ready; hiding it first cancels that
+function revealOverlay() {
+  if (!overlayWanted || !overlayWindow || overlayWindow.isDestroyed() || overlayWindow.isVisible()) return;
+  overlayWindow.show();
+  notifyOverlayState();
+}
+ipcMain.handle('overlay-initial-config', (event) =>
+  overlayWindow && event.sender === overlayWindow.webContents ? (overlayInitialConfig || loadStore().config || null) : null);
+ipcMain.handle('overlay-anchor', () => overlayAnchor);
+ipcMain.on('overlay-ready', (event) => { if (overlayWindow && event.sender === overlayWindow.webContents) revealOverlay(); });
+
+function createOverlayWindow(initialConfig = null) {
   const store = loadStore();
-  const { display, x, y } = restoreOverlayPlacement(screen, store, 300, 160);
-  const bounds = fitOverlay(display.workArea, x, y, 300, 160);
+  overlayInitialConfig = initialConfig || store.config || null;
+  overlayWanted = true;
+  // the size it had last time, so the edge it was kept at is right from the start
+  const lastW = Number.isFinite(store.overlayWidth) ? store.overlayWidth : 300;
+  const lastH = Number.isFinite(store.overlayHeight) ? store.overlayHeight : 160;
+  overlayAnchor = { right: store.overlayAnchorRight === true, bottom: store.overlayAnchorBottom === true };
+  const { display, x, y } = restoreOverlayPlacement(screen, store, lastW, lastH);
+  // the whole screen, not only the work area: the widget may sit over the Dock, the taskbar or
+  // the menu bar too (it floats above them) if that is where the user puts it
+  const bounds = fitOverlay(display.bounds, x, y, lastW, lastH, OVERLAY_PAD);
   overlayDisplayId = display.id;
   overlayTrackedX = x;
   overlayTrackedY = y;
@@ -799,13 +826,17 @@ function createOverlayWindow() {
   overlayClampedY = bounds.y;
 
   overlayWindow = new BrowserWindow({
-    ...bounds,
+    ...bounds, show: false,
+    // macOS would otherwise push the window back under the menu bar, and the widget with it
+    enableLargerThanScreen: true,
     frame:false, transparent:true, alwaysOnTop:true,
     skipTaskbar:true, resizable:false, maximizable:false, fullscreenable:false, hasShadow:false,
     webPreferences:{ nodeIntegration:false, contextIsolation:true, preload:path.join(__dirname,'preload.js') },
     icon: path.join(__dirname,'../assets/icon.png'),
   });
   overlayWindow.loadFile(path.join(__dirname,'windows/overlay/index.html'));
+  const created = overlayWindow;
+  setTimeout(() => { if (overlayWindow === created) revealOverlay(); }, 2000);
   // after a reload the overlay needs its settings again
   reloadWhenGone(overlayWindow, 'overlay', () => setTimeout(() => { const cfg = loadStore().config; if (cfg) sendToOverlay('config-update', cfg); }, 400));
   overlayWindow.setAlwaysOnTop(true,'screen-saver');
@@ -956,8 +987,18 @@ function notifyOverlayState() {
   if (tray) tray.setContextMenu(buildMenu());
 }
 
+// Whether the overlay was up when the app was left: it comes back with the next start. Closing
+// windows while quitting does not count, only what the user did (button, tray, hotkey).
+function rememberOverlay(open) {
+  if (app.isQuitting) return;
+  const store = loadStore();
+  if ((store.overlayWasOpen === true) !== open) saveStore({ ...store, overlayWasOpen: open });
+}
+
 function showOverlay() {
+  rememberOverlay(true);
   if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWanted = true;
     overlayWindow.show();
   } else {
     createOverlayWindow();
@@ -968,6 +1009,8 @@ function showOverlay() {
 }
 
 function hideOverlay() {
+  rememberOverlay(false);
+  overlayWanted = false;
   if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.hide();
   notifyOverlayState();
 }
@@ -1305,6 +1348,8 @@ app.whenReady().then(() => {
   countVisit();
   createTray();
   registerHotkey();
+  // up again if it was up when the app was left (after the first start is done)
+  if (settings.onboarded === true && settings.overlayWasOpen === true && settings.config) setTimeout(() => { if (!overlayIsOpen()) showOverlay(); }, 1200);
   for (const event of ['display-added', 'display-removed', 'display-metrics-changed']) {
     screen.on(event, refreshOverlayDisplays);
   }
@@ -1361,12 +1406,13 @@ ipcMain.on('ws-disconnect', () => { wsDisconnect(); sessions.close(); });
 
 ipcMain.handle('overlay-is-open', () => overlayIsOpen());
 ipcMain.on('launch-overlay', (_, config) => {
-  if (!overlayWindow) createOverlayWindow();
-  else if (!overlayWindow.isDestroyed() && !overlayWindow.isVisible()) overlayWindow.show();   // hidden by the hotkey or the tray
+  rememberOverlay(true);
+  if (!overlayWindow) createOverlayWindow(config);
+  else if (!overlayWindow.isDestroyed() && !overlayWindow.isVisible()) { overlayWanted = true; overlayWindow.show(); }   // hidden by the hotkey or the tray
   setTimeout(() => { if (overlayWindow) overlayWindow.webContents.send('config-update', config); }, 400);
   notifyOverlayState();
 });
-ipcMain.on('close-overlay',     ()       => { if (overlayWindow) { overlayWindow.close(); overlayWindow=null; notifyOverlayState(); } });
+ipcMain.on('close-overlay',     ()       => { rememberOverlay(false); overlayWanted = false; if (overlayWindow) { overlayWindow.close(); overlayWindow=null; notifyOverlayState(); } });
 ipcMain.on('update-config',     (_, cfg) => { if (overlayWindow) overlayWindow.webContents.send('config-update', cfg); });
 ipcMain.on('minimize-settings', () => { if (settingsWindow) settingsWindow.minimize(); });
 ipcMain.on('close-settings',    () => { if (settingsWindow) settingsWindow.hide(); });
@@ -1438,7 +1484,16 @@ function saveOverlayDrag(window) {
   overlayDisplayId = display.id;
   overlayTrackedX = bounds.x;
   overlayTrackedY = bounds.y;
-  saveStore({ ...loadStore(), ...overlayPlacementPreferences(display, bounds.x, bounds.y) });
+  overlayTrackedW = bounds.width;
+  overlayTrackedH = bounds.height;
+  const a = display.bounds;
+  overlayAnchor = {
+    right: a.x + a.width - (bounds.x + bounds.width) < bounds.x - a.x,
+    bottom: a.y + a.height - (bounds.y + bounds.height) < bounds.y - a.y,
+  };
+  sendToOverlay('overlay-anchor', overlayAnchor);
+  saveStore({ ...loadStore(), ...overlayPlacementPreferences(display, bounds.x, bounds.y),
+    overlayWidth: bounds.width, overlayHeight: bounds.height, overlayAnchorRight: overlayAnchor.right, overlayAnchorBottom: overlayAnchor.bottom });
   sendOverlayDisplayScale();
   notifyOverlayDisplays();
 }
@@ -1467,7 +1522,10 @@ function refreshOverlayDisplays() {
 function applyOverlaySize(width, height) {
   if (!overlayWindow) return;
   const display = screen.getAllDisplays().find(item => item.id === overlayDisplayId) || screen.getPrimaryDisplay();
-  const bounds = fitOverlay(display.workArea, overlayTrackedX, overlayTrackedY, width, height);
+  // a widget kept at the right (or bottom) keeps that edge where it is
+  if (overlayAnchor.right) overlayTrackedX += overlayTrackedW - width;
+  if (overlayAnchor.bottom) overlayTrackedY += overlayTrackedH - height;
+  const bounds = fitOverlay(display.bounds, overlayTrackedX, overlayTrackedY, width, height, OVERLAY_PAD);
   overlayTrackedW = bounds.width;
   overlayTrackedH = bounds.height;
   overlayClampedX = bounds.x;
@@ -1491,8 +1549,8 @@ ipcMain.handle('set-overlay-display', (_, id) => {
   const store = loadStore();
   const previous = restoreOverlayPlacement(screen, store, overlayTrackedW, overlayTrackedH);
   const area = target.workArea;
-  const { x, y } = fitOverlay(area, area.x + previous.x - previous.display.workArea.x,
-    area.y + previous.y - previous.display.workArea.y, overlayTrackedW, overlayTrackedH);
+  const { x, y } = fitOverlay(target.bounds, area.x + previous.x - previous.display.workArea.x,
+    area.y + previous.y - previous.display.workArea.y, overlayTrackedW, overlayTrackedH, OVERLAY_PAD);
   saveStore({ ...store, ...overlayPlacementPreferences(target, x, y) });
   refreshOverlayDisplays();
   return overlayDisplaySettings();

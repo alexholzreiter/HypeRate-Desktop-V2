@@ -52,3 +52,16 @@ check('oversize overlays fit a small work area', () => {
   assert.deepEqual(fitOverlay({ x: 1440, y: -200, width: 180, height: 130 }, 1990, -500, 500, 450),
     { x: 1440, y: -200, width: 180, height: 130 });
 });
+
+check('the transparent margin may hang over the edge, the widget never does', () => {
+  const area = main.workArea, pad = 48;
+  // pushed far past every edge: the window stops exactly a margin beyond it
+  assert.deepEqual(fitOverlay(area, -500, -500, 250, 172, pad), { x: -48, y: -10, width: 250, height: 172 });
+  assert.deepEqual(fitOverlay(area, 5000, 5000, 250, 172, pad), { x: 1238, y: 764, width: 250, height: 172 });
+  // a spot inside stays where it is
+  assert.deepEqual(fitOverlay(area, 600, 300, 250, 172, pad), { x: 600, y: 300, width: 250, height: 172 });
+  // the widget (window minus margin) touches the edges, no further
+  const right = fitOverlay(area, 5000, 0, 250, 172, pad);
+  assert.equal(right.x + right.width - pad, area.x + area.width);
+});
+
