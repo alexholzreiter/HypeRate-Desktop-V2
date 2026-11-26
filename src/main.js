@@ -31,6 +31,7 @@ const customAssets = require('./custom-assets');
 const LANGS = require('./i18n/languages');
 const usageStats = require('./usage-stats');
 const { createAddonHost, ADDON_SCHEME } = require('./addons/host');
+const { readManifest: readAddonManifest, fingerprint: addonFingerprint } = require('./addons/manifest');
 const { fetchLatestRelease } = require('./desktop-update');
 const { fitOverlay, restoreOverlayPlacement, overlayPlacementPreferences } = require('./overlay-placement');
 const crypto = require('crypto');
@@ -341,10 +342,10 @@ ipcMain.handle('inapp-vote', async (_, id, optionId) => {
 // Wishes for HypeRate (what an addon could not do) go to HypeRate Push, where someone looks at
 // them before they become a post in the Discord forum. Only what the user saw and sent, plus
 // the app version and system (the server knows those from the registration anyway).
-async function wishRequest(method, body) {
+async function pushRequest(route, method, body) {
   for (let attempt = 0; attempt < 2; attempt++) {
     const { installationId, token } = await getDesktopPushCredentials();
-    const url = `${HYPERATE_PUSH_URL}/api/desktop/wishes` + (method === 'GET' ? `?installationId=${encodeURIComponent(installationId)}` : '');
+    const url = `${HYPERATE_PUSH_URL}/api/desktop/${route}` + (method === 'GET' ? `?installationId=${encodeURIComponent(installationId)}` : '');
     const response = await fetch(url, {
       method,
       headers: { Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
@@ -359,7 +360,7 @@ async function wishRequest(method, body) {
 const wishText = (value, max) => (typeof value === 'string' ? value.trim().slice(0, max) : '') || null;
 ipcMain.handle('wishes-send', async (_, wish = {}) => {
   try {
-    const response = await wishRequest('POST', {
+    const response = await pushRequest('wishes', 'POST', {
       title: wishText(wish.title, 100), body: wishText(wish.body, 4000),
       addonName: wishText(wish.addonName, 80), addonVersion: wishText(wish.addonVersion, 20),
       contactName: wishText(wish.contactName, 40),
@@ -374,7 +375,7 @@ ipcMain.handle('wishes-send', async (_, wish = {}) => {
 });
 ipcMain.handle('wishes-list', async () => {
   try {
-    const response = await wishRequest('GET');
+    const response = await pushRequest('wishes', 'GET');
     return response.ok ? ((await response.json())?.wishes || []) : null;
   } catch { return null; }
 });
@@ -1082,6 +1083,39 @@ const addonDir = (folder) => {
 };
 ipcMain.handle('addons-open-editor', (_, folder) => { const d = addonDir(folder); return d ? shell.openPath(path.join(d, 'main.js')) : 'not found'; });
 ipcMain.handle('addons-show-folder', (_, folder) => { const d = addonDir(folder); if (d) shell.showItemInFolder(path.join(d, 'addon.json')); return !!d; });
+
+// Sharing an addon: it is on GitHub, HypeRate Push checks that repo and someone at HypeRate
+// reviews the code. Sent along: the addon's id and version and the fingerprint of the folder
+// here, so the review sees whether GitHub has exactly what was tested. What the user entered
+// (link, name, social links) is kept for the next update; the links are public.
+const SHARE_LINKS = ['x', 'youtube', 'twitch', 'website'];
+ipcMain.handle('addons-share', async (_, folder, form = {}) => {
+  const dir = addonDir(folder);
+  if (!dir) return { ok: false, problems: ['no_addon_json'] };
+  let manifest, print;
+  try { manifest = readAddonManifest(dir); print = addonFingerprint(dir); }
+  catch { return { ok: false, problems: ['bad_manifest'] }; }
+  const links = Object.fromEntries(SHARE_LINKS.map(k => [k, wishText(form.links?.[k], 200)]).filter(([, v]) => v));
+  const share = { repoUrl: wishText(form.repoUrl, 300), authorName: wishText(form.authorName, 60), links };
+  const store = loadStore();
+  saveStore({ ...store, addonShare: { ...(store.addonShare || {}), [manifest.id]: share } });
+  try {
+    const response = await pushRequest('addons', 'POST', { ...share, addonId: manifest.id, version: manifest.version, localFingerprint: print, appVersion: VERSION });
+    const result = await response.json().catch(() => ({}));
+    if (response.ok) return { ok: true, submission: result.submission };
+    return { ok: false, problems: Array.isArray(result.problems) && result.problems.length ? result.problems : [response.status === 400 ? 'invalid' : 'error'] };
+  } catch (error) {
+    console.error('[Share] failed:', error.message);
+    return { ok: false, problems: ['offline'] };
+  }
+});
+ipcMain.handle('addons-shared', async () => {
+  try {
+    const response = await pushRequest('addons', 'GET');
+    return response.ok ? ((await response.json())?.submissions || []) : null;
+  } catch { return null; }
+});
+ipcMain.handle('addons-share-form', (_, id) => loadStore().addonShare?.[String(id)] || null);
 
 // ── Hearts and fonts the user brings along ───────────────────────────────────
 // Served as hr-asset://a/<file> from one folder only; see custom-assets.js

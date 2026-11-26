@@ -485,6 +485,8 @@ input[type="range"] { accent-color: var(--accent); }
 .addon-log-line.warn { color: var(--warn-text); }
 .addon-log-line.error { color: var(--bad-text); }
 .addon-perms { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; color: var(--text-2); }
+.share-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.addons-share { max-height: calc(100vh - 80px); overflow-y: auto; }
 
 /* ── Reception and battery of the Bluetooth device ── */
 .vitals { display: inline-flex; align-items: center; gap: 5px; margin-left: 4px; padding-left: 8px; border-left: 1px solid rgba(255, 255, 255, .14); color: var(--text-2); font-weight: 600; }

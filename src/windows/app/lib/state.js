@@ -30,7 +30,7 @@ const state = {
   news: null,           // null = not loaded, [] = none, or [{ title, url, date }]
   inApp: { message: null, results: null, voting: false },   // announcement or poll from HypeRate
   // user addons (src/addons); dialog: null | { type: 'allow' | 'create' | 'prompt', … }; guide: step shown or null
-  addons: { master: false, root: '', addons: [], approving: null, logs: {}, dialog: null, guide: null, sentWishes: null },
+  addons: { master: false, root: '', addons: [], approving: null, logs: {}, dialog: null, guide: null, sentWishes: null, shared: null },
   overlayOpen: false,
 };
 
@@ -526,6 +526,17 @@ export const addons = {
     if (res?.ok) addons.loadWishes();
     return res || { ok: false, reason: 'error' };
   },
+  // Shared addons: what was sent for review and what became of it
+  async loadShared() {
+    const list = await api.addonsShared?.().catch(() => null);
+    if (list) { state.addons.shared = list; changed(); }
+  },
+  async share(folder, form) {
+    const res = await api.addonsShare(folder, form).catch(() => ({ ok: false, problems: ['offline'] }));
+    if (res?.ok) addons.loadShared();
+    return res || { ok: false, problems: ['error'] };
+  },
+  shareForm: (id) => api.addonsShareForm(id).catch(() => null),
   // a test run (heart rate rises, falls, through the zones) or a game moment; null stops it
   async simulate(id, kind) { addons.apply(await api.addonsSimulate(id, kind)); },
   async setValue(id, key, value) { addons.apply(await api.addonsSetValue(id, key, value)); },

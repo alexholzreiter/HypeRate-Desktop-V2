@@ -195,6 +195,34 @@ So:
 3. In your final answer, tell the user how to try it: which button on **Try it out**, or the
    **Test** setting, and what they should see.
 
+## Sharing (only when the user asks for it)
+
+The user shares an addon from its page in the app (**Share**): it goes into a public GitHub
+repo, HypeRate checks it there and someone at HypeRate reads the code before others are
+offered it. When the user asks you to prepare that:
+
+1. Look through every file: no passwords, keys, tokens or personal data (names, addresses,
+   IDs) may be in it. Set `"author"` in `addon.json` to the name the user wants to be shown
+   with (ask them). For a new version, raise `"version"`.
+2. Write `README.md` in this folder: what the addon does, which permissions and hosts it asks
+   for and why, its settings, and how to try it out (see "Testing").
+3. Add `LICENSE` in this folder: MIT with the user's name and the year, unless they want
+   another license.
+4. Make a **public** GitHub repo holding exactly the files of this folder, at its top level.
+   `AGENTS.md` and `WISHES.md` may be in it or not (the app ignores them). Add nothing else (no
+   `.gitignore`, no workflows, no build output): HypeRate compares the files on GitHub with what
+   the user tested here, and any difference shows up in the review. Several addons in one repo
+   work too: one folder each, and the link then points at the folder
+   (`https://github.com/<name>/<repo>/tree/main/<folder>`).
+5. Commit and push with `git` (or `gh`) if you can; otherwise tell the user step by step how to
+   upload the files on github.com.
+6. Tell the user the link and that they paste it under **Share** on the addon's page, together
+   with the name they want to show and, if they like, links to X, YouTube, Twitch or a website.
+
+Adding `README.md` and `LICENSE` changes the folder, so the app asks the user once more to
+approve the addon: that is expected. For a later version: raise `"version"`, update the README
+if needed, push, then **Send a new version** in the app.
+
 ## Rules
 
 - Never ask the user for passwords or keys inside the addon, and never send the heart rate

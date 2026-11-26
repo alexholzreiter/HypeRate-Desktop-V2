@@ -65,6 +65,7 @@ export function addonPage(s, folder, back) {
   const id = m?.id;
   if (id && !s.addons.logs[id]) queueMicrotask(() => ad.loadLogs(id));
   if (s.addons.sentWishes === null) { s.addons.sentWishes = []; queueMicrotask(() => ad.loadWishes()); }
+  if (s.addons.shared === null) { s.addons.shared = []; queueMicrotask(() => ad.loadShared()); }
   const logs = (id && s.addons.logs[id]) || [];
   return h('div', { class: 'page' },
     h('div', { class: 'card integ-hero addon' },
@@ -102,6 +103,7 @@ export function addonPage(s, folder, back) {
           h('div', { class: 'row between' }, h('p', { class: 'label' }, t('addons_log')),
             item.running ? h('a', { class: 'small', onclick: () => ad.reload(id) }, t('addons_restart')) : null),
           logView(logs))),
+      h('div', { class: 'stack', style: { gap: '18px', flex: '1 1 300px', minWidth: 0 } },
       h('div', { class: 'card stack' },
         h('p', { class: 'label' }, t('addons_edit')),
         h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('addons_edit_text')),
@@ -116,7 +118,8 @@ export function addonPage(s, folder, back) {
           h('button', { class: 'btn small', onclick: openDocs }, t('addons_docs') + ' ↗')),
         h('hr', { class: 'divider' }),
         h('button', { class: 'btn small' + (s.addons.confirmRemove === folder ? ' danger' : ''), onclick: async () => { if (await ad.remove(folder)) back(); } },
-          t(s.addons.confirmRemove === folder ? 'addons_remove_confirm' : 'addons_remove')))));
+          t(s.addons.confirmRemove === folder ? 'addons_remove_confirm' : 'addons_remove'))),
+      m ? shareCard(s, item) : null)));
 }
 
 // Trying it out without waiting for a real moment: made-up values for this addon only (the
@@ -146,6 +149,87 @@ function testCard(s, item) {
       h('button', { class: 'btn small', onclick: () => ad.simulate(id, null) }, t('addons_test_stop'))) : null,
     h('p', { class: 'small muted', style: { margin: 0 } }, t('addons_test_nothing'), ' ',
       h('a', { onclick: () => ad.dialog({ type: 'prompt', kind: 'change', folder: item.folder, dir: item.dir, task: t('addons_test_fix_task') }) }, t('addons_test_fix'))));
+}
+
+// ── Sharing: on GitHub, checked by HypeRate, then offered to others ──
+function shareCard(s, item) {
+  const m = item.manifest;
+  const mine = (s.addons.shared || []).filter(x => x.addonId === m.id);
+  const latest = mine[0];
+  const approved = mine.find(x => x.status === 'APPROVED');
+  const tone = { PENDING: 'warn', APPROVED: 'ok', REJECTED: 'bad' };
+  // nothing waiting for a review: it can be sent (again, or as an update)
+  const canSend = !latest || latest.status !== 'PENDING';
+  return h('div', { class: 'card stack' },
+    h('p', { class: 'label' }, t('addons_share')),
+    h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('addons_share_text')),
+    latest ? h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' }, role: 'status' },
+      h('span', { class: 'pill ' + tone[latest.status] }, t('addons_share_status_' + latest.status)),
+      h('span', { class: 'small muted' }, 'v' + latest.version)) : null,
+    latest?.status === 'REJECTED' && latest.reviewNote ? h('p', { class: 'small', style: { margin: 0 } }, t('addons_share_reason', { note: latest.reviewNote })) : null,
+    approved ? h('p', { class: 'small muted', style: { margin: 0 } }, t('addons_share_live', { version: approved.version })) : null,
+    canSend ? h('button', { class: 'btn' + (latest ? '' : ' primary'), onclick: async () => {
+      const saved = await ad.shareForm(m.id);
+      ad.dialog({ type: 'share', folder: item.folder, dir: item.dir, name: m.name, version: m.version, update: !!approved, sentVersion: latest?.version, form: saved || {} });
+    } }, t(approved ? 'addons_share_update' : 'addons_share_go')) : null);
+}
+
+const SHARE_LINK_KEYS = ['x', 'youtube', 'twitch', 'website'];
+function shareDialog(d) {
+  // what is typed goes straight into the dialog's state, so a redraw keeps it
+  d.form ||= {};
+  d.form.links ||= {};
+  const trimmed = (v) => (v || '').trim();
+  const form = () => ({
+    repoUrl: trimmed(d.form.repoUrl), authorName: trimmed(d.form.authorName),
+    links: Object.fromEntries(SHARE_LINK_KEYS.map(k => [k, trimmed(d.form.links[k])]).filter(([, v]) => v)),
+  });
+  const send = async () => {
+    const f = form();
+    const local = [];
+    if (!/github\.com\/[^/\s]+\/[^/\s]+/i.test(f.repoUrl)) local.push('invalid_url');
+    if (f.authorName.length < 2) local.push('no_name');
+    if (Object.values(f.links).some(v => !/^https:\/\//i.test(v))) local.push('bad_link');
+    if (!d.confirmed) local.push('not_confirmed');
+    if (local.length) { ad.dialog({ ...d, form: f, problems: local }); return; }
+    ad.dialog({ ...d, form: f, problems: null, sending: true });
+    const res = await ad.share(d.folder, f);
+    ad.dialog({ ...d, form: f, sending: false, sent: res.ok ? res.submission : null, problems: res.ok ? null : res.problems });
+  };
+  const close = () => ad.dialog(null);
+  if (d.sent) return modal('addons-prompt addons-share', t('addons_share'), close,
+    h('div', { class: 'guide-icon' }, icon('tick', 26)),
+    h('h2', { class: 'h1', style: { fontSize: '22px', margin: 0 } }, t('addons_share_sent_title')),
+    h('p', { class: 'muted', style: { margin: 0, lineHeight: 1.6 } }, t('addons_share_sent', { version: d.sent.version || d.version })),
+    d.sent.warnings?.includes('fingerprint_mismatch') ? h('div', { class: 'note warn' }, t('addons_share_mismatch')) : null,
+    h('div', { class: 'row', style: { justifyContent: 'flex-end' } }, h('button', { class: 'btn primary', onclick: close }, t('addons_done'))));
+  const f = d.form;
+  // the hints from the last try go as soon as something is corrected
+  const fixed = () => { if (d.problems) { d.problems = null; document.querySelector('.addons-share [role=alert]')?.remove(); } };
+  const input = (cls, label, val, set, attrs = {}) => h('label', { class: 'osc-field' }, h('span', { class: 'small muted' }, label),
+    h('input', { class: 'field ' + cls, value: val || '', oninput: e => { set(e.target.value); fixed(); }, ...attrs }));
+  return modal('addons-prompt addons-share', t('addons_share'), close,
+    h('h2', { class: 'h1', style: { fontSize: '22px', margin: 0 } }, t(d.update ? 'addons_share_update_title' : 'addons_share_title', { name: d.name, version: d.version })),
+    h('div', { class: 'note stack', style: { gap: '8px' } },
+      h('b', {}, t('addons_share_step1')),
+      h('span', { class: 'small', style: { lineHeight: 1.6 } }, t(d.update ? 'addons_share_step1_update' : 'addons_share_step1_text')),
+      h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
+        h('button', { class: 'btn small', onclick: () => ad.dialog({ type: 'prompt', kind: d.update ? 'share_update' : 'share', folder: d.folder, dir: d.dir, task: '', back: d }) }, t('addons_share_ai')),
+        h('button', { class: 'btn small', onclick: openDocs }, t('addons_docs') + ' ↗'))),
+    h('b', {}, t('addons_share_step2')),
+    input('share-repo', t('addons_share_repo'), f.repoUrl, v => { f.repoUrl = v; }, { placeholder: 'https://github.com/…', maxlength: 300 }),
+    input('share-name', t('addons_share_name'), f.authorName, v => { f.authorName = v; }, { maxlength: 60 }),
+    h('p', { class: 'small muted', style: { margin: 0 } }, t('addons_share_links')),
+    h('div', { class: 'share-links' },
+      SHARE_LINK_KEYS.map(k => input('share-' + k, t('addons_share_link_' + k), f.links[k], v => { f.links[k] = v; }, { placeholder: 'https://…', maxlength: 200 }))),
+    h('label', { class: 'row small', style: { gap: '10px', alignItems: 'flex-start' } },
+      h('input', { type: 'checkbox', class: 'share-ok', checked: d.confirmed ? true : null, onchange: e => { d.confirmed = e.target.checked; fixed(); }, style: { marginTop: '3px' } }),
+      h('span', { style: { lineHeight: 1.5 } }, t('addons_share_confirm'))),
+    d.problems?.length ? h('ul', { class: 'small warn-text addon-perms', role: 'alert', style: { margin: 0 } },
+      d.problems.map(p => h('li', {}, t('addons_share_problem_' + p)))) : null,
+    h('div', { class: 'row', style: { gap: '10px', justifyContent: 'flex-end' } },
+      h('button', { class: 'btn', onclick: close }, t('addons_cancel')),
+      h('button', { class: 'btn primary', disabled: d.sending ? true : null, onclick: send }, t(d.sending ? 'addons_share_checking' : 'addons_share_send'))));
 }
 
 // What the addon shows in the overlay: a window of its own that comes and goes with the
@@ -270,6 +354,7 @@ export function addonOverlays(s, openAddon) {
   if (d.type === 'allow') return allowDialog(d);
   if (d.type === 'create') return createDialog(openAddon, d);
   if (d.type === 'prompt') return promptDialog(d, openAddon);
+  if (d.type === 'share') return shareDialog(d);
   return null;
 }
 
@@ -322,7 +407,7 @@ function createDialog(openAddon, d) {
 // The text to paste into Claude, Codex & co.
 function promptText(d) {
   if (d.kind === 'wish') return d.task;
-  const key = { create: 'addons_prompt_create', change: 'addons_prompt_change', error: 'addons_prompt_error', limits: 'addons_prompt_limits' }[d.kind];
+  const key = { create: 'addons_prompt_create', change: 'addons_prompt_change', error: 'addons_prompt_error', limits: 'addons_prompt_limits', share: 'addons_prompt_share', share_update: 'addons_prompt_share_update' }[d.kind];
   return t(key, { dir: d.dir, task: d.task || t('addons_prompt_no_task') });
 }
 
@@ -339,7 +424,8 @@ function promptDialog(d) {
         await navigator.clipboard.writeText(text).catch(() => {});
         ad.dialog({ ...d, copied: true });
       } }, d.copied ? [icon('tick', 16), ' ', t('addons_copied')] : t('addons_copy_prompt')),
-      h('button', { class: 'btn', onclick: () => ad.dialog(null) }, t('addons_done'))),
+      // opened from the share dialog: back there, with what was typed
+      h('button', { class: 'btn', onclick: () => ad.dialog(d.back || null) }, t(d.back ? 'addons_share_back' : 'addons_done'))),
     h('p', { class: 'small muted', style: { margin: 0 } }, t('addons_prompt_after')));
 }
 
