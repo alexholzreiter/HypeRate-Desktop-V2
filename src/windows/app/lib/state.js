@@ -30,7 +30,7 @@ const state = {
   news: null,           // null = not loaded, [] = none, or [{ title, url, date }]
   inApp: { message: null, results: null, voting: false },   // announcement or poll from HypeRate
   // user addons (src/addons); dialog: null | { type: 'allow' | 'create' | 'prompt', … }; guide: step shown or null
-  addons: { master: false, root: '', addons: [], approving: null, logs: {}, dialog: null, guide: null },
+  addons: { master: false, root: '', addons: [], approving: null, logs: {}, dialog: null, guide: null, sentWishes: null },
   overlayOpen: false,
 };
 
@@ -515,6 +515,16 @@ export const addons = {
   async loadLogs(id) {
     try { state.addons.logs = { ...state.addons.logs, [id]: await api.addonsLogs(id) }; } catch {}
     changed();
+  },
+  // Wishes sent to HypeRate (waiting, in the Discord forum, or not posted), for the addon pages
+  async loadWishes() {
+    const list = await api.wishesList?.().catch(() => null);
+    if (list) { state.addons.sentWishes = list; changed(); }
+  },
+  async sendWish(wish) {
+    const res = await api.wishesSend(wish).catch(() => ({ ok: false, reason: 'offline' }));
+    if (res?.ok) addons.loadWishes();
+    return res || { ok: false, reason: 'error' };
   },
   // a test run (heart rate rises, falls, through the zones) or a game moment; null stops it
   async simulate(id, kind) { addons.apply(await api.addonsSimulate(id, kind)); },

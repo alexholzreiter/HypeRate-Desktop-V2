@@ -338,6 +338,47 @@ ipcMain.handle('inapp-vote', async (_, id, optionId) => {
   try { return await inApp.vote(String(id), String(optionId)); } catch { return null; }
 });
 
+// Wishes for HypeRate (what an addon could not do) go to HypeRate Push, where someone looks at
+// them before they become a post in the Discord forum. Only what the user saw and sent, plus
+// the app version and system (the server knows those from the registration anyway).
+async function wishRequest(method, body) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { installationId, token } = await getDesktopPushCredentials();
+    const url = `${HYPERATE_PUSH_URL}/api/desktop/wishes` + (method === 'GET' ? `?installationId=${encodeURIComponent(installationId)}` : '');
+    const response = await fetch(url, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      body: body ? JSON.stringify({ installationId, ...body }) : undefined,
+      signal: AbortSignal.timeout(10000),
+    });
+    // credentials no longer valid: register again, once
+    if (response.status === 401 && attempt === 0) { saveStore({ ...loadStore(), desktopPushToken: null }); continue; }
+    return response;
+  }
+}
+const wishText = (value, max) => (typeof value === 'string' ? value.trim().slice(0, max) : '') || null;
+ipcMain.handle('wishes-send', async (_, wish = {}) => {
+  try {
+    const response = await wishRequest('POST', {
+      title: wishText(wish.title, 100), body: wishText(wish.body, 4000),
+      addonName: wishText(wish.addonName, 80), addonVersion: wishText(wish.addonVersion, 20),
+      contactName: wishText(wish.contactName, 40),
+      appVersion: VERSION, language: app.getLocale() || null,
+    });
+    if (response.ok) return { ok: true, id: (await response.json())?.wish?.id || null };
+    return { ok: false, reason: response.status === 429 ? 'limit' : response.status === 400 ? 'invalid' : 'error' };
+  } catch (error) {
+    console.error('[Wishes] send failed:', error.message);
+    return { ok: false, reason: 'offline' };
+  }
+});
+ipcMain.handle('wishes-list', async () => {
+  try {
+    const response = await wishRequest('GET');
+    return response.ok ? ((await response.json())?.wishes || []) : null;
+  } catch { return null; }
+});
+
 // ── OSC ──────────────────────────────────────────────────────────────────────
 // Pure Node.js UDP — no extra npm package needed.
 

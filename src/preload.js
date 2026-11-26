@@ -139,6 +139,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addonsApprove:  (id, fingerprint) => ipcRenderer.invoke('addons-approve', id, fingerprint),
   addonsReload:   (id)   => ipcRenderer.invoke('addons-reload', id),
   addonsSimulate: (id, kind) => ipcRenderer.invoke('addons-simulate', id, kind ?? null),
+  wishesSend:     (wish) => ipcRenderer.invoke('wishes-send', wish),
+  wishesList:     ()     => ipcRenderer.invoke('wishes-list'),
   addonsLogs:     (id)   => ipcRenderer.invoke('addons-logs', id),
   addonsRemove:   (folder) => ipcRenderer.invoke('addons-remove', folder),
   addonsOpenFolder: ()   => ipcRenderer.invoke('addons-open-folder'),

@@ -64,6 +64,7 @@ export function addonPage(s, folder, back) {
   const st = status(item, s.addons.master);
   const id = m?.id;
   if (id && !s.addons.logs[id]) queueMicrotask(() => ad.loadLogs(id));
+  if (s.addons.sentWishes === null) { s.addons.sentWishes = []; queueMicrotask(() => ad.loadWishes()); }
   const logs = (id && s.addons.logs[id]) || [];
   return h('div', { class: 'page' },
     h('div', { class: 'card integ-hero addon' },
@@ -96,7 +97,7 @@ export function addonPage(s, folder, back) {
         m?.overlay ? overlayCard(s, item) : null,
         m?.settings?.length ? settingsCard(item) : null,
         !item.error && item.lastError ? errorCard(item, item.lastError) : null,
-        item.limits?.length || item.wishes?.length ? limitsCard(item) : null,
+        item.limits?.length || item.wishes?.length ? limitsCard(s, item) : null,
         h('div', { class: 'card stack' },
           h('div', { class: 'row between' }, h('p', { class: 'label' }, t('addons_log')),
             item.running ? h('a', { class: 'small', onclick: () => ad.reload(id) }, t('addons_restart')) : null),
@@ -178,7 +179,7 @@ const limitLines = (item) => [
   ...(item.wishes || []).map(w => '- ' + w.title + (w.text ? ': ' + w.text.replace(/\s+/g, ' ') : '')),
 ].join('\n');
 
-function limitsCard(item) {
+function limitsCard(s, item) {
   const m = item.manifest;
   return h('div', { class: 'card stack' },
     h('p', { class: 'label' }, t('addons_limits')),
@@ -193,7 +194,25 @@ function limitsCard(item) {
     h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
       item.limits?.length ? h('button', { class: 'btn small', onclick: () => ad.dialog({ type: 'prompt', kind: 'limits', folder: item.folder, dir: item.dir, task: limitLines(item) }) }, t('addons_error_ai')) : null,
       h('button', { class: 'btn small', onclick: () => ad.dialog({ type: 'prompt', kind: 'wish', folder: item.folder, dir: item.dir,
-        task: t('addons_wish_text', { name: m?.name || item.folder, version: m?.version || '', list: limitLines(item) }) }) }, t('addons_wish'))));
+        addonName: m?.name || item.folder, addonVersion: m?.version || '',
+        title: (item.wishes?.[0]?.title || (item.limits?.[0] ? limitText(item.limits[0]) : '')).slice(0, 100),
+        task: limitLines(item) }) }, t('addons_wish'))),
+    sentWishes(s, item));
+}
+
+// What became of the wishes sent for this addon: waiting, in the forum (with the link), or not
+function sentWishes(s, item) {
+  const name = item.manifest?.name || item.folder;
+  const mine = (s.addons.sentWishes || []).filter(w => w.addonName === name);
+  if (!mine.length) return null;
+  const tone = { PENDING: 'warn', POSTED: 'ok', REJECTED: 'off' };
+  return [
+    h('p', { class: 'label', style: { marginTop: '6px' } }, t('addons_wishes_sent')),
+    h('ul', { class: 'addon-perms' }, mine.slice(0, 10).map(w => h('li', { class: 'row', style: { gap: '10px', flexWrap: 'wrap' } },
+      h('span', { style: { flex: 1, minWidth: '160px' } }, w.title),
+      h('span', { class: 'pill ' + (tone[w.status] || 'off') }, t('addons_wish_status_' + w.status)),
+      w.status === 'POSTED' && w.discordUrl ? h('a', { class: 'small', onclick: () => window.electronAPI.openExternal(w.discordUrl) }, t('addons_wish_open') + ' ↗') : null))),
+  ];
 }
 
 function permissionSummary(m) {
@@ -324,19 +343,43 @@ function promptDialog(d) {
     h('p', { class: 'small muted', style: { margin: 0 } }, t('addons_prompt_after')));
 }
 
-// A wish for HypeRate: the text goes out only if the user pastes it into the feedback form
+// A wish for HypeRate: sent only when the user presses Send, exactly as they see and edit it
+// here. HypeRate looks at it before it becomes a post in the Discord forum. The feedback form
+// stays as the other way (copied, pasted there by the user).
 function wishDialog(d, text) {
-  return modal('addons-prompt', t('addons_wish'), () => ad.dialog(null),
+  const field = (cls) => document.querySelector('.addons-wish .' + cls)?.value.trim() || '';
+  const send = async () => {
+    const wish = { title: field('wish-title'), body: field('wish-body'), contactName: field('wish-name'), addonName: d.addonName, addonVersion: d.addonVersion };
+    if (wish.title.length < 3 || wish.body.length < 10) { ad.dialog({ ...d, ...wish, task: wish.body, error: 'short' }); return; }
+    ad.dialog({ ...d, ...wish, task: wish.body, sending: true, error: null });
+    const res = await ad.sendWish(wish);
+    ad.dialog({ ...d, ...wish, task: wish.body, sending: false, sent: res.ok, error: res.ok ? null : res.reason });
+  };
+  if (d.sent) return modal('addons-prompt addons-wish', t('addons_wish'), () => ad.dialog(null),
+    h('div', { class: 'guide-icon' }, icon('tick', 26)),
+    h('h2', { class: 'h1', style: { fontSize: '22px', margin: 0 } }, t('addons_wish_thanks')),
+    h('p', { class: 'muted', style: { margin: 0, lineHeight: 1.6 } }, t('addons_wish_sent')),
+    h('div', { class: 'row', style: { justifyContent: 'flex-end' } }, h('button', { class: 'btn primary', onclick: () => ad.dialog(null) }, t('addons_done'))));
+  return modal('addons-prompt addons-wish', t('addons_wish'), () => ad.dialog(null),
     h('h2', { class: 'h1', style: { fontSize: '22px', margin: 0 } }, t('addons_wish_title')),
     h('p', { class: 'muted', style: { margin: 0, lineHeight: 1.6 } }, t('addons_wish_how')),
-    h('pre', { class: 'addon-prompt' }, text),
+    h('label', { class: 'osc-field' }, h('span', { class: 'small muted' }, t('addons_wish_field_title')),
+      h('input', { class: 'field wish-title', maxlength: 100, value: d.title || '' })),
+    h('label', { class: 'osc-field' }, h('span', { class: 'small muted' }, t('addons_wish_field_text')),
+      h('textarea', { class: 'field wish-body', rows: 7, maxlength: 4000 }, text)),
+    h('label', { class: 'osc-field' }, h('span', { class: 'small muted' }, t('addons_wish_field_name')),
+      h('input', { class: 'field wish-name', maxlength: 40, value: d.contactName || '' })),
+    d.error ? h('p', { class: 'small warn-text', role: 'alert', style: { margin: 0 } }, t('addons_wish_failed_' + d.error)) : null,
     h('div', { class: 'row', style: { gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' } },
-      h('button', { class: 'btn', onclick: () => ad.dialog(null) }, t('addons_cancel')),
-      h('button', { class: 'btn primary', onclick: async () => {
-        await navigator.clipboard.writeText(text).catch(() => {});
+      h('a', { class: 'small', style: { marginRight: 'auto', alignSelf: 'center' }, onclick: async () => {
+        // the form knows nothing of the addon: say which one it is about
+        const list = field('wish-body') || text;
+        await navigator.clipboard.writeText(t('addons_wish_text', { name: d.addonName || '', version: d.addonVersion || '', list })).catch(() => {});
         window.electronAPI.openExternal(FEEDBACK_URL);
         ad.dialog({ ...d, copied: true });
-      } }, d.copied ? [icon('tick', 16), ' ', t('addons_wish_copied')] : t('addons_wish_go'))));
+      } }, d.copied ? t('addons_wish_copied') : t('addons_wish_form')),
+      h('button', { class: 'btn', onclick: () => ad.dialog(null) }, t('addons_cancel')),
+      h('button', { class: 'btn primary', disabled: d.sending ? true : null, onclick: send }, t(d.sending ? 'addons_wish_sending' : 'addons_wish_send'))));
 }
 
 // What the addon asks for, before it runs for the first time or after any change; what is new
