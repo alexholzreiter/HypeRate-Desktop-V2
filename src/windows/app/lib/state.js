@@ -516,6 +516,8 @@ export const addons = {
     try { state.addons.logs = { ...state.addons.logs, [id]: await api.addonsLogs(id) }; } catch {}
     changed();
   },
+  // a test run (heart rate rises, falls, through the zones) or a game moment; null stops it
+  async simulate(id, kind) { addons.apply(await api.addonsSimulate(id, kind)); },
   async setValue(id, key, value) { addons.apply(await api.addonsSetValue(id, key, value)); },
   async setOverlay(id, patch) { addons.apply(await api.addonsSetOverlay(id, patch)); },
   openEditor: (folder) => api.addonsOpenEditor(folder),

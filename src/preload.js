@@ -138,6 +138,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addonsEnable:   (id, on) => ipcRenderer.invoke('addons-enable', id, !!on),
   addonsApprove:  (id, fingerprint) => ipcRenderer.invoke('addons-approve', id, fingerprint),
   addonsReload:   (id)   => ipcRenderer.invoke('addons-reload', id),
+  addonsSimulate: (id, kind) => ipcRenderer.invoke('addons-simulate', id, kind ?? null),
   addonsLogs:     (id)   => ipcRenderer.invoke('addons-logs', id),
   addonsRemove:   (folder) => ipcRenderer.invoke('addons-remove', folder),
   addonsOpenFolder: ()   => ipcRenderer.invoke('addons-open-folder'),

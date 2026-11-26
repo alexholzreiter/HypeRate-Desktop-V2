@@ -50,7 +50,7 @@ const OVERLAY_SCALES = [50, 75, 100, 125, 150, 200];
 // cpu: { limit, samples, every } overrides the processor check (for tests)
 // bridge: { discordStatus(text), vrchatChatbox(text), vrchatParameter(name, value),
 //   homeAssistantEvent(addonId, name, data) }, each returning { ok, reason }: the app's integrations
-function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () => {}, appIcon, overlayInfo = () => ({}), cpu: cpuCheck = {}, bridge = {} }) {
+function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () => {}, appIcon, overlayInfo = () => ({}), cpu: cpuCheck = {}, bridge = {}, zoneFor = () => null }) {
   const CPU = { limit: CPU_LIMIT, samples: CPU_SAMPLES, every: 5000, ...cpuCheck };
   const running = new Map();   // id → { win, overlay, manifest, dir, subs: Map(webContents id → Set), lastNotify }
   const logs = new Map();      // id → [{ t, level, text }]
@@ -348,6 +348,7 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
     if (!r) return;
     // its text in the Discord status goes with it
     if (discordOwner === id) { discordOwner = null; try { bridge.discordStatus?.(null); } catch {} }
+    for (const timer of r.sim?.timers || []) clearTimeout(timer);
     closeOverlay(r);
     byContents.delete(r.win.webContents?.id);
     running.delete(id);
@@ -458,8 +459,99 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
   // ── What the app tells the addons ──
   const contentsOf = (r) => [r.win, r.overlay].filter(w => w && !w.isDestroyed()).map(w => w.webContents);
   const send = (r, wc, type, data) => { if (r.subs.get(wc.id)?.has(type)) wc.send('addon-event', { type, data }); };
+  let lastBpm = null;
   function emit(type, data) {
-    for (const r of running.values()) for (const wc of contentsOf(r)) send(r, wc, type, data);
+    if (type === 'heartRate' && Number.isFinite(data?.bpm)) lastBpm = data.bpm;
+    for (const r of running.values()) {
+      // while it is being tried out, made-up values only: real ones would mix in
+      if (r.sim && (type === 'heartRate' || type === 'zone')) continue;
+      for (const wc of contentsOf(r)) send(r, wc, type, data);
+    }
+  }
+
+  // ── Trying an addon out: made-up events for this one addon only ──
+  // A heart rate run comes at the pace of a real source: a value every 1 to 5 seconds, so an
+  // addon that only works with one value a second shows it here and not later at a stream.
+  // Each event carries simulated: true.
+  const SIM_MOMENTS = {
+    boss: { game: 'wow', type: 'boss_defeated', title: 'Boss Defeated', detail: 'Test boss', lift: 38 },
+    close: { game: 'wow', type: 'close_call', title: 'Close Call', detail: 'Test', lift: 30 },
+    death: { game: 'wow', type: 'death', title: 'You Died', detail: 'Test', lift: 22 },
+    penta: { game: 'lol', type: 'pentakill', title: 'PENTAKILL', detail: 'Test', lift: 45 },
+  };
+  const SIM_RUNS = { rise: 1, fall: 1, zones: 1 };
+  const SIM_KINDS = [...Object.keys(SIM_RUNS), ...Object.keys(SIM_MOMENTS)];
+  // [ms after start, bpm]: 20 s steady (a baseline for addons that compare), then the change
+  function simPlan(kind, base) {
+    const at = (ms) => {
+      if (kind === 'zones') return ms < 40000 ? 60 + (ms / 40000) * 125 : base;
+      const target = kind === 'rise' ? base * 1.4 : base * 0.72;
+      if (ms < 20000) return base;
+      if (ms < 28000) return base + (target - base) * (ms - 20000) / 8000;
+      if (ms < 40000) return target;
+      if (ms < 48000) return target + (base - target) * (ms - 40000) / 8000;
+      return base;
+    };
+    const plan = [];
+    for (let ms = 0; ms <= 50000; ms += 1000 + Math.round(Math.random() * 4000)) plan.push([ms, Math.round(at(ms) + (Math.random() * 2 - 1))]);
+    return plan;
+  }
+  function stopSim(r, why) {
+    if (!r?.sim) return;
+    for (const timer of r.sim.timers) clearTimeout(timer);
+    r.sim = null;
+    if (why) log(r.manifest.id, 'info', '[test] ' + why);
+    onChange();
+  }
+  // Each try starts the addon afresh first: a pause between alerts, a count or old values
+  // from before would otherwise swallow the test
+  function simulate(id, kind) {
+    const old = running.get(id);
+    if (!old) return;
+    stopSim(old);
+    if (!kind) { log(id, 'info', '[test] stopped'); return; }
+    if (!SIM_KINDS.includes(kind)) return;
+    const entry = scan(root).find(e => e.manifest?.id === id);
+    if (!entry?.manifest) return;
+    start(entry);
+    const r = running.get(id);
+    if (!r) return;
+    log(id, 'info', '[test] started afresh, so earlier pauses and counts do not get in the way');
+    // a mark so a test clicked again before this one begins replaces it
+    r.sim = { kind, endsAt: Date.now() + (SIM_MOMENTS[kind] ? 2000 : 52000), timers: [] };
+    onChange();
+    const begin = () => { if (running.get(id) === r && r.sim?.kind === kind) { r.sim = null; play(r, kind); } };
+    r.win.webContents.once('did-finish-load', () => r.sim?.timers.push(setTimeout(begin, 700)));
+  }
+  function play(r, kind) {
+    const id = r.manifest.id;
+    const has = (p) => r.manifest.permissions.includes(p);
+    const toAll = (type, data) => { for (const wc of contentsOf(r)) send(r, wc, type, { ...data, simulated: true }); };
+    const base = Math.round(Math.min(110, Math.max(60, lastBpm || 75)));
+    if (SIM_MOMENTS[kind]) {
+      if (!has('gameMoments')) { log(id, 'warn', '[test] game moments need the permission "gameMoments" in addon.json'); return; }
+      const { lift, ...m } = SIM_MOMENTS[kind];
+      log(id, 'info', `[test] game moment ${m.type} (${m.game})`);
+      for (const wc of contentsOf(r)) send(r, wc, 'gameMoment', { ...m, bpm: base + lift, simulated: true });
+      return;
+    }
+    if (!has('heartRate') && !has('zones')) { log(id, 'warn', '[test] this needs the permission "heartRate" or "zones" in addon.json'); return; }
+    const plan = simPlan(kind, base);
+    const end = plan[plan.length - 1][0] + 1000;
+    r.sim = { kind, endsAt: Date.now() + end, timers: [] };
+    let zone;
+    r.sim.timers = plan.map(([ms, bpm]) => setTimeout(() => {
+      toAll('heartRate', { bpm });
+      const z = zoneFor(bpm);
+      if ((z?.name || null) !== (zone?.name || null)) {
+        zone = z;
+        if (z) toAll('zone', { name: z.name, color: z.color, min: z.min, max: z.max });
+        else for (const wc of contentsOf(r)) send(r, wc, 'zone', null);
+      }
+    }, ms));
+    r.sim.timers.push(setTimeout(() => stopSim(r, 'done, real values again'), end));
+    log(id, 'info', `[test] heart rate ${kind === 'zones' ? 'through the zones' : kind === 'rise' ? 'rises' : 'falls'}: from ${base} BPM, ${Math.round(end / 1000)} s, a value every 1 to 5 s`);
+    onChange();
   }
 
   // WISHES.md: what the AI could not build because the app does not offer it (yet), one
@@ -504,6 +596,8 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
           // shown in the overlay: on, size in percent; inOverlay: its window is up right now
           overlay: entry.manifest?.overlay ? (({ on, scale }) => ({ on, scale }))(overlayPrefs(id)) : null,
           inOverlay: !!(id && running.get(id)?.overlay),
+          // a test run going on: which, and until when
+          simulating: id && running.get(id)?.sim ? { kind: running.get(id).sim.kind, endsAt: running.get(id).sim.endsAt } : null,
           limits: id ? [...(limits.get(id)?.values() || [])] : [],
           wishes: readWishes(entry.dir),
         };
@@ -598,6 +692,7 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
       sync();
       return list();
     },
+    simulate(id, kind) { simulate(id, kind); return list(); },
     reload(id) { if (id) { stop(id); halted.delete(id); errors.delete(id); } sync(); return list(); },
     // One setting changed in the app: kept within what it allows, saved, told to the addon
     setValue(id, key, value) {

@@ -4,7 +4,7 @@
 
 import { h, icon } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
-import { addons as ad } from '../lib/state.js';
+import { addons as ad, showOverlay } from '../lib/state.js';
 import { FEEDBACK_URL } from './settings.js';
 
 // The guide for writing addons, with examples to download
@@ -92,6 +92,7 @@ export function addonPage(s, folder, back) {
 
     h('div', { class: 'split' },
       h('div', { class: 'stack', style: { gap: '18px', flex: '1.4 1 380px', minWidth: 0 } },
+        item.running ? testCard(s, item) : null,
         m?.overlay ? overlayCard(s, item) : null,
         m?.settings?.length ? settingsCard(item) : null,
         !item.error && item.lastError ? errorCard(item, item.lastError) : null,
@@ -115,6 +116,35 @@ export function addonPage(s, folder, back) {
         h('hr', { class: 'divider' }),
         h('button', { class: 'btn small' + (s.addons.confirmRemove === folder ? ' danger' : ''), onclick: async () => { if (await ad.remove(folder)) back(); } },
           t(s.addons.confirmRemove === folder ? 'addons_remove_confirm' : 'addons_remove')))));
+}
+
+// Trying it out without waiting for a real moment: made-up values for this addon only (the
+// main side plays them at the pace of a real source). Only what its permissions let it hear.
+const HEART_TESTS = ['rise', 'fall', 'zones'];
+const MOMENT_TESTS = ['boss', 'close', 'death', 'penta'];
+let simTick = null;
+function testCard(s, item) {
+  const m = item.manifest, id = m.id, sim = item.simulating;
+  const hears = (p) => m.permissions.includes(p);
+  const kinds = [...(hears('heartRate') || hears('zones') ? HEART_TESTS : []), ...(hears('gameMoments') ? MOMENT_TESTS : [])];
+  if (!kinds.length) return null;
+  const left = sim ? Math.max(0, Math.ceil((sim.endsAt - Date.now()) / 1000)) : 0;
+  // the seconds count down while a run goes on
+  if (sim && !simTick) simTick = setTimeout(() => { simTick = null; window.dispatchEvent(new Event('hr-rerender')); }, 1000);
+  return h('div', { class: 'card stack' },
+    h('p', { class: 'label' }, t('addons_test')),
+    h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('addons_test_text')),
+    m.overlay && !s.overlayOpen ? h('div', { class: 'note row between', style: { gap: '12px', flexWrap: 'wrap' } },
+      h('span', { class: 'small' }, t('addons_test_overlay_closed')),
+      h('button', { class: 'btn small', onclick: () => showOverlay() }, t('overlay_show'))) : null,
+    h('div', { class: 'dev-buttons' },
+      kinds.map(kind => h('button', { class: 'btn small' + (sim?.kind === kind ? ' primary' : ''), 'aria-pressed': sim?.kind === kind ? 'true' : null,
+        onclick: () => ad.simulate(id, kind) }, t('addons_test_' + kind)))),
+    sim ? h('div', { class: 'row between', role: 'status', style: { gap: '12px' } },
+      h('span', { class: 'small' }, t('addons_test_running', { what: t('addons_test_' + sim.kind), s: left })),
+      h('button', { class: 'btn small', onclick: () => ad.simulate(id, null) }, t('addons_test_stop'))) : null,
+    h('p', { class: 'small muted', style: { margin: 0 } }, t('addons_test_nothing'), ' ',
+      h('a', { onclick: () => ad.dialog({ type: 'prompt', kind: 'change', folder: item.folder, dir: item.dir, task: t('addons_test_fix_task') }) }, t('addons_test_fix'))));
 }
 
 // What the addon shows in the overlay: a window of its own that comes and goes with the

@@ -164,6 +164,35 @@ not for the addon (pointing at it means "move it"): it only shows things.
 hyperate.on('message', ({ deaths }) => { document.getElementById('count').textContent = deaths; });
 ```
 
+## Testing: the user must be able to try it out right away
+
+Nobody wants to wait for a real boss kill or a real heart rate spike to see whether an addon
+works. On the addon's page in the app, the card **Try it out** plays made-up events to this
+addon only, at the pace of a real source (a value every 1 to 5 seconds):
+
+- **Heart rate rises** / **falls**: 20 seconds steady (a baseline to compare with), then about
+  40 % up or 28 % down over 8 seconds, 12 seconds there, then back. Needs `heartRate`.
+  It starts from the user's current heart rate (kept between 60 and 110), or 75 without one:
+  from 75 it rises to about 105 and falls to about 54. An addon with a fixed limit above that
+  (say 120 BPM) is tried with **Through the zones** instead.
+- **Through the zones**: from 60 to 185 BPM in 40 seconds, with `zone` events on the way
+  (with `zones`).
+- **Game moments**: WoW boss defeated, close call, death; LoL pentakill. Needs `gameMoments`.
+
+While a run goes on, the addon gets no real heart rate. Every made-up event has
+`simulated: true`; do not ignore it: the point is to see the addon react.
+
+So:
+1. Build the addon so that its effect shows during these runs with its **default settings**.
+   An addon that waits for something rarer (a 50 % jump, a 3 minute streak) must still react
+   to them, or say on its settings what to set for a quick test.
+2. If it reacts to something the app cannot play (the time of day, data from the web, a count
+   kept in storage, a long streak), add a toggle setting `"key": "test"` with the label
+   "Test" (in the user's language) that shows the effect at once while it is on, as if the
+   moment had come.
+3. In your final answer, tell the user how to try it: which button on **Try it out**, or the
+   **Test** setting, and what they should see.
+
 ## Rules
 
 - Never ask the user for passwords or keys inside the addon, and never send the heart rate
@@ -210,6 +239,7 @@ Tell the user, in their language:
 4. if it shows something in the overlay: that it appears while the overlay is on, and that they
    move it by dragging it, like the heart rate widget (a `"mode": "screen"` addon covers the
    screen and lets every click through instead).
+5. how to try it out right away (see "Testing" above).
 
 The app notices every change by itself. Errors show on the addon's page with a button that copies
 them for you, so the user may come back with an error message: fix it in this folder.

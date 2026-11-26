@@ -983,6 +983,7 @@ const addonBridge = {
 
 const addons = createAddonHost({
   bridge: addonBridge,
+  zoneFor: (bpm) => zoneForBpm(bpm),   // for test runs through the zones
   root: path.join(app.getPath('userData'), 'addons'),
   dataDir: path.join(app.getPath('userData'), 'addon-data'),
   loadStore, saveStore,
@@ -1003,6 +1004,7 @@ ipcMain.handle('addons-set-master', (_, on) => addons.setMaster(on === true));
 ipcMain.handle('addons-enable', (_, id, on) => addons.setEnabled(String(id), on === true));
 ipcMain.handle('addons-approve', (_, id, print) => addons.approve(String(id), String(print)));
 ipcMain.handle('addons-reload', (_, id) => addons.reload(String(id)));
+ipcMain.handle('addons-simulate', (_, id, kind) => addons.simulate(String(id), kind == null ? null : String(kind)));
 ipcMain.handle('addons-logs', (_, id) => addons.logs(String(id)));
 ipcMain.handle('addons-remove', (_, folder) => addons.remove(String(folder)));
 ipcMain.handle('addons-open-folder', () => { fs.mkdirSync(ADDONS_ROOT, { recursive: true }); return shell.openPath(ADDONS_ROOT); });
