@@ -693,6 +693,7 @@
     "addons_limit_storage-size": "Sein Speicher ist voll (1 MB).",
     "addons_limit_window-size": "Sein Overlay-Fenster hätte mehr als ein Drittel des Bildschirms bedeckt und wurde verkleinert, damit es die Maus nicht blockiert. Für Effekte über den ganzen Bildschirm gibt es „mode\": „screen\".",
     "addons_limit_cpu": "Hat dauerhaft viel Rechenzeit gebraucht und wurde gestoppt, damit Spiele flüssig bleiben.",
+    "addons_limit_notify-blocked": "Konnte keine Mitteilung zeigen: Das System blockiert Mitteilungen von HypeRate Desktop. Erlaube sie in den Systemeinstellungen unter „Mitteilungen“ (macOS) bzw. „Benachrichtigungen“ (Windows).",
     "addons_prompt_limits": "Das HypeRate-Desktop-Addon in diesem Ordner stößt an Grenzen der App: {dir}\nLies zuerst AGENTS.md in diesem Ordner, vor allem „What is not possible (yet)\" und „When something the user wants is not possible\", und passe das Addon an. Was fehlt, schreib in WISHES.md.\nWas passiert ist:\n{task}",
     "addons_wish": "Bei HypeRate wünschen",
     "addons_wish_title": "Ein Wunsch an HypeRate",

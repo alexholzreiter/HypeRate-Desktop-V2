@@ -693,6 +693,7 @@
     "addons_limit_storage-size": "其存储空间已满（1 MB）。",
     "addons_limit_window-size": "其叠加层窗口将覆盖超过三分之一的屏幕，已被缩小以免阻挡鼠标。全屏效果请使用 \"mode\": \"screen\"。",
     "addons_limit_cpu": "持续占用大量处理器时间，已被停止，以保证游戏流畅。",
+    "addons_limit_notify-blocked": "无法显示通知：系统阻止了 HypeRate Desktop 的通知。请在系统设置的“通知”中允许它（macOS 和 Windows）。",
     "addons_prompt_limits": "此文件夹中的 HypeRate Desktop 插件遇到了应用的限制：{dir}\n先阅读该文件夹中的 AGENTS.md，尤其是 “What is not possible (yet)” 和 “When something the user wants is not possible”，然后调整插件。将缺少的功能写入 WISHES.md。\n发生了什么：\n{task}",
     "addons_wish": "向 HypeRate 提出需求",
     "addons_wish_title": "向 HypeRate 提出的需求",

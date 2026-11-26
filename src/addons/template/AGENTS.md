@@ -91,7 +91,9 @@ hyperate.on('gameMoment', ({ game, type, title, detail, bpm }) => { … });  // 
 // objective_stolen, victory, defeat (League of Legends). Compare "type", not "title".
 await hyperate.storage.get('key');                      // needs "storage"; undefined if not set
 await hyperate.storage.set('key', value);               // needs "storage"; value must be JSON-able
-await hyperate.notify('Title', 'Text');                 // needs "notifications"; false if too soon
+await hyperate.notify('Title', 'Text');                 // needs "notifications"; false if too soon, or if the
+                                                         // system blocks notifications (the app then tells the
+                                                         // user on the addon's page how to allow them)
 await hyperate.settings.get();                          // { limit: 120, … }: the "settings" values
 hyperate.on('settings', (values) => { … });             // the user changed a value in the app
 hyperate.send({ any: 'data' });                          // to the other part: main.js → overlay.html or back

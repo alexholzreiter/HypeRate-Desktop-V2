@@ -452,8 +452,21 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
     if (!Notification.isSupported()) return false;
     if (Date.now() - r.lastNotify < NOTIFY_EVERY_MS) return false;   // one every 10 s at most
     r.lastNotify = Date.now();
-    new Notification({ title: `${r.manifest.name}: ${title}`.slice(0, 120), body: body.slice(0, 400), icon: appIcon }).show();
-    return true;
+    const id = r.manifest.id;
+    const n = new Notification({ title: `${r.manifest.name}: ${title}`.slice(0, 120), body: body.slice(0, 400), icon: appIcon });
+    // The system may refuse it (macOS: notifications not allowed for the app; Windows: off in
+    // its settings): say so on the addon's page, where the user can switch them on
+    return new Promise(done => {
+      const timer = setTimeout(() => done(true), 3000);
+      n.once('show', () => { clearTimeout(timer); done(true); });
+      n.once('failed', (_, error) => {
+        clearTimeout(timer);
+        log(id, 'warn', `notification not shown: the system blocks notifications from HypeRate Desktop (${error})`);
+        limit(id, 'notify-blocked');
+        done(false);
+      });
+      n.show();
+    });
   });
 
   // ── What the app tells the addons ──
