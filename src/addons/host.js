@@ -369,16 +369,36 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
     if (on) wc.insertCSS(HOVER_CSS).then(key => { if (r.hover && r.overlay === win) r.hoverCss = key; else wc.removeInsertedCSS(key).catch(() => {}); }).catch(() => {});
     else if (r.hoverCss) { wc.removeInsertedCSS(r.hoverCss).catch(() => {}); r.hoverCss = null; }
   }
-  // Whether the addon shows anything at this point of its page: an element other than the page
-  // itself, not hidden and not fully transparent, it or any of its parents
+  // Whether the addon shows anything at this point of its page: an element under the point that
+  // paints something (a background, border, shadow, text, picture or graphic), not hidden and
+  // not fully transparent, it or any of its parents. Looked up by position, not with
+  // elementFromPoint: overlays often set pointer-events: none (so clicks go through), and
+  // elementFromPoint skips those, so a visible addon could not have been grabbed at all.
   const seenAt = (x, y) => `(() => {
-    const el = document.elementFromPoint(${Math.round(x)}, ${Math.round(y)});
-    if (!el || el === document.documentElement || el === document.body) return false;
-    for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
-      const cs = getComputedStyle(n);
-      if (cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) === 0) return false;
+    const X = ${Math.round(x)}, Y = ${Math.round(y)};
+    const clear = (c) => !c || c === 'transparent' || /rgba\\([^)]*,\\s*0\\)$/.test(c);
+    const shown = (el) => {
+      for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
+        const cs = getComputedStyle(n);
+        if (cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) === 0) return false;
+      }
+      return true;
+    };
+    const paints = (el) => {
+      if (/^(IMG|CANVAS|VIDEO|svg)$/i.test(el.tagName) || el instanceof SVGElement) return true;
+      const cs = getComputedStyle(el);
+      if (!clear(cs.backgroundColor) || cs.backgroundImage !== 'none' || cs.boxShadow !== 'none') return true;
+      if (['Top', 'Right', 'Bottom', 'Left'].some(k => parseFloat(cs['border' + k + 'Width']) > 0 && !clear(cs['border' + k + 'Color']))) return true;
+      return [...el.childNodes].some(c => c.nodeType === 3 && c.textContent.trim());
+    };
+    const all = document.body ? document.body.getElementsByTagName('*') : [];
+    if (all.length > 1500) return true;   // too much to look through every time: take the mouse
+    for (const el of all) {
+      const r = el.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0 || X < r.left || X > r.right || Y < r.top || Y > r.bottom) continue;
+      if (paints(el) && shown(el)) return true;
     }
-    return true;
+    return false;
   })()`;
 
   // Stays off until the user restarts it (or changes, switches on, approves it again)
