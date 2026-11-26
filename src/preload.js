@@ -161,6 +161,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addonsOpenEditor: (folder) => ipcRenderer.invoke('addons-open-editor', folder),
   addonsShowFolder: (folder) => ipcRenderer.invoke('addons-show-folder', folder),
   onAddonsChanged:(cb)   => ipcRenderer.on('addons-changed', () => cb()),
+  onOpenAddon:    (cb)   => ipcRenderer.on('open-addon', (_, id) => cb(id)),
   inAppEvent:     (id, event) => ipcRenderer.invoke('inapp-event', id, event),
   inAppVote:      (id, optionId) => ipcRenderer.invoke('inapp-vote', id, optionId),
   onInAppMessage: (cb)   => ipcRenderer.on('inapp-message', (_, d) => cb(d)),

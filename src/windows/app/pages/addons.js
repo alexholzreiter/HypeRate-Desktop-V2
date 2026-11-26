@@ -350,9 +350,12 @@ export function addonOverlays(s, openAddon) {
   return null;
 }
 
+// The card itself does not scroll, only its inside: the card's lit border (::after, inset 0)
+// would otherwise scroll along with a long dialog and end up in the middle of it
 const modal = (cls, label, onClose, ...children) =>
   h('div', { class: 'modal-backdrop', onclick: e => { if (e.target === e.currentTarget) onClose(); } },
-    h('div', { class: 'card modal stack ' + cls, role: 'dialog', 'aria-modal': 'true', 'aria-label': label, style: { width: 'min(560px, 100%)' } }, children));
+    h('div', { class: 'card modal modal-framed ' + cls, role: 'dialog', 'aria-modal': 'true', 'aria-label': label, style: { width: 'min(560px, 100%)' } },
+      h('div', { class: 'modal-scroll stack' }, children)));
 
 // then: 'stay' (opened from an addon's page: allow and stay there) or create the first addon
 function allowDialog(d = {}) {

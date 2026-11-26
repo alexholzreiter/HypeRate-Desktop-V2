@@ -330,16 +330,40 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
       for (const r of wins) {
         const win = r.overlay;
         const b = win.getBounds();
-        const inside = win.isVisible() && p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height;
-        if (inside === !!r.hover) continue;
-        r.hover = inside;
-        win.setIgnoreMouseEvents(!inside);
-        const wc = win.webContents;
-        if (inside) wc.insertCSS(HOVER_CSS).then(key => { if (r.hover && r.overlay === win) r.hoverCss = key; else wc.removeInsertedCSS(key).catch(() => {}); }).catch(() => {});
-        else if (r.hoverCss) { wc.removeInsertedCSS(r.hoverCss).catch(() => {}); r.hoverCss = null; }
+        const inWindow = win.isVisible() && p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height;
+        if (!inWindow) { setHover(r, win, false); continue; }
+        // Over the window, but is something there? An addon that hides its content (a notice
+        // that is gone again) must not lie over the desktop as an invisible pane that takes
+        // the clicks: only a visible element under the pointer takes the mouse.
+        if (r.probing) continue;
+        r.probing = true;
+        const zoom = win.webContents.getZoomFactor() || 1;
+        win.webContents.executeJavaScript(seenAt((p.x - b.x) / zoom, (p.y - b.y) / zoom), true)
+          .then(seen => { if (r.overlay === win && !win.isDestroyed()) setHover(r, win, seen === true); })
+          .catch(() => {})
+          .finally(() => { r.probing = false; });
       }
     }, 100);
   }
+  function setHover(r, win, on) {
+    if (on === !!r.hover) return;
+    r.hover = on;
+    win.setIgnoreMouseEvents(!on);
+    const wc = win.webContents;
+    if (on) wc.insertCSS(HOVER_CSS).then(key => { if (r.hover && r.overlay === win) r.hoverCss = key; else wc.removeInsertedCSS(key).catch(() => {}); }).catch(() => {});
+    else if (r.hoverCss) { wc.removeInsertedCSS(r.hoverCss).catch(() => {}); r.hoverCss = null; }
+  }
+  // Whether the addon shows anything at this point of its page: an element other than the page
+  // itself, not hidden and not fully transparent, it or any of its parents
+  const seenAt = (x, y) => `(() => {
+    const el = document.elementFromPoint(${Math.round(x)}, ${Math.round(y)});
+    if (!el || el === document.documentElement || el === document.body) return false;
+    for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
+      const cs = getComputedStyle(n);
+      if (cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) === 0) return false;
+    }
+    return true;
+  })()`;
 
   // Stays off until the user restarts it (or changes, switches on, approves it again)
   function halt(id, why) { halted.add(id); errors.set(id, why); onChange(); }

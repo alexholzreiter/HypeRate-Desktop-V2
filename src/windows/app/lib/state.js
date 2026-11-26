@@ -580,6 +580,21 @@ export const addons = {
   },
 };
 
+// What HypeRate decided meanwhile (a shared addon approved, a wish posted) comes in without a
+// button: when the Addons page or an addon's page opens, when the window comes to the front,
+// and every 2 minutes while something still waits for a decision
+let remoteAt = 0;
+export function refreshAddonState(force = false) {
+  if (!force && Date.now() - remoteAt < 15000) return;
+  remoteAt = Date.now();
+  addons.loadShared();
+  addons.loadWishes();
+  gallery.load();
+}
+const waitingOnHypeRate = () => (state.addons.shared || []).some(x => x.status === 'PENDING') || (state.addons.sentWishes || []).some(w => w.status === 'PENDING');
+window.addEventListener('focus', () => refreshAddonState());
+setInterval(() => { if (waitingOnHypeRate()) refreshAddonState(true); }, 2 * 60 * 1000);
+
 // ── The gallery: approved shared addons (src/main.js › gallery-*) ──
 export const gallery = {
   async load() {

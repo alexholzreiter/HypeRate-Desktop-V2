@@ -207,6 +207,9 @@ function showDesktopPushNotification(message) {
     } else {
       settingsWindow?.show();
       settingsWindow?.focus();
+      // a decision on a shared addon: straight to that addon's page
+      const addon = deepLink.match(/^hyperate-desktop:addon\/([a-z0-9-]{2,40})$/);
+      if (addon) sendToSettings('open-addon', addon[1]);
     }
 
     releaseNotification();

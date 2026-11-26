@@ -38,9 +38,19 @@ const NAV = [
 let current = 'live';
 try { current = sessionStorage.getItem('page') || 'live'; } catch {}
 
+// A notification about a shared addon was clicked: its page (or the Addons page if it is not here)
+api.onOpenAddon?.((id) => {
+  const item = (store.get().addons.addons || []).find(a => a.manifest?.id === id);
+  if (current === 'addons') addonsHub.reset();
+  if (item) addonsHub.open(item.folder);
+  // go() would reset the page it is already on, and with it the addon just opened
+  if (current === 'addons') render(); else go('addons');
+});
+
 function go(id) {
   // the page's own menu entry again: back to its start (an addon's page → the list)
   if (id === current) NAV.find(n => n.id === id)?.page.reset?.();
+  else NAV.find(n => n.id === id)?.page.shown?.();
   current = id;
   try { sessionStorage.setItem('page', id); } catch {}
   render();

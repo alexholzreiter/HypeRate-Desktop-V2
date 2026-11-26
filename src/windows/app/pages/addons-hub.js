@@ -6,7 +6,7 @@
 
 import { h, icon } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
-import { addons as ad, gallery as gal } from '../lib/state.js';
+import { addons as ad, gallery as gal, refreshAddonState } from '../lib/state.js';
 import { addonPage, addonOverlays, addonState, addonTile, guideButton } from './addons.js';
 import { ensureGallery, galleryCard, galleryFacts, sortGallery } from './gallery.js';
 
@@ -19,9 +19,11 @@ let query = '';
 let chip = { mine: 'all', discover: 'all' };
 
 // The menu entry clicked again: back to the list
-export function reset() { detail = null; }
+export function reset() { detail = null; refreshAddonState(true); }
 export function open(folder) { detail = folder; tab = 'mine'; }
-const openAddon = (folder) => { detail = folder; rerender(); };
+const openAddon = (folder) => { detail = folder; refreshAddonState(true); rerender(); };
+// the page coming into view (from another menu entry): what HypeRate decided meanwhile
+export function shown() { refreshAddonState(true); }
 
 // For the menu: how many addons wait for something (an approval, an update)
 export function badge(s) {
