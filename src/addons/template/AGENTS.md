@@ -212,13 +212,19 @@ offered it. When the user asks you to prepare that:
 3. Add `LICENSE` in this folder: MIT with the user's name and the year, unless they want
    another license.
 4. Make a **public** GitHub repo holding exactly the files of this folder, at its top level.
-   `AGENTS.md` and `WISHES.md` may be in it or not (the app ignores them). Add nothing else (no
-   `.gitignore`, no workflows, no build output): HypeRate compares the files on GitHub with what
-   the user tested here, and any difference shows up in the review. Several addons in one repo
-   work too: one folder each, and the link then points at the folder
+   Working with `git` right in this folder is fine: anything whose name starts with a dot
+   (`.git`, `.gitignore`, `.gitattributes`) is not part of the addon for the app. `AGENTS.md`
+   and `WISHES.md` may be in the repo or not (the app ignores them). Add nothing else that is
+   not a dot file (no build output, no extra folders): HypeRate compares the files on GitHub
+   with what the user tested here, file by file, and any difference shows up in the review.
+   Several addons in one repo work too: one folder each, and the link then points at the folder
    (`https://github.com/<name>/<repo>/tree/main/<folder>`).
-5. Commit and push with `git` (or `gh`) if you can; otherwise tell the user step by step how to
-   upload the files on github.com.
+5. Keep the files byte for byte as they are here: add a `.gitattributes` with the single line
+   `* -text`, before the first commit, so git does not change line endings (on Windows it turns
+   them into LF on GitHub otherwise). Then commit and push with `git` (or `gh`) if you can;
+   otherwise tell the user step by step how to upload the files on github.com.
+   Push everything first, and only then let the user press **Share**: the app compares at that
+   moment.
 6. Tell the user the link and that they paste it under **Share** on the addon's page, together
    with the name they want to show and, if they like, links to X, YouTube, Twitch or a website.
 

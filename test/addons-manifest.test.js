@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { readManifest, fingerprint, needsApproval, scan } = require('../src/addons/manifest');
+const { readManifest, fingerprint, fingerprints, needsApproval, scan } = require('../src/addons/manifest');
 
 function check(name, fn) { fn(); console.log('PASS ' + name); }
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'hyperate-addons-'));
@@ -116,4 +116,35 @@ check('AGENTS.md is not part of the fingerprint, so the app can keep the guide c
   const p1 = fingerprint(dir);
   fs.writeFileSync(path.join(dir, 'AGENTS.md'), 'new guide');
   assert.equal(fingerprint(dir), p1);
+});
+
+check('a git repo in the folder (or other dot entries) does not change the fingerprint', () => {
+  const dir = addon(tmp(), 'a', good);
+  const p1 = fingerprint(dir);
+  fs.mkdirSync(path.join(dir, '.git', 'objects'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '.git', 'objects', 'x'), 'commit');
+  fs.writeFileSync(path.join(dir, '.gitignore'), 'node_modules');
+  fs.mkdirSync(path.join(dir, 'img', '.cache'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'img', '.cache', 'y'), 'z');
+  assert.equal(fingerprint(dir), p1);
+  // what earlier versions worked out still counts as approved
+  const old = fingerprint(dir, { legacy: true });
+  assert.notEqual(old, p1);
+  assert.deepEqual(fingerprints(dir), [p1, old]);
+  const m = readManifest(dir);
+  assert.equal(needsApproval(m, fingerprints(dir), { fingerprint: old, permissions: m.permissions, network: m.network }), false);
+  assert.equal(needsApproval(m, fingerprints(dir), { fingerprint: p1, permissions: m.permissions, network: m.network }), false);
+  // without dot entries there is only one
+  assert.deepEqual(fingerprints(addon(tmp(), 'b', good)), [fingerprint(addon(tmp(), 'b', good))]);
+});
+
+check('sharing sends each file with its hash, the same files the fingerprint covers', () => {
+  const dir = addon(tmp(), 'a', good);
+  fs.mkdirSync(path.join(dir, '.git'));
+  fs.writeFileSync(path.join(dir, '.git', 'HEAD'), 'ref');
+  fs.writeFileSync(path.join(dir, 'AGENTS.md'), 'guide');
+  const r = fingerprint(dir, { files: true });
+  assert.equal(r.fingerprint, fingerprint(dir));
+  assert.deepEqual(r.files.map(f => f.path), ['addon.json', 'main.js']);
+  assert.match(r.files[0].sha256, /^[0-9a-f]{64}$/);
 });

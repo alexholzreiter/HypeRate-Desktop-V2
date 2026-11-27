@@ -159,14 +159,22 @@ function settingValues(manifest, saved = {}) {
   return Object.fromEntries(manifest.settings.map(st => [st.key, st.key in saved ? settingValue(st, saved[st.key]) : st.default]));
 }
 
-// Every file of the addon (names and contents), sorted, hashed (except AGENTS.md and WISHES.md). Symlinks are refused, so an
-// addon cannot reach outside its folder.
-function fingerprint(dir) {
+// Every file of the addon (names and contents), sorted, hashed. Left out: AGENTS.md and
+// WISHES.md at the top, system files, and anything whose name starts with a dot (.git from
+// putting the folder on GitHub, .gitignore, .vscode …). Those are never served to the addon
+// either (host.js), so they cannot change what runs. Symlinks are refused, so an addon cannot
+// reach outside its folder.
+//   files: true gives each file's name and sha256 too (sent along when sharing, so the review
+//   sees which file differs from GitHub); legacy: true counts dot entries as before (what
+//   approvals and reviews from earlier versions were given for)
+const hidden = (name) => name.startsWith('.') || name === 'Thumbs.db';
+function fingerprint(dir, { legacy = false, files: withFiles = false } = {}) {
   const files = [];
   let bytes = 0;
   (function walk(d, rel) {
     for (const entry of fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
       if (entry.name === '.DS_Store' || entry.name === 'Thumbs.db') continue;
+      if (!legacy && hidden(entry.name)) continue;
       // the guide for AI assistants (kept current by the app) and the AI's wishes: never run
       if (!rel && (entry.name === 'AGENTS.md' || entry.name === 'WISHES.md')) continue;
       const full = path.join(d, entry.name), name = rel ? rel + '/' + entry.name : entry.name;
@@ -179,13 +187,31 @@ function fingerprint(dir) {
     }
   })(dir, '');
   const hash = crypto.createHash('sha256');
-  for (const [name, full] of files) { hash.update(name + '\0'); hash.update(fs.readFileSync(full)); hash.update('\0'); }
-  return hash.digest('hex');
+  const list = [];
+  for (const [name, full] of files) {
+    const content = fs.readFileSync(full);
+    hash.update(name + '\0'); hash.update(content); hash.update('\0');
+    if (withFiles) list.push({ path: name, sha256: crypto.createHash('sha256').update(content).digest('hex') });
+  }
+  const print = hash.digest('hex');
+  return withFiles ? { fingerprint: print, files: list } : print;
+}
+
+// The fingerprint, and the one earlier versions worked out if it differs (a folder with dot
+// entries): an approval or a review given for either still holds
+function fingerprints(dir) {
+  const now = fingerprint(dir);
+  const dotted = (function has(d) {
+    return fs.readdirSync(d, { withFileTypes: true }).some(e => (hidden(e.name) && e.name !== '.DS_Store' && e.name !== 'Thumbs.db') || (e.isDirectory() && !e.isSymbolicLink() && has(path.join(d, e.name))));
+  })(dir);
+  if (!dotted) return [now];
+  try { const old = fingerprint(dir, { legacy: true }); return old === now ? [now] : [now, old]; } catch { return [now]; }
 }
 
 // What the user agreed to, compared with what the addon asks for now
+// (print: the fingerprint, or the list from fingerprints())
 function needsApproval(manifest, print, granted) {
-  if (!granted || granted.fingerprint !== print) return true;
+  if (!granted || ![].concat(print).includes(granted.fingerprint)) return true;
   const same = (a, b) => a.length === b.length && a.every(x => b.includes(x));
   return !same(manifest.permissions, granted.permissions || []) || !same(manifest.network, granted.network || []);
 }
@@ -203,11 +229,12 @@ function scan(root) {
         const manifest = readManifest(dir);
         if (seen.has(manifest.id)) throw new ManifestError(`another addon already uses the id "${manifest.id}"`);
         seen.add(manifest.id);
-        return { folder: e.name, dir, manifest, fingerprint: fingerprint(dir), error: null };
+        const prints = fingerprints(dir);
+        return { folder: e.name, dir, manifest, fingerprint: prints[0], fingerprints: prints, error: null };
       } catch (error) {
-        return { folder: e.name, dir, manifest: null, fingerprint: null, error: error instanceof ManifestError ? error.message : 'could not be read' };
+        return { folder: e.name, dir, manifest: null, fingerprint: null, fingerprints: [], error: error instanceof ManifestError ? error.message : 'could not be read' };
       }
     });
 }
 
-module.exports = { PERMISSIONS, readManifest, fingerprint, needsApproval, scan, settingValue, settingValues, ManifestError };
+module.exports = { PERMISSIONS, readManifest, fingerprint, fingerprints, needsApproval, scan, settingValue, settingValues, ManifestError };

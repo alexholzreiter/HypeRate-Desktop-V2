@@ -128,6 +128,8 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
         return new Response(`<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><title>${id}</title><script src="${own}main.js"></script>`,
           { headers: { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': csp } });
       }
+      // names starting with a dot (.git and the like) are not part of the fingerprint: never served
+      if (decodeURIComponent(url.pathname).split('/').some(part => part.startsWith('.'))) return new Response('Not found', { status: 404 });
       const file = path.resolve(dir, '.' + decodeURIComponent(url.pathname));
       if (!file.startsWith(path.resolve(dir) + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return new Response('Not found', { status: 404 });
       const type = { '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.css': 'text/css', '.html': 'text/html; charset=utf-8', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif' }[path.extname(file)] || 'application/octet-stream';
@@ -659,7 +661,7 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
           lastError: lastError ? lastError.text : null,
           manifest: entry.manifest,
           enabled: !!saved.enabled,
-          approved: entry.manifest ? !needsApproval(entry.manifest, entry.fingerprint, saved.granted) : false,
+          approved: entry.manifest ? !needsApproval(entry.manifest, entry.fingerprints, saved.granted) : false,
           // what was allowed before, so a change can show what is new
           granted: saved.granted ? { permissions: saved.granted.permissions || [], network: saved.granted.network || [] } : null,
           values: entry.manifest ? valuesOf(entry.manifest) : {},
@@ -717,7 +719,7 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
         const saved = addons[id] || {};
         // installed from the gallery, but not the reviewed files any more: not run, restored
         if (tampered(entry)) { onTampered(entry); continue; }
-        if (!saved.enabled || halted.has(id) || needsApproval(entry.manifest, entry.fingerprint, saved.granted)) continue;
+        if (!saved.enabled || halted.has(id) || needsApproval(entry.manifest, entry.fingerprints, saved.granted)) continue;
         wanted.add(id);
         const r = running.get(id);
         if (!r || r.dir !== entry.dir) start(entry);
@@ -734,7 +736,9 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
     if (watcher) return;
     try {
       fs.mkdirSync(root, { recursive: true });
-      watcher = fs.watch(root, { recursive: true }, () => {
+      watcher = fs.watch(root, { recursive: true }, (_, name) => {
+        // git and editors write into dot folders (.git, .vscode) all the time: not the addon
+        if (name && String(name).split(/[\\/]/).slice(1).some(part => part.startsWith('.') && part !== '.DS_Store')) return;
         clearTimeout(watchTimer);
         watchTimer = setTimeout(sync, 400);
       });

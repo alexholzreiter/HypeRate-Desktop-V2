@@ -35,7 +35,7 @@ const customAssets = require('./custom-assets');
 const LANGS = require('./i18n/languages');
 const usageStats = require('./usage-stats');
 const { createAddonHost, ADDON_SCHEME } = require('./addons/host');
-const { readManifest: readAddonManifest, fingerprint: addonFingerprint, scan: scanAddons } = require('./addons/manifest');
+const { readManifest: readAddonManifest, fingerprint: addonFingerprint, fingerprints: addonFingerprints, scan: scanAddons } = require('./addons/manifest');
 const { fetchLatestRelease } = require('./desktop-update');
 const { fitOverlay, restoreOverlayPlacement, overlayPlacementPreferences, OVERLAY_PAD } = require('./overlay-placement');
 const crypto = require('crypto');
@@ -1212,14 +1212,14 @@ ipcMain.handle('addons-share', async (_, folder, form = {}) => {
   const dir = addonDir(folder);
   if (!dir) return { ok: false, problems: ['no_addon_json'] };
   let manifest, print;
-  try { manifest = readAddonManifest(dir); print = addonFingerprint(dir); }
+  try { manifest = readAddonManifest(dir); print = addonFingerprint(dir, { files: true }); }
   catch { return { ok: false, problems: ['bad_manifest'] }; }
   const links = Object.fromEntries(SHARE_LINKS.map(k => [k, wishText(form.links?.[k], 200)]).filter(([, v]) => v));
   const share = { repoUrl: wishText(form.repoUrl, 300), authorName: wishText(form.authorName, 60), links };
   const store = loadStore();
   saveStore({ ...store, addonShare: { ...(store.addonShare || {}), [manifest.id]: share } });
   try {
-    const response = await pushRequest('addons', 'POST', { ...share, addonId: manifest.id, version: manifest.version, localFingerprint: print, appVersion: VERSION });
+    const response = await pushRequest('addons', 'POST', { ...share, addonId: manifest.id, version: manifest.version, localFingerprint: print.fingerprint, localFiles: print.files, appVersion: VERSION });
     const result = await response.json().catch(() => ({}));
     if (response.ok) return { ok: true, submission: result.submission };
     return { ok: false, problems: Array.isArray(result.problems) && result.problems.length ? result.problems : [response.status === 400 ? 'invalid' : 'error'] };
@@ -1292,7 +1292,7 @@ async function installFromGallery(id) {
     // exactly what was reviewed, or nothing
     let manifest;
     try { manifest = readAddonManifest(temp); } catch { return { ok: false, reason: 'mismatch' }; }
-    if (manifest.id !== id || addonFingerprint(temp) !== entry.fingerprint) return { ok: false, reason: 'mismatch' };
+    if (manifest.id !== id || !addonFingerprints(temp).includes(entry.fingerprint)) return { ok: false, reason: 'mismatch' };
     fs.mkdirSync(ADDONS_ROOT, { recursive: true });
     let folder = installed?.folder || id;
     if (!installed) { let n = 2; while (fs.existsSync(path.join(ADDONS_ROOT, folder))) folder = `${id}-${n++}`; }
@@ -1319,7 +1319,7 @@ async function installFromGallery(id) {
 // edited in the app): it does not start, and the reviewed version is fetched again.
 function galleryTampered(entry) {
   const g = loadStore().addonGallery?.[entry.manifest?.id];
-  return !!(g?.fingerprint && entry.fingerprint !== g.fingerprint);
+  return !!(g?.fingerprint && !(entry.fingerprints || [entry.fingerprint]).includes(g.fingerprint));
 }
 const galleryRepairing = new Set();
 function repairGalleryAddon(entry) {
