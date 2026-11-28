@@ -5,7 +5,7 @@
   "url": "https://desktop.hyperate.io",
   "pricing_model": "Free",
   "open_source": true,
-  "source_code": "https://github.com/alexholzreiter/HypeRate-Desktop-V2",
+  "source_code": "https://github.com/HypeRate/HypeRate-Desktop",
   "platforms": {
     "macOS": {
       "versions": ["Apple Silicon (arm64)", "Intel (x64)"],

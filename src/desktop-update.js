@@ -1,7 +1,7 @@
 const https = require('https');
 
 const RELEASE_API = new URL(
-  'https://api.github.com/repos/alexholzreiter/HypeRate-Desktop-V2/releases/latest',
+  'https://api.github.com/repos/HypeRate/HypeRate-Desktop/releases/latest',
 );
 const REDIRECT_CODES = new Set([301, 302, 303, 307, 308]);
 const MAX_REDIRECTS = 5;

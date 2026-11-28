@@ -4,7 +4,7 @@ const { EventEmitter } = require('node:events');
 const { Readable } = require('node:stream');
 const { fetchLatestRelease } = require('../src/desktop-update');
 
-const api = 'https://api.github.com/repos/alexholzreiter/HypeRate-Desktop-V2/releases/latest';
+const api = 'https://api.github.com/repos/HypeRate/HypeRate-Desktop/releases/latest';
 const newReleasePage = 'https://github.com/HypeRate/HypeRate-Desktop-V2/releases/tag/v1.0.14';
 
 async function check(name, responses, version, expected, urls) {

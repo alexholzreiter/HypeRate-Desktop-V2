@@ -5,7 +5,7 @@
   "url": "https://desktop.hyperate.io",
   "organization": "HypeRate",
   "organization_url": "https://hyperate.io",
-  "github": "https://github.com/alexholzreiter/HypeRate-Desktop-V2",
+  "github": "https://github.com/HypeRate/HypeRate-Desktop",
   "pricing": "Free",
   "license": "Open Source",
   "platforms": ["macOS", "Windows", "Linux"],
