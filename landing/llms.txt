@@ -60,5 +60,5 @@ Free. No subscription. No account required beyond a HypeRate account for heart r
 
 - Website: https://desktop.hyperate.io
 - HypeRate platform: https://hyperate.io
-- Source code: https://github.com/alexholzreiter/HypeRate-Desktop-V2
+- Source code: https://github.com/HypeRate/HypeRate-Desktop
 - Feedback: https://feedback.hyperate.io/form/iHnGf9vp

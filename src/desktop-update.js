@@ -1,7 +1,7 @@
 const https = require('https');
 
 const RELEASE_API = new URL(
-  'https://api.github.com/repos/alexholzreiter/HypeRate-Desktop-V2/releases/latest',
+  'https://api.github.com/repos/HypeRate/HypeRate-Desktop/releases/latest',
 );
 const REDIRECT_CODES = new Set([301, 302, 303, 307, 308]);
 const MAX_REDIRECTS = 5;
@@ -48,7 +48,7 @@ function requestRelease(url, version, redirectsLeft) {
 
 // The list of releases, prereleases included (newest first); only a beta asks for it.
 const RELEASES_API = new URL(
-  'https://api.github.com/repos/alexholzreiter/HypeRate-Desktop-V2/releases?per_page=20',
+  'https://api.github.com/repos/HypeRate/HypeRate-Desktop/releases?per_page=20',
 );
 
 // A stable install asks for /releases/latest, which skips prereleases, so v1 users are never

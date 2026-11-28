@@ -4,7 +4,7 @@ const { EventEmitter } = require('node:events');
 const { Readable } = require('node:stream');
 const { fetchLatestRelease, compareVersions } = require('../src/desktop-update');
 
-const api = 'https://api.github.com/repos/alexholzreiter/HypeRate-Desktop-V2/releases/latest';
+const api = 'https://api.github.com/repos/HypeRate/HypeRate-Desktop/releases/latest';
 const newReleasePage = 'https://github.com/HypeRate/HypeRate-Desktop-V2/releases/tag/v1.0.14';
 
 async function check(name, responses, version, expected, urls, options) {
@@ -57,7 +57,7 @@ async function run() {
     '1.0.13', { hasUpdate: false }, [api]);
 
   // Betas look at the release list, prereleases included
-  const list = 'https://api.github.com/repos/alexholzreiter/HypeRate-Desktop-V2/releases?per_page=20';
+  const list = 'https://api.github.com/repos/HypeRate/HypeRate-Desktop/releases?per_page=20';
   const rel = (tag, extra = {}) => ({ tag_name: tag, html_url: 'https://github.com/x/releases/tag/' + tag, ...extra });
   const releases = (items) => ({ code: 200, body: JSON.stringify(items) });
   await check('a beta finds a newer beta', [releases([rel('v1.0.15'), rel('v2.0.0-beta.2', { prerelease: true }), rel('v2.0.0-beta.1', { prerelease: true })])],

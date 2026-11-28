@@ -8,7 +8,7 @@ Powered by [HypeRate](https://hyperate.io) · Free & Open Source · macOS · Win
 
 ## Download
 
-Get the latest release from the [GitHub Releases](https://github.com/alexholzreiter/HypeRate-Desktop-V2/releases/latest) page:
+Get the latest release from the [GitHub Releases](https://github.com/HypeRate/HypeRate-Desktop/releases/latest) page:
 
 | Platform | File |
 |---|---|
