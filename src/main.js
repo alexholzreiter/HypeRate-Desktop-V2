@@ -506,6 +506,7 @@ function sendHeartRateOsc(bpm, settings = loadStore(), test = false) {
       if (!test) _chatboxLastSent = Date.now();
     }
     for (const { address, args } of packets) oscSend(store.oscHost, store.oscPort, address, args);
+    if (!test) steam.event('osc');
     return { ok: true };
   } catch (error) {
     console.error('[OSC] Invalid output settings:', error.message);
@@ -521,6 +522,7 @@ function saveStore(data) { try { fs.writeFileSync(STORE_PATH, JSON.stringify(dat
 // Steam build: talk to Steam before anything else. A packaged build started without Steam is
 // handed to Steam, which starts it again (see src/steam.js).
 const steam = require('./steam');
+const { usesOwnLook } = require('./achievements');
 if (steam.start({ packaged: app.isPackaged }) === 'quit') {
   app.quit();
   return;
@@ -613,6 +615,7 @@ function discordBpmUpdate(bpm) {
     zoneColor:      zone?.color || null,
     connectionType: currentConnType,
   });
+  if (discordConnected) steam.event('discord');
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1023,6 +1026,7 @@ let hyperaidTimer;
 
 // Game moments go to the overlay and to every output that wants them (MQTT today)
 function emitGameMoment(moment) {
+  steam.moment(moment);
   sendToOverlay('game-moment', moment);
   mqtt.publishMoment(moment);
   sessions.recordMoment(moment);
@@ -1039,7 +1043,8 @@ function broadcastBpm(bpm, source) {
   discordBpmUpdate(bpm);
   mqtt.publishBpm(bpm, source, zoneForBpm(bpm) || {});
   addons.emit('heartRate', { bpm });
-  steam.unlock('first_heartbeat');
+  steam.heartbeat(bpm, source);
+  if (mqttConnected) steam.event('mqtt');
   const zone = zoneForBpm(bpm);
   if ((zone?.name || null) !== lastAddonZone) {
     lastAddonZone = zone?.name || null;
@@ -1073,7 +1078,7 @@ function rememberOverlay(open) {
 
 function showOverlay() {
   rememberOverlay(true);
-  steam.unlock('first_overlay');
+  steam.event('overlay');
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWanted = true;
     overlayWindow.show();
@@ -1144,6 +1149,7 @@ const addonBridge = {
 };
 
 const addons = createAddonHost({
+  onStarted: () => steam.event('addon'),
   bridge: addonBridge,
   zoneFor: (bpm) => zoneForBpm(bpm),   // for test runs through the zones
   tampered: (entry) => galleryTampered(entry),
@@ -1494,6 +1500,7 @@ app.on('before-quit', (event) => {
   bleReleased = true;
   clearInterval(hyperaidTimer);
   sessions.stop();   // die letzte halbe Minute soll nicht verloren gehen
+  steam.flush();     // the last minutes with a heartbeat go to Steam
   addons.stopAll();
   event.preventDefault();
   const released = Promise.resolve().then(() => ble.shutdown?.()).catch(() => {});
@@ -1700,6 +1707,10 @@ ipcMain.on('save-settings', (_, data) => {
 
   if (data.lang && tray) tray.setContextMenu(buildMenu());
   if (data.config?.zones) sessions.setOptions({ zones: data.config.zones });
+  if (data.config) {
+    if (usesOwnLook(data.config)) steam.event('look');
+    if (data.config.zonesEnabled === true && Array.isArray(data.config.zones) && data.config.zones.length) steam.event('zones');
+  }
 
   if (Object.prototype.hasOwnProperty.call(data, 'hrId')) {
     const nextHrId = String(data.hrId || '').trim();
@@ -1801,6 +1812,7 @@ function saveCard(startedAt, image) {
   const name = `HypeRate-${d.getFullYear()}-${zwei(d.getMonth() + 1)}-${zwei(d.getDate())}-${zwei(d.getHours())}-${zwei(d.getMinutes())}.png`;
   const ziel = path.join(app.getPath('pictures'), name);
   fs.writeFileSync(ziel, image.toPNG());
+  steam.event('card');
   shell.showItemInFolder(ziel);
   return ziel;
 }
@@ -1826,7 +1838,9 @@ ipcMain.handle('sessions-card-copy', async (_, startedAt) => {
   if (!image) return 'render';
   try {
     await clipboard.write([new ClipboardItem({ 'image/png': new Blob([image.toPNG()], { type: 'image/png' }) })]);
-    return (await clipboard.has('image/png')) ? true : 'empty';
+    if (!(await clipboard.has('image/png'))) return 'empty';
+    steam.event('card');
+    return true;
   } catch (err) {
     console.error('[session card] copy:', err.message);
     return err.message || 'clipboard';
@@ -1990,8 +2004,9 @@ ipcMain.on('ble-web-bpm', (_, bpm) => {
 });
 
 // ── Discord ──────────────────────────────────────────────────────────────────
+let discordConnected = false;   // for the Steam achievement: the heart rate really reaches Discord
 discord.init({
-  onStatus: (state, extra = {}) => sendToSettings('discord-status', { state, ...extra }),
+  onStatus: (state, extra = {}) => { discordConnected = state === 'connected'; sendToSettings('discord-status', { state, ...extra }); },
 });
 
 ipcMain.on('discord-enable', () => {
@@ -2121,8 +2136,9 @@ function mqttOptions(opts = {}) {
   };
 }
 
+let mqttConnected = false;      // for the Steam achievement: the heart rate really reaches the broker
 mqtt.init({
-  onStatus: (state, extra = {}) => sendToSettings('mqtt-status', { state, ...extra }),
+  onStatus: (state, extra = {}) => { mqttConnected = state === 'connected'; sendToSettings('mqtt-status', { state, ...extra }); },
   // Remembered across restarts, otherwise every launch re-announces and Home Assistant
   // rebuilds the entities
   onDiscovery: (signature) => { const store = loadStore(); store.mqttDiscoverySignature = signature; saveStore(store); },

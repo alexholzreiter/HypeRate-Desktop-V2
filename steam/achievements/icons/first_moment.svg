@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<defs>
+  <clipPath id="tile"><rect x="10" y="10" width="236" height="236" rx="50"/></clipPath>
+  <radialGradient id="bg" cx=".5" cy=".38" r=".75"><stop offset="0" stop-color="#6a0d22"/><stop offset=".55" stop-color="#0a0d1c"/><stop offset="1" stop-color="#030409"/></radialGradient>
+  <radialGradient id="spot" cx=".5" cy=".05" r=".8"><stop offset="0" stop-color="#ff4d6d" stop-opacity=".55"/><stop offset=".5" stop-color="#ff4d6d" stop-opacity=".08"/><stop offset="1" stop-color="#ff4d6d" stop-opacity="0"/></radialGradient>
+  <radialGradient id="vignette" cx=".5" cy=".5" r=".72"><stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".75"/></radialGradient>
+  <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1"><stop offset="0.00" stop-color="#ffc0cc"/><stop offset="0.33" stop-color="#a3203f"/><stop offset="0.67" stop-color="#ff9fb1"/><stop offset="1.00" stop-color="#5a0f22"/></linearGradient>
+  <linearGradient id="glyph" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ff4d6d"/></linearGradient>
+  <linearGradient id="heart" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6b85"/><stop offset=".6" stop-color="#e0153f"/><stop offset="1" stop-color="#7a0620"/></linearGradient>
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.1"/></filter>
+  <filter id="soft"><feGaussianBlur stdDeviation="1.2"/></filter>
+  <filter id="rays"><feGaussianBlur stdDeviation="6"/></filter>
+  <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="20"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .5 0"/></filter>
+  <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy=".6" stdDeviation=".5" flood-color="#000" flood-opacity=".8"/></filter>
+</defs>
+<g clip-path="url(#tile)">
+  <rect width="256" height="256" fill="url(#bg)"/>
+  <g filter="url(#rays)" opacity=".5">
+    <path d="M128 -10 L70 256 L100 256 Z" fill="#ff4d6d" opacity=".35"/>
+    <path d="M128 -10 L150 256 L190 256 Z" fill="#ff4d6d" opacity=".25"/>
+    <path d="M128 -10 L20 220 L40 240 Z" fill="#ff4d6d" opacity=".15"/>
+  </g>
+  <rect width="256" height="256" fill="url(#spot)"/>
+  <g filter="url(#soft)"><circle cx="26.0" cy="188.8" r="1.4" fill="#ff4d6d" opacity="0.81"/><circle cx="143.8" cy="183.2" r="2.7" fill="#ff4d6d" opacity="0.66"/><circle cx="40.1" cy="184.3" r="1.4" fill="#ff4d6d" opacity="0.46"/><circle cx="176.0" cy="207.4" r="3.4" fill="#ff4d6d" opacity="0.30"/><circle cx="91.3" cy="113.0" r="1.6" fill="#ff4d6d" opacity="0.68"/><circle cx="141.2" cy="191.6" r="3.1" fill="#ff4d6d" opacity="0.64"/><circle cx="118.5" cy="118.4" r="2.2" fill="#ff4d6d" opacity="0.52"/><circle cx="174.6" cy="151.2" r="3.0" fill="#ff4d6d" opacity="0.45"/><circle cx="175.0" cy="229.1" r="1.5" fill="#ff4d6d" opacity="0.45"/><circle cx="103.7" cy="201.6" r="1.8" fill="#ff4d6d" opacity="0.53"/><circle cx="28.9" cy="195.4" r="1.7" fill="#ff4d6d" opacity="0.74"/><circle cx="26.3" cy="138.8" r="2.4" fill="#ff4d6d" opacity="0.71"/><circle cx="100.4" cy="183.9" r="2.3" fill="#ff4d6d" opacity="0.65"/><circle cx="51.8" cy="112.5" r="3.1" fill="#ff4d6d" opacity="0.75"/><circle cx="104.8" cy="148.5" r="1.9" fill="#ff4d6d" opacity="0.29"/><circle cx="114.4" cy="116.0" r="2.8" fill="#ff4d6d" opacity="0.83"/><circle cx="44.7" cy="211.8" r="3.2" fill="#ff4d6d" opacity="0.43"/><circle cx="150.1" cy="212.5" r="1.2" fill="#ff4d6d" opacity="0.37"/><circle cx="180.6" cy="209.8" r="1.9" fill="#ff4d6d" opacity="0.25"/><circle cx="153.9" cy="199.5" r="3.6" fill="#ff4d6d" opacity="0.80"/><circle cx="189.6" cy="123.5" r="3.5" fill="#ff4d6d" opacity="0.75"/><circle cx="86.8" cy="115.3" r="1.7" fill="#ff4d6d" opacity="0.85"/><circle cx="104.5" cy="183.2" r="1.1" fill="#ff4d6d" opacity="0.82"/><circle cx="133.8" cy="208.3" r="2.5" fill="#ff4d6d" opacity="0.75"/></g>
+  <ellipse cx="128" cy="196" rx="70" ry="10" fill="#ff4d6d" opacity=".25" filter="url(#rays)"/>
+  <g transform="translate(48 44) scale(6.6667)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    
+    <path d="M12 3.5l2.6 5.3 5.9.8-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.8z" stroke="#ff4d6d" stroke-width="3.6" filter="url(#glow)" opacity=".9"/>
+    <path d="M12 3.5l2.6 5.3 5.9.8-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.8z" stroke="url(#glyph)" stroke-width="2.1" filter="url(#shadow)"/>
+  </g>
+  
+  <rect width="256" height="256" fill="url(#vignette)"/>
+  <rect width="256" height="256" filter="url(#grain)" opacity=".07"/>
+</g>
+<rect x="13" y="13" width="230" height="230" rx="47" fill="none" stroke="url(#frame)" stroke-width="7"/>
+<rect x="18.5" y="18.5" width="219" height="219" rx="42" fill="none" stroke="#ffffff" stroke-opacity=".18" stroke-width="1.2"/>
+</svg>

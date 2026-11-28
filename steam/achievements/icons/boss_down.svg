@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<defs>
+  <clipPath id="tile"><rect x="10" y="10" width="236" height="236" rx="50"/></clipPath>
+  <radialGradient id="bg" cx=".5" cy=".38" r=".75"><stop offset="0" stop-color="#5c1405"/><stop offset=".55" stop-color="#0a0d1c"/><stop offset="1" stop-color="#030409"/></radialGradient>
+  <radialGradient id="spot" cx=".5" cy=".05" r=".8"><stop offset="0" stop-color="#ff6a3d" stop-opacity=".55"/><stop offset=".5" stop-color="#ff6a3d" stop-opacity=".08"/><stop offset="1" stop-color="#ff6a3d" stop-opacity="0"/></radialGradient>
+  <radialGradient id="vignette" cx=".5" cy=".5" r=".72"><stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".75"/></radialGradient>
+  <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1"><stop offset="0.00" stop-color="#ffd2b8"/><stop offset="0.33" stop-color="#a8380f"/><stop offset="0.67" stop-color="#ffb38a"/><stop offset="1.00" stop-color="#5c1405"/></linearGradient>
+  <linearGradient id="glyph" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ff6a3d"/></linearGradient>
+  <linearGradient id="heart" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6b85"/><stop offset=".6" stop-color="#e0153f"/><stop offset="1" stop-color="#7a0620"/></linearGradient>
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.1"/></filter>
+  <filter id="soft"><feGaussianBlur stdDeviation="1.2"/></filter>
+  <filter id="rays"><feGaussianBlur stdDeviation="6"/></filter>
+  <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="21"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .5 0"/></filter>
+  <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy=".6" stdDeviation=".5" flood-color="#000" flood-opacity=".8"/></filter>
+</defs>
+<g clip-path="url(#tile)">
+  <rect width="256" height="256" fill="url(#bg)"/>
+  <g filter="url(#rays)" opacity=".5">
+    <path d="M128 -10 L70 256 L100 256 Z" fill="#ff6a3d" opacity=".35"/>
+    <path d="M128 -10 L150 256 L190 256 Z" fill="#ff6a3d" opacity=".25"/>
+    <path d="M128 -10 L20 220 L40 240 Z" fill="#ff6a3d" opacity=".15"/>
+  </g>
+  <rect width="256" height="256" fill="url(#spot)"/>
+  <g filter="url(#soft)"><circle cx="26.0" cy="205.3" r="2.6" fill="#ff6a3d" opacity="0.84"/><circle cx="78.3" cy="143.2" r="1.1" fill="#ff6a3d" opacity="0.69"/><circle cx="51.0" cy="125.5" r="1.4" fill="#ff6a3d" opacity="0.71"/><circle cx="112.1" cy="156.1" r="3.0" fill="#ff6a3d" opacity="0.69"/><circle cx="176.1" cy="200.6" r="1.0" fill="#ff6a3d" opacity="0.52"/><circle cx="208.2" cy="145.7" r="3.1" fill="#ff6a3d" opacity="0.63"/><circle cx="61.9" cy="212.6" r="2.4" fill="#ff6a3d" opacity="0.69"/><circle cx="59.6" cy="122.0" r="3.6" fill="#ff6a3d" opacity="0.55"/><circle cx="70.2" cy="216.3" r="1.7" fill="#ff6a3d" opacity="0.76"/><circle cx="168.7" cy="199.9" r="2.5" fill="#ff6a3d" opacity="0.58"/><circle cx="131.0" cy="118.4" r="1.5" fill="#ff6a3d" opacity="0.71"/><circle cx="36.6" cy="234.0" r="2.0" fill="#ff6a3d" opacity="0.52"/><circle cx="73.6" cy="137.6" r="1.6" fill="#ff6a3d" opacity="0.79"/><circle cx="114.3" cy="156.4" r="2.1" fill="#ff6a3d" opacity="0.65"/><circle cx="159.8" cy="200.4" r="3.1" fill="#ff6a3d" opacity="0.39"/><circle cx="27.0" cy="216.3" r="1.6" fill="#ff6a3d" opacity="0.68"/><circle cx="157.8" cy="198.2" r="2.8" fill="#ff6a3d" opacity="0.26"/><circle cx="176.8" cy="223.8" r="1.2" fill="#ff6a3d" opacity="0.79"/><circle cx="168.0" cy="114.8" r="2.7" fill="#ff6a3d" opacity="0.34"/><circle cx="88.9" cy="122.8" r="2.3" fill="#ff6a3d" opacity="0.70"/><circle cx="106.0" cy="117.9" r="1.3" fill="#ff6a3d" opacity="0.84"/><circle cx="202.0" cy="146.8" r="2.9" fill="#ff6a3d" opacity="0.37"/><circle cx="169.7" cy="136.8" r="2.8" fill="#ff6a3d" opacity="0.37"/><circle cx="27.0" cy="131.9" r="2.5" fill="#ff6a3d" opacity="0.84"/></g>
+  <ellipse cx="128" cy="196" rx="70" ry="10" fill="#ff6a3d" opacity=".25" filter="url(#rays)"/>
+  <g transform="translate(48 44) scale(6.6667)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    
+    <path d="M3.5 18.5h17M4.5 18.5L3.5 8l5 4 3.5-7 3.5 7 5-4-1 10.5" stroke="#ff6a3d" stroke-width="3.6" filter="url(#glow)" opacity=".9"/>
+    <path d="M3.5 18.5h17M4.5 18.5L3.5 8l5 4 3.5-7 3.5 7 5-4-1 10.5" stroke="url(#glyph)" stroke-width="2.1" filter="url(#shadow)"/>
+  </g>
+  
+  <rect width="256" height="256" fill="url(#vignette)"/>
+  <rect width="256" height="256" filter="url(#grain)" opacity=".07"/>
+</g>
+<rect x="13" y="13" width="230" height="230" rx="47" fill="none" stroke="url(#frame)" stroke-width="7"/>
+<rect x="18.5" y="18.5" width="219" height="219" rx="42" fill="none" stroke="#ffffff" stroke-opacity=".18" stroke-width="1.2"/>
+</svg>

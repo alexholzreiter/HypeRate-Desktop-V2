@@ -54,7 +54,7 @@ const OVERLAY_SCALES = [50, 75, 100, 125, 150, 200];
 // cpu: { limit, samples, every } overrides the processor check (for tests)
 // bridge: { discordStatus(text), vrchatChatbox(text), vrchatParameter(name, value),
 //   homeAssistantEvent(addonId, name, data) }, each returning { ok, reason }: the app's integrations
-function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () => {}, appIcon, overlayInfo = () => ({}), cpu: cpuCheck = {}, bridge = {}, zoneFor = () => null, tampered = () => false, onTampered = () => {} }) {
+function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () => {}, appIcon, overlayInfo = () => ({}), cpu: cpuCheck = {}, bridge = {}, zoneFor = () => null, tampered = () => false, onTampered = () => {}, onStarted = () => {} }) {
   const CPU = { limit: CPU_LIMIT, samples: CPU_SAMPLES, every: 5000, ...cpuCheck };
   const running = new Map();   // id → { win, overlay, manifest, dir, subs: Map(webContents id → Set), lastNotify }
   const logs = new Map();      // id → [{ t, level, text }]
@@ -205,6 +205,7 @@ function createAddonHost({ root, dataDir, loadStore, saveStore, onChange = () =>
     wc.on('render-process-gone', (_, details) => { log(id, 'error', `stopped: ${details.reason}`); stop(id); halt(id, `stopped: ${details.reason}`); });
     wc.on('unresponsive', () => { log(id, 'error', 'not responding, stopped'); stop(id); halt(id, 'not responding'); });
     log(id, 'info', `started ${manifest.name} ${manifest.version}`);
+    onStarted(manifest);
     // only once the network rules are in place
     Promise.resolve(ses.hrReady).then(() => { if (!win.isDestroyed()) win.loadURL(`hr-addon://${id}/`); });
     openOverlay(r);

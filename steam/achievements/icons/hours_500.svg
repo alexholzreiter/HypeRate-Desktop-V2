@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<defs>
+  <clipPath id="tile"><rect x="10" y="10" width="236" height="236" rx="50"/></clipPath>
+  <radialGradient id="bg" cx=".5" cy=".38" r=".75"><stop offset="0" stop-color="#0d3a52"/><stop offset=".55" stop-color="#0a0d1c"/><stop offset="1" stop-color="#030409"/></radialGradient>
+  <radialGradient id="spot" cx=".5" cy=".05" r=".8"><stop offset="0" stop-color="#7fdcff" stop-opacity=".55"/><stop offset=".5" stop-color="#7fdcff" stop-opacity=".08"/><stop offset="1" stop-color="#7fdcff" stop-opacity="0"/></radialGradient>
+  <radialGradient id="vignette" cx=".5" cy=".5" r=".72"><stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".75"/></radialGradient>
+  <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1"><stop offset="0.00" stop-color="#e9fbff"/><stop offset="0.33" stop-color="#3f8fb0"/><stop offset="0.67" stop-color="#d6f6ff"/><stop offset="1.00" stop-color="#1d5b75"/></linearGradient>
+  <linearGradient id="glyph" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#7fdcff"/></linearGradient>
+  <linearGradient id="heart" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6b85"/><stop offset=".6" stop-color="#e0153f"/><stop offset="1" stop-color="#7a0620"/></linearGradient>
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.1"/></filter>
+  <filter id="soft"><feGaussianBlur stdDeviation="1.2"/></filter>
+  <filter id="rays"><feGaussianBlur stdDeviation="6"/></filter>
+  <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="15"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .5 0"/></filter>
+  <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy=".6" stdDeviation=".5" flood-color="#000" flood-opacity=".8"/></filter>
+</defs>
+<g clip-path="url(#tile)">
+  <rect width="256" height="256" fill="url(#bg)"/>
+  <g filter="url(#rays)" opacity=".5">
+    <path d="M128 -10 L70 256 L100 256 Z" fill="#7fdcff" opacity=".35"/>
+    <path d="M128 -10 L150 256 L190 256 Z" fill="#7fdcff" opacity=".25"/>
+    <path d="M128 -10 L20 220 L40 240 Z" fill="#7fdcff" opacity=".15"/>
+  </g>
+  <rect width="256" height="256" fill="url(#spot)"/>
+  <g filter="url(#soft)"><circle cx="26.0" cy="224.5" r="1.3" fill="#ffffff" opacity="0.67"/><circle cx="63.3" cy="64.6" r="0.8" fill="#ffffff" opacity="0.56"/><circle cx="189.6" cy="218.9" r="0.9" fill="#ffffff" opacity="0.41"/><circle cx="87.5" cy="196.3" r="2.3" fill="#ffffff" opacity="0.74"/><circle cx="75.0" cy="131.6" r="1.8" fill="#ffffff" opacity="0.27"/><circle cx="214.4" cy="125.9" r="1.4" fill="#ffffff" opacity="0.69"/><circle cx="197.3" cy="87.3" r="2.0" fill="#ffffff" opacity="0.30"/><circle cx="137.4" cy="127.5" r="1.1" fill="#ffffff" opacity="0.55"/><circle cx="86.7" cy="120.8" r="1.8" fill="#ffffff" opacity="0.70"/><circle cx="186.2" cy="189.1" r="1.5" fill="#ffffff" opacity="0.31"/><circle cx="130.2" cy="181.5" r="1.0" fill="#ffffff" opacity="0.32"/><circle cx="179.3" cy="112.2" r="1.7" fill="#ffffff" opacity="0.45"/><circle cx="30.8" cy="116.4" r="0.9" fill="#ffffff" opacity="0.55"/><circle cx="147.3" cy="80.1" r="1.9" fill="#ffffff" opacity="0.62"/></g>
+  <ellipse cx="128" cy="176" rx="70" ry="10" fill="#7fdcff" opacity=".25" filter="url(#rays)"/>
+  <g transform="translate(48 26) scale(6.6667)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    
+    <path d="M12 3.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 0 1 0-17zM12 7.5V12l3 2" stroke="#7fdcff" stroke-width="3.6" filter="url(#glow)" opacity=".9"/>
+    <path d="M12 3.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 0 1 0-17zM12 7.5V12l3 2" stroke="url(#glyph)" stroke-width="2.1" filter="url(#shadow)"/>
+  </g>
+  <rect x="83" y="190" width="90" height="38" rx="19" fill="url(#frame)" stroke="#000" stroke-opacity=".4"/>
+  <text x="128" y="216" text-anchor="middle" font-family="-apple-system, 'Segoe UI', Inter, Arial, sans-serif" font-size="25" font-weight="900" fill="#0a0d1c" letter-spacing=".5">500h</text>
+  <rect width="256" height="256" fill="url(#vignette)"/>
+  <rect width="256" height="256" filter="url(#grain)" opacity=".07"/>
+</g>
+<rect x="13" y="13" width="230" height="230" rx="47" fill="none" stroke="url(#frame)" stroke-width="7"/>
+<rect x="18.5" y="18.5" width="219" height="219" rx="42" fill="none" stroke="#ffffff" stroke-opacity=".18" stroke-width="1.2"/>
+</svg>
