@@ -138,7 +138,9 @@
       "quit": "Quit",
       "updateMenu": "↑ Update to %s",
       "updateTitle": "HypeRate Desktop %s is out",
-      "updateBody": "Click to open the release notes."
+      "updateBody": "Click to open the release notes.",
+      "steamNeededTitle": "Please start HypeRate Desktop through Steam",
+      "steamNeededText": "HypeRate Desktop could not reach Steam. Start Steam, sign in, and open HypeRate Desktop from your library."
     },
     "sessionCard": {
       "straight": "straight.",
@@ -566,6 +568,9 @@
       "inapp_vote_failed": "Your vote could not be sent. Try again later.",
       "inapp_votes": "{n} votes so far",
       "set_update_steam": "Steam keeps HypeRate Desktop up to date. New versions arrive on their own as soon as they are out.",
+      "set_steam_ready": "Connected to Steam as {name}.",
+      "set_steam_test": "Test mode: Steam sees this app as Spacewar (480) until HypeRate Desktop has its own App ID.",
+      "set_steam_unavailable": "Steam is not reachable. Start Steam, sign in, and open HypeRate Desktop again.",
       "addons_title": "Your own addons",
       "addons_desc": "Small programs of your own that react to your heart rate.",
       "integ_addons_toggle": "Allow own addons",
@@ -995,7 +1000,9 @@
       "quit": "Beenden",
       "updateMenu": "↑ Auf %s aktualisieren",
       "updateTitle": "HypeRate Desktop %s ist da",
-      "updateBody": "Zum Öffnen der Versionshinweise klicken."
+      "updateBody": "Zum Öffnen der Versionshinweise klicken.",
+      "steamNeededTitle": "Bitte starte HypeRate Desktop über Steam",
+      "steamNeededText": "HypeRate Desktop erreicht Steam nicht. Starte Steam, melde dich an und öffne HypeRate Desktop aus deiner Bibliothek."
     },
     "sessionCard": {
       "straight": "am Stück.",
@@ -1423,6 +1430,9 @@
       "inapp_vote_failed": "Deine Stimme konnte nicht gesendet werden. Versuch es später noch einmal.",
       "inapp_votes": "Bisher {n} Stimmen",
       "set_update_steam": "Steam hält HypeRate Desktop aktuell. Neue Versionen kommen von selbst, sobald sie erscheinen.",
+      "set_steam_ready": "Mit Steam verbunden als {name}.",
+      "set_steam_test": "Testbetrieb: Steam sieht die App als Spacewar (480), bis HypeRate Desktop eine eigene App ID hat.",
+      "set_steam_unavailable": "Steam ist nicht erreichbar. Starte Steam, melde dich an und öffne HypeRate Desktop noch einmal.",
       "addons_title": "Eigene Addons",
       "addons_desc": "Kleine eigene Programme, die auf deinen Puls reagieren.",
       "integ_addons_toggle": "Eigene Addons erlauben",
@@ -1852,7 +1862,9 @@
       "quit": "退出",
       "updateMenu": "↑ 更新到 %s",
       "updateTitle": "HypeRate Desktop %s 已发布",
-      "updateBody": "点击查看更新说明。"
+      "updateBody": "点击查看更新说明。",
+      "steamNeededTitle": "请通过 Steam 启动 HypeRate Desktop",
+      "steamNeededText": "HypeRate Desktop 无法连接 Steam。请启动 Steam 并登录，然后从库中打开 HypeRate Desktop。"
     },
     "sessionCard": {
       "straight": "连续不停。",
@@ -2280,6 +2292,9 @@
       "inapp_vote_failed": "无法提交你的投票。请稍后再试。",
       "inapp_votes": "目前共 {n} 票",
       "set_update_steam": "Steam 会让 HypeRate Desktop 保持最新。新版本一发布就会自动更新。",
+      "set_steam_ready": "已作为 {name} 连接到 Steam。",
+      "set_steam_test": "测试模式：在 HypeRate Desktop 拥有自己的 App ID 之前，Steam 会把它识别为 Spacewar (480)。",
+      "set_steam_unavailable": "无法连接 Steam。请启动 Steam 并登录，然后重新打开 HypeRate Desktop。",
       "addons_title": "自定义插件",
       "addons_desc": "对你的心率做出反应的小程序。",
       "integ_addons_toggle": "允许自定义插件",

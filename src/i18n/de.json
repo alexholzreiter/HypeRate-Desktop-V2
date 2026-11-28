@@ -134,7 +134,9 @@
     "quit": "Beenden",
     "updateMenu": "↑ Auf %s aktualisieren",
     "updateTitle": "HypeRate Desktop %s ist da",
-    "updateBody": "Zum Öffnen der Versionshinweise klicken."
+    "updateBody": "Zum Öffnen der Versionshinweise klicken.",
+    "steamNeededTitle": "Bitte starte HypeRate Desktop über Steam",
+    "steamNeededText": "HypeRate Desktop erreicht Steam nicht. Starte Steam, melde dich an und öffne HypeRate Desktop aus deiner Bibliothek."
   },
   "sessionCard": {
     "straight": "am Stück.",
@@ -562,6 +564,9 @@
     "inapp_vote_failed": "Deine Stimme konnte nicht gesendet werden. Versuch es später noch einmal.",
     "inapp_votes": "Bisher {n} Stimmen",
     "set_update_steam": "Steam hält HypeRate Desktop aktuell. Neue Versionen kommen von selbst, sobald sie erscheinen.",
+    "set_steam_ready": "Mit Steam verbunden als {name}.",
+    "set_steam_test": "Testbetrieb: Steam sieht die App als Spacewar (480), bis HypeRate Desktop eine eigene App ID hat.",
+    "set_steam_unavailable": "Steam ist nicht erreichbar. Starte Steam, melde dich an und öffne HypeRate Desktop noch einmal.",
     "addons_title": "Eigene Addons",
     "addons_desc": "Kleine eigene Programme, die auf deinen Puls reagieren.",
     "integ_addons_toggle": "Eigene Addons erlauben",

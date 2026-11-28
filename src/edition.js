@@ -8,7 +8,7 @@ const pkg = require('../package.json');
 const isBeta = /-beta\b/.test(pkg.version);
 
 // Where this build is handed out. The Steam build is made with
-//   electron-builder -c.extraMetadata.hyperateDistribution=steam   (npm run build:steam)
+//   npm run build:steam   (electron-builder.steam.js sets hyperateDistribution=steam)
 // and gets its updates from Steam alone; everything else is the free GitHub build, which looks
 // for new releases on GitHub. HYPERATE_DISTRIBUTION=steam tries the Steam behaviour in a dev run.
 const distribution = pkg.hyperateDistribution === 'steam' || process.env.HYPERATE_DISTRIBUTION === 'steam' ? 'steam' : 'github';

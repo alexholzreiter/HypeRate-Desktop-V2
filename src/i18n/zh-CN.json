@@ -134,7 +134,9 @@
     "quit": "退出",
     "updateMenu": "↑ 更新到 %s",
     "updateTitle": "HypeRate Desktop %s 已发布",
-    "updateBody": "点击查看更新说明。"
+    "updateBody": "点击查看更新说明。",
+    "steamNeededTitle": "请通过 Steam 启动 HypeRate Desktop",
+    "steamNeededText": "HypeRate Desktop 无法连接 Steam。请启动 Steam 并登录，然后从库中打开 HypeRate Desktop。"
   },
   "sessionCard": {
     "straight": "连续不停。",
@@ -562,6 +564,9 @@
     "inapp_vote_failed": "无法提交你的投票。请稍后再试。",
     "inapp_votes": "目前共 {n} 票",
     "set_update_steam": "Steam 会让 HypeRate Desktop 保持最新。新版本一发布就会自动更新。",
+    "set_steam_ready": "已作为 {name} 连接到 Steam。",
+    "set_steam_test": "测试模式：在 HypeRate Desktop 拥有自己的 App ID 之前，Steam 会把它识别为 Spacewar (480)。",
+    "set_steam_unavailable": "无法连接 Steam。请启动 Steam 并登录，然后重新打开 HypeRate Desktop。",
     "addons_title": "自定义插件",
     "addons_desc": "对你的心率做出反应的小程序。",
     "integ_addons_toggle": "允许自定义插件",

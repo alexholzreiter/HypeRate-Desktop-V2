@@ -518,6 +518,14 @@ const STORE_PATH = path.join(app.getPath('userData'), 'settings.json');
 function loadStore()     { try { return JSON.parse(fs.readFileSync(STORE_PATH,'utf8')); } catch { return {}; } }
 function saveStore(data) { try { fs.writeFileSync(STORE_PATH, JSON.stringify(data,null,2),'utf8'); } catch(e) { console.error('store save:',e); } }
 
+// Steam build: talk to Steam before anything else. A packaged build started without Steam is
+// handed to Steam, which starts it again (see src/steam.js).
+const steam = require('./steam');
+if (steam.start({ packaged: app.isPackaged }) === 'quit') {
+  app.quit();
+  return;
+}
+
 // One instance per edition. The lock lives in the data folder, so v1 and the beta can still run
 // side by side, but starting the same one twice only brings its window forward: two instances
 // meant two hearts in the menu bar and both reaching for the same strap.
@@ -1031,6 +1039,7 @@ function broadcastBpm(bpm, source) {
   discordBpmUpdate(bpm);
   mqtt.publishBpm(bpm, source, zoneForBpm(bpm) || {});
   addons.emit('heartRate', { bpm });
+  steam.unlock('first_heartbeat');
   const zone = zoneForBpm(bpm);
   if ((zone?.name || null) !== lastAddonZone) {
     lastAddonZone = zone?.name || null;
@@ -1064,6 +1073,7 @@ function rememberOverlay(open) {
 
 function showOverlay() {
   rememberOverlay(true);
+  steam.unlock('first_overlay');
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWanted = true;
     overlayWindow.show();
@@ -1420,6 +1430,11 @@ ipcMain.handle('analytics-set', (_, on) => {
 
 // ── App ready ──
 app.whenReady().then(() => {
+  if (steam.mustQuit({ packaged: app.isPackaged })) {
+    dialog.showErrorBox(tl('steamNeededTitle'), tl('steamNeededText'));
+    app.quit();
+    return;
+  }
   protocol.handle('hr-asset', (request) => {
     const found = customAssets.resolveAsset({ url: request.url, dir: ASSET_DIR });
     if (!found) return new Response('Not found', { status: 404 });
@@ -1655,7 +1670,7 @@ ipcMain.handle('set-overlay-all-spaces', (_, value) => {
   applyOverlaySpaces(enabled);
 });
 
-ipcMain.handle('load-settings', () => ({ ...oscSettings(loadStore()), version: VERSION, distribution: edition.distribution, scaleFactor: scaleFactor(), hotkey: hotkeyInfo() }));
+ipcMain.handle('load-settings', () => ({ ...oscSettings(loadStore()), version: VERSION, distribution: edition.distribution, steam: steam.info(), scaleFactor: scaleFactor(), hotkey: hotkeyInfo() }));
 
 ipcMain.handle('save-osc-settings', (_, data) => {
   try {

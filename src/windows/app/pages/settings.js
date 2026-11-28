@@ -46,6 +46,16 @@ export function render(s) {
         h('button', { class: 'btn', onclick: () => window.electronAPI.openExternal(FEEDBACK_URL) }, t('set_feedback') + ' ↗'))));
 }
 
+// Whether the Steam build reaches Steam, and as whom
+function steamStatus(steam) {
+  if (!steam) return null;
+  const line = (text, cls) => h('p', { class: 'small ' + cls, style: { margin: 0, lineHeight: 1.6 }, role: 'status' }, text);
+  if (steam.state !== 'ready') return line(t('set_steam_unavailable'), 'muted');
+  return h('div', { class: 'stack', style: { gap: '2px' } },
+    line(t('set_steam_ready', { name: steam.name || '' }), 'ok-text'),
+    steam.testApp ? line(t('set_steam_test'), 'muted') : null);
+}
+
 function updates(s) {
   const u = s.update;
   const version = s.settings.version ? 'v' + s.settings.version : '';
@@ -54,7 +64,8 @@ function updates(s) {
     return h('div', { class: 'card stack' },
       h('p', { class: 'label' }, t('set_updates')),
       h('p', { style: { margin: 0, fontWeight: 600 } }, 'HypeRate Desktop ' + version),
-      h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('set_update_steam')));
+      h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, t('set_update_steam')),
+      steamStatus(s.settings.steam));
   }
   const status = {
     checking: t('set_update_checking'),

@@ -1,0 +1,16 @@
+// The build Steam gets: both depots at once. Fill in the IDs from the Steamworks portal
+// (App Admin › SteamPipe › Depots) once Valve has given us the App ID, see README.md.
+"AppBuild"
+{
+	"AppID" "APP_ID"
+	"Desc" "HypeRate Desktop"
+	"Preview" "0"
+	"SetLive" ""
+	"ContentRoot" "../dist-steam/"
+	"BuildOutput" "../dist-steam/steam-output/"
+	"Depots"
+	{
+		"WINDOWS_DEPOT_ID" "depot_windows.vdf"
+		"MAC_DEPOT_ID" "depot_mac.vdf"
+	}
+}

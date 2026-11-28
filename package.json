@@ -20,11 +20,12 @@
     "test": "node test/run.js",
     "hearts": "node tools/build-hearts.js",
     "i18n": "node tools/build-i18n.js",
-    "build:steam": "electron-builder --dir -c.extraMetadata.hyperateDistribution=steam -c.directories.output=dist-steam"
+    "build:steam": "electron-builder --dir --config electron-builder.steam.js"
   },
   "dependencies": {
     "@abandonware/noble": "^1.9.2-15",
     "mqtt": "^5.16.0",
+    "steamworks.js": "0.4.0",
     "ws": "^8.22.2"
   },
   "devDependencies": {
@@ -51,7 +52,9 @@
       "!landing/**/*",
       "!dist/**/*",
       "!.npm-cache/**/*",
-      "!node_modules/.cache/**/*"
+      "!node_modules/.cache/**/*",
+      "!node_modules/steamworks.js/**/*",
+      "!dist-steam/**/*"
     ],
     "npmRebuild": true,
     "buildDependenciesFromSource": true,
