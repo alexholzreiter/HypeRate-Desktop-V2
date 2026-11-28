@@ -280,7 +280,16 @@ Your Session ID is shown in the HypeRate app under **Settings → Session ID**.
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+HypeRate Desktop is **source-available**: you can read the code, build the app yourself and use
+your build for anything, streaming for money included. You may not offer it, or anything made
+from it, as a competing product, and that includes handing out ready-made builds. The terms are
+the [PolyForm Shield License 1.0.0](LICENSE), licensed by Klickwerk.digital.
+
+Everything published here before the license changed on 28 November 2026 was offered under the
+MIT License and stays available under it. Contributions that came in under MIT are listed in
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+The names "HypeRate" and "HypeRate Desktop" and their logos are not part of the license.
 
 ---
 

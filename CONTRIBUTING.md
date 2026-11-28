@@ -76,6 +76,16 @@ diff already shows. Keep the subject under about 70 characters.
 - A new dependency for something the standard library can do. The app ships to
   end users, every package is weight and risk
 
+## Your contribution and its license
+
+HypeRate Desktop is source-available under the [PolyForm Shield License 1.0.0](LICENSE), and
+Klickwerk.digital also sells it (on Steam, for example). By opening a pull request you agree
+that Klickwerk.digital may use, change, license and sell your contribution as part of HypeRate
+Desktop under any terms, including ones other than the PolyForm Shield License, and you confirm
+that it is your own work. You keep the copyright in what you wrote.
+
+If that does not work for you, say so in the pull request before it is merged.
+
 ## Not sure?
 
 Open an issue first and ask. A short conversation beats a large pull request
